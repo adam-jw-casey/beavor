@@ -24,9 +24,10 @@ from dateutil.relativedelta import relativedelta
 
 # todo would be neat to have it build a daily schedule for me
 # todo would be cool to support multi-step / project-type tasks
-# todo integration to put tasks into google calendar would be cool or just have a way of marking a task as scheduled
+# todo integration to put tasks into Google/Outlook calendar would be cool or just have a way of marking a task as scheduled
+# todo integration to get availability from Google/Outlook calendar to adjust daily workloads based on scheduled meetings
 # todo user-customizable settings (like font size, calendar colourscale)
-# todo Dark mode toggle
+# todo Dark mode toggle (use .configure(bg='black') maybe? Or another better colour. Have to do it individually by pane though, self.root.configure() only does some of the background. Also probably have to change text colour too.)
 
 ###########################################
 
@@ -185,7 +186,6 @@ class TaskListWindow():
                          selectbackground="SteelBlue1")
     self.lb.grid(sticky="W")
 
-    # todo <Return> on a tasklistbox item should start timer
     #Lets you scroll with arrow keys
     self.lb.bind("<Down>", self.onDown)
     self.lb.bind("<j>", self.onDown)
@@ -194,6 +194,7 @@ class TaskListWindow():
     self.lb.bind("<<ListboxSelect>>", self.onSelect)
     self.lb.bind("<FocusIn>", self.selectFirst)
     self.lb.bind("<Double-1>", lambda event: self.timeButton.invoke())
+    self.lb.bind("<Return>", lambda event: self.timeButton.invoke())
 
     self.selection = None
 
@@ -1021,7 +1022,7 @@ class TaskListWindow():
         #updateSelectedTask() cancelled by user
         self.notify(e)
 
-  # todo a more elegant way of handling repeating tasks than just creating a bunch of duplicates
+  # todo a more elegant way of handling repeating tasks than just creating a bunch of duplicates. Maybe a task taht duplicates itself a number of days in the future when completed?
   def createTaskFromInputs(self):
     newRowDict = {}
 
