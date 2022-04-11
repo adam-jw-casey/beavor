@@ -46,7 +46,7 @@ class TaskListWindow():
     self.root.mainloop()
 
   ######################################################
-  #GUI setup functions
+  # GUI setup functions
 
   # Setup up the gui and load tasks
   def setupWindow(self):
@@ -354,6 +354,8 @@ class TaskListWindow():
 
   def updateCalendar(self):
 
+    self.db.calculateDayLoads(self.numweeks)
+
     #calendar.weekheader(3) prints Mon-Fri
     #calendar.month(YYYY, month, width, height) prints calendar
     today = datetime.datetime.today()
@@ -373,7 +375,7 @@ class TaskListWindow():
         if thisDate >= today:
           hoursThisDay = self.db.getDayTotalLoad(thisDate.strftime("%Y-%m-%d")) / 60
           thisDay["LoadLabel"].config(text=str(round(hoursThisDay,1)),
-                                      bg=greenRedScale(0,9,hoursThisDay))
+                                      bg=greenRedScale(0,7,hoursThisDay))
         else:
           thisDay["LoadLabel"].config(text="", bg="#d9d9d9")
       self.calendarDays.append(thisWeek)
@@ -626,7 +628,7 @@ class TaskListWindow():
       self.lb.insert(tk.END,line)
       #Colour-coding!
       try:
-        self.lb.itemconfig(tk.END, {'bg': greenRedScale(0, 30, task["Load"])})
+        self.lb.itemconfig(tk.END, {'bg': greenRedScale(0, 60, task["Load"])})
       except TypeError:
         #Fails for items where Load is None, eg. completed, not yet active
         pass
@@ -893,7 +895,7 @@ class TaskListWindow():
       if header == "Left":
         newRowDict[header] = max(0, int(newRowDict["Time"] or 0) - int(newRowDict["Used"] or 0))
       elif header == "DaysLeft":
-        newRowDict[header] = daysBetween(today, newRowDict["DueDate"]) + 1
+        newRowDict[header] = workDaysBetween(today, newRowDict["DueDate"])
       elif header == "TotalLoad":
         if inRow["O"] == "O":
           newRowDict[header] = round((1.1 if inRow["Flex"] == "N" else
@@ -1135,7 +1137,7 @@ class TaskListWindow():
         criteria = self.getSearchCriteria()
       else:
         criteria = ["rowid = {}".format(self.loadedTasks[self.selection]["rowid"])]
-        # TODO messy
+        # todo messy
         # Dump the time worked to external time tracker
         for change in changes:
             if change.find("Used") != -1:
@@ -1236,29 +1238,55 @@ class DatabaseManager():
       subprocess.run(["copy", self.databasePath, path], shell=True)
     return "Database backed up to: {}".format(path)
 
-  # todo an algorithm to spread workload as evenly as possible, rather than just averaging each task over the time available
-  #Sums to TotalLoad for all tasks where NextAction <= date and DueDate >= date
+  # TODO
+  # Iterate over every task, with a start date from now to the end of the week self.numweeks from now, in order of due date, from soonest due to latest
+  # For each task, distribute time evenly across its open period. If a day hits 8 hours, do not add more time.
+  def calculateDayLoads(self, numweeks):
+    # Get a list of all unfinished tasks with start dates no more than self.numweeks in the future, sorted from soonest due date to latest
+    today = datetime.datetime.today()
+    thisFriday = today - datetime.timedelta(days=today.weekday() + 4)
+    lastRenderedDate = thisFriday + datetime.timedelta(weeks=numweeks-1)
+    self.cwrite.execute("SELECT NextAction, DueDate, Left FROM worklist WHERE O == 'O' AND NextAction <= ? ORDER BY DueDate;", [lastRenderedDate.strftime("%Y-%m-%d")])
+    relevantTasks = self.cwrite.fetchall()
+  
+    # Iterate over the list of tasks (starting from soonest due date), distributing time evenly (each day gets time remaining / # days remaining) over days from max(today, start date) to due date. If adding time would push day over 8 hours, only add up to 8 hours, and withold extra time within the task. 
+    self.dayLoads = {}
+    for task in relevantTasks:
+      # todo around here would be a decent place to do recursion
+      remainingLoad = task["Left"]
+      #TODO datetime.datetime.strptime(var, "%Y-%m-%d") needs its own function, this is getting ridiculous
+      #TODO also var.strftime("%Y-%m-%d)
+      startDate = max(today, datetime.datetime.strptime(task["NextAction"], "%Y-%m-%d"))
+      dateRange = [startDate + datetime.timedelta(days=n) for n in range(0, daysBetween(startDate.strftime("%Y-%m-%d"), task["DueDate"]) + 1)]
+
+      for thisDay in dateRange:
+        if np.is_busday(thisDay.date()):
+          # TODO This needs to change once the overflow code down below is fixed. This backloads time by squishing extra time away, rather than distributing evenly or optimally
+          loadDeposit = remainingLoad / workDaysBetween(thisDay.date(), task["DueDate"])
+          # Do not push a day over 8 hours
+          try:
+              loadDeposit = min(max(8*60 - self.dayLoads[thisDay.strftime("%Y-%m-%d")], 0), loadDeposit)
+              self.dayLoads[thisDay.strftime("%Y-%m-%d")] += loadDeposit
+          except KeyError:
+              # If this day has no load assigned to it yet, there will not be an entry in the dict and a key error will occur
+              loadDeposit = min(8*60, loadDeposit)
+              self.dayLoads[thisDay.strftime("%Y-%m-%d")] = loadDeposit
+  
+          remainingLoad -= loadDeposit
+
+        # TODO placeholder until we have a better way to deal with overflow (see TODO below)
+        # TODO If time remains (i.e. one or more days was maxed out to 8 hours), distribute remaining time evenly over all tasks (TODO: doing it recursively, noting the number of days maxed out and using a new quotient to calculate average load each time would be better, although you would need an end condition other than "all time distributed" since it's not guaranteed that all days can be kept to 8 hours or less with this method).
+          if thisDay.strftime("%Y-%m-%d") == task["DueDate"] and remainingLoad != 0:
+            self.dayLoads[thisDay.strftime("%Y-%m-%d")] += remainingLoad
+            remainingLoad = 0 # unecessary but comforts me
+
+  # Gets the work load for the day represented by the passed string
   #date should be a string formatted "YYYY-MM-DD"
   def getDayTotalLoad(self, date):
-    #Will raise an error if date is poorly formatted
+    # Will raise an error if date is poorly formatted
     datetime.datetime.strptime(date, '%Y-%m-%d')
 
-    today = datetime.datetime.today().strftime("%Y-%m-%d")
-
-    if date == today:
-      endDate = 0
-    else:
-      endDate = date
-
-    # todo would be cool to be able to filter the calendar to only show loads from certain tasks. Would need to add a checkbox, and here it would add the criteria from the filterboxes
-    self.cwrite.execute("SELECT sum(TotalLoad) FROM worklist WHERE O == 'O' AND NextAction <= ? AND DueDate >= ?;",
-                        [date, endDate])
-
-    load = self.cwrite.fetchall()[0][0]
-    if load is None:
-      load = 0
-
-    return load
+    return self.dayLoads[date]
 
   #Updates the categories in the category filter
   def getCategories(self):
@@ -1324,6 +1352,7 @@ def main():
     print("No worklist found and none specified.\nCreating new worklist.db")
     conn = sqlite3.connect("worklist.db")
     cur  = conn.cursor()
+    # todo a better name for "Load" would be "CurrentLoad"
     cur.execute("CREATE TABLE worklist('Category' TEXT,'O' TEXT,'Task' TEXT,'Budget' INTEGER,'Time' INTEGER,'Used' INTEGER,'Left' INTEGER,'StartDate' TEXT,'NextAction' TEXT,'DueDate' TEXT,'Flex' TEXT,'DaysLeft' INTEGER,'TotalLoad' REAL,'Load' REAL,'Notes' TEXT,'DateAdded' TEXT)")
     cur.close()
     taskWindow = TaskListWindow("worklist.db")
@@ -1353,13 +1382,16 @@ def surround(inner, outer):
 def escapeSingleQuotes(text):
   return "".join([c if c != "'" else c+c for c in text])
 
+# Takes a string "YYYY-MM-DD"
 def daysBetween(d1, d2):
   d1 = datetime.datetime.strptime(d1, "%Y-%m-%d")
   d2 = datetime.datetime.strptime(d2, "%Y-%m-%d")
   return (d2 - d1).days
 
+# takes strings "%Y-%m-%d"
+# inclusive of start and end date
 def workDaysBetween(d1, d2):
-  return int(np.busday_count(d1, d2)) + 1
+  return int(np.busday_count(d1, (datetime.datetime.strptime(d2, "%Y-%m-%d") + datetime.timedelta(days=1)).date()))
 
 if __name__ == '__main__':
   main()
