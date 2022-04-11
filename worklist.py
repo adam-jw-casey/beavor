@@ -307,9 +307,7 @@ class TaskListWindow():
                                        command = self.refreshAll)
     self.refreshButton.grid(sticky="W")
 
-  # todo Add ability to mark certain days to not work on certain categories (ie. no school on weekends!) This would also make sense in a second database, and would give a better idea of actual workloads by not falsely assuming I'm gonna do as much homework on weekends as weekdays. Easiest would be to just mark days of the week (weekend/weekday), more complicated would be individual days. Best might be a combination?
   # todo put the next action / due date at a specific time?
-  # todo Track hours worked per day (link timer and calendar, probably in a second database)
   # todo add buttons to scroll the calendar forward week-by-week
   # todo what if clicking on a day in the calendar would show all the tasks for that day in the task list
   # eg. thisDay["LoadLabel"].bind("<Button-1>", CALLBACK)
@@ -921,7 +919,7 @@ class TaskListWindow():
     # Iterate over the list of tasks (starting from soonest due date), distributing time evenly (each day gets time remaining / # days remaining) over days from max(today, start date) to due date. If adding time would push day over 8 hours, only add up to 8 hours, and withold extra time within the task.
     self.dayLoads = {}
     for task in relevantTasks:
-      # todo around here would be a decent place to do recursion
+      # todo around here would be a decent place to do recursion. A function like def distributeTimeOverRange(time, range)
       remainingLoad = task["Left"]
       startDate = max(today, YMDstr2date(task["NextAction"]))
       dateRange = [startDate + datetime.timedelta(days=n) for n in range(0, daysBetween(date2YMDstr(startDate), task["DueDate"]) + 1)]
@@ -929,6 +927,7 @@ class TaskListWindow():
       for thisDay in dateRange:
         if np.is_busday(thisDay):
           # TODO This needs to change once the overflow code down below is fixed. This backloads time by squishing extra time away, rather than distributing evenly or optimally
+          # TODO would also be better to individually count work days in the range. This assumes that no days are missing from the range (such as if they had been previously excluded because of being full)
           loadDeposit = remainingLoad / workDaysBetween(thisDay, task["DueDate"])
           # Do not push a day over 8 hours
           try:
@@ -941,7 +940,6 @@ class TaskListWindow():
 
           remainingLoad -= loadDeposit
 
-        # TODO placeholder until we have a better way to deal with overflow (see TODO below)
         # TODO If time remains (i.e. one or more days was maxed out to 8 hours), distribute remaining time evenly over all tasks (TODO: doing it recursively, noting the number of days maxed out and using a new quotient to calculate average load each time would be better, although you would need an end condition other than "all time distributed" since it's not guaranteed that all days can be kept to 8 hours or less with this method).
           if date2YMDstr(thisDay) == task["DueDate"] and remainingLoad != 0:
             self.dayLoads[date2YMDstr(thisDay)] += remainingLoad
@@ -1071,7 +1069,7 @@ class TaskListWindow():
 
     self.db.commit()
     # This is so you don't accidentally create multiple of the same task by clicking save multiple times
-    # todo would be more elegant to just select the newly created task
+    # todo would be more elegant to just select the newly created task. This is tricky because the newly created task isn't necessarily shown by the current filters (e.g. if it is far in the future)
     self.clearEntryBoxes()
 
     if self.multiEdit.get():
