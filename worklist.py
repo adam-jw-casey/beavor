@@ -373,7 +373,7 @@ class TaskListWindow():
         else:
           thisDay["DateLabel"].config(bg="#d9d9d9")
         if thisDate >= today:
-          hoursThisDay = self.db.getDayTotalLoad(thisDate.strftime("%Y-%m-%d")) / 60
+          hoursThisDay = self.db.getDayTotalLoad(YMDdatetime2str(thisDate)) / 60
           thisDay["LoadLabel"].config(text=str(round(hoursThisDay,1)),
                                       bg=greenRedScale(0,7,hoursThisDay))
         else:
@@ -526,18 +526,18 @@ class TaskListWindow():
     convertedDate = ""
 
     try:
-      datetime.datetime.strptime(dateStr, '%Y-%m-%d')
+      str2YMDdatetime(dateStr)
       convertedDate = dateStr
     except ValueError:
       try:
         #eg. Jan 1, 21
-        convertedDate = datetime.datetime.strptime(dateStr, "%b %d, %y").strftime('%Y-%m-%d')
+        convertedDate = YMDdatetime2str(datetime.datetime.strptime(dateStr, "%b %d, %y"))
       except ValueError:
         #Date string doesn't match
         try:
           #Try to add the current year
           #eg. Jan 1
-          convertedDate = datetime.datetime.strptime(dateStr, "%b %d").replace(year = datetime.datetime.today().year).strftime('%Y-%m-%d')
+          convertedDate = YMDdatetime2str(datetime.datetime.strptime(dateStr, "%b %d").replace(year = datetime.datetime.today().year))
         except ValueError:
           #Date really doesn't match
           self.notify("Can't match date format of {}".format(dateStr))
@@ -620,7 +620,7 @@ class TaskListWindow():
       line = ""
       for (header,length) in zip(self.displayColumns, self.maxlens):
         try:
-          line += datetime.datetime.strptime(str(task[header]), '%Y-%m-%d').strftime("%b %d, %y").ljust(length) + " | "
+          line += str2YMDdatetime(str(task[header])).strftime("%b %d, %y").ljust(length) + " | "
         except ValueError:
           line += ljusttrunc(str(task[header]), length) + " | "
       line = line[:-2]
@@ -658,7 +658,7 @@ class TaskListWindow():
               quote     = "'%"
       elif filterBox.current():
         if header == "NextAction":
-          criterion = datetime.date.today().strftime("%Y-%m-%d")
+          criterion = YMDdatetime2str(datetime.date.today())
           quote     = "'"
         else:
           criterion = filterBox.get()
@@ -869,7 +869,7 @@ class TaskListWindow():
         data = row[header]
         if header in ["NextAction", "DueDate", "DateAdded"]:
           try:
-            datetime.datetime.strptime(data, '%Y-%m-%d')
+              str2YMDdatetime(data)
           except ValueError:
             if not (header == "DateAdded" and data == ""):
               raise ValueError("Incorrect date format: {}, {} should be YYYY-MM-DD".format(header, data))
@@ -888,7 +888,7 @@ class TaskListWindow():
 
   # takes a dict (or sqlite3.Row) representing a task, updates all calculated values and returns the new Row
   def calculateRow(self, inRow, event=tk.Event):
-    today = datetime.date.today().strftime("%Y-%m-%d")
+    today = YMDdatetime2str(datetime.date.today())
 
     newRowDict = {}
     for header in self.db.headers:
@@ -989,7 +989,7 @@ class TaskListWindow():
     #Store original values
     newRowDict["Budget"] = newRowDict["Time"]
     newRowDict["StartDate"] = newRowDict["NextAction"]
-    newRowDict["DateAdded"] = datetime.date.today().strftime("%Y-%m-%d")
+    newRowDict["DateAdded"] = YMDdatetime2str(datetime.date.today())
     #Defaults
     newRowDict["O"] = "O"
     newRowDict["rowid"] = None
@@ -1014,7 +1014,7 @@ class TaskListWindow():
     for i in range(repetitions):
       thisRowDict = newRowDict.copy()
       for header in ["StartDate", "NextAction", "DueDate"]:
-        thisRowDict[header] = datetime.datetime.strftime(datetime.datetime.strptime(thisRowDict[header], "%Y-%m-%d") + i * interval, "%Y-%m-%d")
+        thisRowDict[header] = YMDdatetime2str(str2YMDdatetime(thisRowDict[header]) + i * interval)
 
       thisRowDict = self.calculateRow(thisRowDict)
       self.validateRow(thisRowDict)
@@ -1143,7 +1143,7 @@ class TaskListWindow():
             if change.find("Used") != -1:
                 timediff = int(re.findall(r"(\d+)", change)[0])
                 with open("timesheet.csv", "a") as f:
-                    f.write("{}, {}, {}, {}\n".format(datetime.datetime.today().strftime("%Y-%m-%d"), self.loadedTasks[self.selection]["Category"], timediff, self.loadedTasks[self.selection]["Task"]))
+                    f.write("{}, {}, {}, {}\n".format(YMDdatetime2str(datetime.datetime.today()), self.loadedTasks[self.selection]["Category"], timediff, self.loadedTasks[self.selection]["Task"]))
 
       self.db.updateTasks(criteria, changes)
 
@@ -1170,7 +1170,7 @@ class TaskListWindow():
     except AttributeError:
       pass
 
-    today = datetime.datetime.today().strftime("%Y-%m-%d")
+    today = YMDdatetime2str(datetime.datetime.today())
     self.loadTasks(["O == 'O'","NextAction <= '{}'".format(today)])
 
     #Don't commit until the end - saves a few seconds each time
@@ -1246,7 +1246,7 @@ class DatabaseManager():
     today = datetime.datetime.today()
     thisFriday = today - datetime.timedelta(days=today.weekday() + 4)
     lastRenderedDate = thisFriday + datetime.timedelta(weeks=numweeks-1)
-    self.cwrite.execute("SELECT NextAction, DueDate, Left FROM worklist WHERE O == 'O' AND NextAction <= ? ORDER BY DueDate;", [lastRenderedDate.strftime("%Y-%m-%d")])
+    self.cwrite.execute("SELECT NextAction, DueDate, Left FROM worklist WHERE O == 'O' AND NextAction <= ? ORDER BY DueDate;", [YMDdatetime2str(lastRenderedDate)])
     relevantTasks = self.cwrite.fetchall()
   
     # Iterate over the list of tasks (starting from soonest due date), distributing time evenly (each day gets time remaining / # days remaining) over days from max(today, start date) to due date. If adding time would push day over 8 hours, only add up to 8 hours, and withold extra time within the task. 
@@ -1254,10 +1254,8 @@ class DatabaseManager():
     for task in relevantTasks:
       # todo around here would be a decent place to do recursion
       remainingLoad = task["Left"]
-      #TODO datetime.datetime.strptime(var, "%Y-%m-%d") needs its own function, this is getting ridiculous
-      #TODO also var.strftime("%Y-%m-%d)
-      startDate = max(today, datetime.datetime.strptime(task["NextAction"], "%Y-%m-%d"))
-      dateRange = [startDate + datetime.timedelta(days=n) for n in range(0, daysBetween(startDate.strftime("%Y-%m-%d"), task["DueDate"]) + 1)]
+      startDate = max(today, str2YMDdatetime(task["NextAction"]))
+      dateRange = [startDate + datetime.timedelta(days=n) for n in range(0, daysBetween(YMDdatetime2str(startDate), task["DueDate"]) + 1)]
 
       for thisDay in dateRange:
         if np.is_busday(thisDay.date()):
@@ -1265,26 +1263,26 @@ class DatabaseManager():
           loadDeposit = remainingLoad / workDaysBetween(thisDay.date(), task["DueDate"])
           # Do not push a day over 8 hours
           try:
-              loadDeposit = min(max(8*60 - self.dayLoads[thisDay.strftime("%Y-%m-%d")], 0), loadDeposit)
-              self.dayLoads[thisDay.strftime("%Y-%m-%d")] += loadDeposit
+              loadDeposit = min(max(8*60 - self.dayLoads[YMDdatetime2str(thisDay)], 0), loadDeposit)
+              self.dayLoads[YMDdatetime2str(thisDay)] += loadDeposit
           except KeyError:
               # If this day has no load assigned to it yet, there will not be an entry in the dict and a key error will occur
               loadDeposit = min(8*60, loadDeposit)
-              self.dayLoads[thisDay.strftime("%Y-%m-%d")] = loadDeposit
+              self.dayLoads[YMDdatetime2str(thisDay)] = loadDeposit
   
           remainingLoad -= loadDeposit
 
         # TODO placeholder until we have a better way to deal with overflow (see TODO below)
         # TODO If time remains (i.e. one or more days was maxed out to 8 hours), distribute remaining time evenly over all tasks (TODO: doing it recursively, noting the number of days maxed out and using a new quotient to calculate average load each time would be better, although you would need an end condition other than "all time distributed" since it's not guaranteed that all days can be kept to 8 hours or less with this method).
-          if thisDay.strftime("%Y-%m-%d") == task["DueDate"] and remainingLoad != 0:
-            self.dayLoads[thisDay.strftime("%Y-%m-%d")] += remainingLoad
+          if YMDdatetime2str(thisDay) == task["DueDate"] and remainingLoad != 0:
+            self.dayLoads[YMDdatetime2str(thisDay)] += remainingLoad
             remainingLoad = 0 # unecessary but comforts me
 
   # Gets the work load for the day represented by the passed string
   #date should be a string formatted "YYYY-MM-DD"
   def getDayTotalLoad(self, date):
     # Will raise an error if date is poorly formatted
-    datetime.datetime.strptime(date, '%Y-%m-%d')
+    str2YMDdatetime(date)
 
     return self.dayLoads[date]
 
@@ -1384,14 +1382,20 @@ def escapeSingleQuotes(text):
 
 # Takes a string "YYYY-MM-DD"
 def daysBetween(d1, d2):
-  d1 = datetime.datetime.strptime(d1, "%Y-%m-%d")
-  d2 = datetime.datetime.strptime(d2, "%Y-%m-%d")
+  d1 = str2YMDdatetime(d1)
+  d2 = str2YMDdatetime(d2)
   return (d2 - d1).days
 
 # takes strings "%Y-%m-%d"
 # inclusive of start and end date
 def workDaysBetween(d1, d2):
-  return int(np.busday_count(d1, (datetime.datetime.strptime(d2, "%Y-%m-%d") + datetime.timedelta(days=1)).date()))
+  return int(np.busday_count(d1, (str2YMDdatetime(d2) + datetime.timedelta(days=1)).date()))
+
+def str2YMDdatetime(dateString):
+    return datetime.datetime.strptime(dateString, "%Y-%m-%d")
+
+def YMDdatetime2str(dateVar):
+    return dateVar.strftime("%Y-%m-%d")
 
 if __name__ == '__main__':
   main()
