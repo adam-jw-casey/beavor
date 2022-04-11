@@ -529,13 +529,13 @@ class TaskListWindow():
     except ValueError:
       try:
         #eg. Jan 1, 21
-        convertedDate = date2YMDstr(datetime.date.strptime(dateStr, "%b %d, %y"))
+        convertedDate = date2YMDstr(datetime.datetime.strptime(dateStr, "%b %d, %y"))
       except ValueError:
         #Date string doesn't match
         try:
           #Try to add the current year
           #eg. Jan 1
-          convertedDate = date2YMDstr(datetime.date.strptime(dateStr, "%b %d").replace(year = todayDate().year))
+          convertedDate = date2YMDstr(datetime.datetime.strptime(dateStr, "%b %d").replace(year = todayDate().year))
         except ValueError:
           #Date really doesn't match
           self.notify("Can't match date format of {}".format(dateStr))
