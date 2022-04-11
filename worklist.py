@@ -354,7 +354,7 @@ class TaskListWindow():
 
   def updateCalendar(self):
 
-    self.db.calculateDayLoads(self.numweeks)
+    self.calculateDayLoads()
 
     #calendar.weekheader(3) prints Mon-Fri
     #calendar.month(YYYY, month, width, height) prints calendar
@@ -373,7 +373,7 @@ class TaskListWindow():
         else:
           thisDay["DateLabel"].config(bg="#d9d9d9")
         if thisDate >= today:
-          hoursThisDay = self.db.getDayTotalLoad(date2YMDstr(thisDate)) / 60
+          hoursThisDay = self.getDayTotalLoad(date2YMDstr(thisDate)) / 60
           thisDay["LoadLabel"].config(text=str(round(hoursThisDay,1)),
                                       bg=greenRedScale(0,7,hoursThisDay))
         else:
@@ -910,6 +910,51 @@ class TaskListWindow():
 
     return newRowDict
 
+  def calculateDayLoads(self):
+    # Get a list of all unfinished tasks with start dates no more than self.numweeks in the future, sorted from soonest due date to latest
+    today = todayDate()
+    thisFriday = today - datetime.timedelta(days=today.weekday() + 4)
+    lastRenderedDate = thisFriday + datetime.timedelta(weeks=self.numweeks-1)
+    endDate = date2YMDstr(lastRenderedDate)
+    relevantTasks = self.db.getTasks4Workload(endDate)
+
+    # Iterate over the list of tasks (starting from soonest due date), distributing time evenly (each day gets time remaining / # days remaining) over days from max(today, start date) to due date. If adding time would push day over 8 hours, only add up to 8 hours, and withold extra time within the task.
+    self.dayLoads = {}
+    for task in relevantTasks:
+      # todo around here would be a decent place to do recursion
+      remainingLoad = task["Left"]
+      startDate = max(today, YMDstr2date(task["NextAction"]))
+      dateRange = [startDate + datetime.timedelta(days=n) for n in range(0, daysBetween(date2YMDstr(startDate), task["DueDate"]) + 1)]
+
+      for thisDay in dateRange:
+        if np.is_busday(thisDay):
+          # TODO This needs to change once the overflow code down below is fixed. This backloads time by squishing extra time away, rather than distributing evenly or optimally
+          loadDeposit = remainingLoad / workDaysBetween(thisDay, task["DueDate"])
+          # Do not push a day over 8 hours
+          try:
+              loadDeposit = min(max(8*60 - self.dayLoads[date2YMDstr(thisDay)], 0), loadDeposit)
+              self.dayLoads[date2YMDstr(thisDay)] += loadDeposit
+          except KeyError:
+              # If this day has no load assigned to it yet, there will not be an entry in the dict and a key error will occur
+              loadDeposit = min(8*60, loadDeposit)
+              self.dayLoads[date2YMDstr(thisDay)] = loadDeposit
+
+          remainingLoad -= loadDeposit
+
+        # TODO placeholder until we have a better way to deal with overflow (see TODO below)
+        # TODO If time remains (i.e. one or more days was maxed out to 8 hours), distribute remaining time evenly over all tasks (TODO: doing it recursively, noting the number of days maxed out and using a new quotient to calculate average load each time would be better, although you would need an end condition other than "all time distributed" since it's not guaranteed that all days can be kept to 8 hours or less with this method).
+          if date2YMDstr(thisDay) == task["DueDate"] and remainingLoad != 0:
+            self.dayLoads[date2YMDstr(thisDay)] += remainingLoad
+            remainingLoad = 0 # unecessary but comforts me
+
+  # Gets the work load for the day represented by the passed string
+  #date should be a string formatted "YYYY-MM-DD"
+  def getDayTotalLoad(self, date):
+    # Will raise an error if date is poorly formatted
+    YMDstr2date(date)
+
+    return self.dayLoads[date]
+
   ######################################################
   # Task functions
 
@@ -1237,53 +1282,9 @@ class DatabaseManager():
       subprocess.run(["copy", self.databasePath, path], shell=True)
     return "Database backed up to: {}".format(path)
 
-  # TODO
-  # Iterate over every task, with a start date from now to the end of the week self.numweeks from now, in order of due date, from soonest due to latest
-  # For each task, distribute time evenly across its open period. If a day hits 8 hours, do not add more time.
-  def calculateDayLoads(self, numweeks):
-    # Get a list of all unfinished tasks with start dates no more than self.numweeks in the future, sorted from soonest due date to latest
-    today = todayDate()
-    thisFriday = today - datetime.timedelta(days=today.weekday() + 4)
-    lastRenderedDate = thisFriday + datetime.timedelta(weeks=numweeks-1)
-    self.cwrite.execute("SELECT NextAction, DueDate, Left FROM worklist WHERE O == 'O' AND NextAction <= ? ORDER BY DueDate;", [date2YMDstr(lastRenderedDate)])
-    relevantTasks = self.cwrite.fetchall()
-  
-    # Iterate over the list of tasks (starting from soonest due date), distributing time evenly (each day gets time remaining / # days remaining) over days from max(today, start date) to due date. If adding time would push day over 8 hours, only add up to 8 hours, and withold extra time within the task. 
-    self.dayLoads = {}
-    for task in relevantTasks:
-      # todo around here would be a decent place to do recursion
-      remainingLoad = task["Left"]
-      startDate = max(today, YMDstr2date(task["NextAction"]))
-      dateRange = [startDate + datetime.timedelta(days=n) for n in range(0, daysBetween(date2YMDstr(startDate), task["DueDate"]) + 1)]
-
-      for thisDay in dateRange:
-        if np.is_busday(thisDay):
-          # TODO This needs to change once the overflow code down below is fixed. This backloads time by squishing extra time away, rather than distributing evenly or optimally
-          loadDeposit = remainingLoad / workDaysBetween(thisDay, task["DueDate"])
-          # Do not push a day over 8 hours
-          try:
-              loadDeposit = min(max(8*60 - self.dayLoads[date2YMDstr(thisDay)], 0), loadDeposit)
-              self.dayLoads[date2YMDstr(thisDay)] += loadDeposit
-          except KeyError:
-              # If this day has no load assigned to it yet, there will not be an entry in the dict and a key error will occur
-              loadDeposit = min(8*60, loadDeposit)
-              self.dayLoads[date2YMDstr(thisDay)] = loadDeposit
-  
-          remainingLoad -= loadDeposit
-
-        # TODO placeholder until we have a better way to deal with overflow (see TODO below)
-        # TODO If time remains (i.e. one or more days was maxed out to 8 hours), distribute remaining time evenly over all tasks (TODO: doing it recursively, noting the number of days maxed out and using a new quotient to calculate average load each time would be better, although you would need an end condition other than "all time distributed" since it's not guaranteed that all days can be kept to 8 hours or less with this method).
-          if date2YMDstr(thisDay) == task["DueDate"] and remainingLoad != 0:
-            self.dayLoads[date2YMDstr(thisDay)] += remainingLoad
-            remainingLoad = 0 # unecessary but comforts me
-
-  # Gets the work load for the day represented by the passed string
-  #date should be a string formatted "YYYY-MM-DD"
-  def getDayTotalLoad(self, date):
-    # Will raise an error if date is poorly formatted
-    YMDstr2date(date)
-
-    return self.dayLoads[date]
+  def getTasks4Workload(self, endDate):
+    self.cwrite.execute("SELECT NextAction, DueDate, Left FROM worklist WHERE O == 'O' AND NextAction <= ? ORDER BY DueDate;", [endDate])
+    return self.cwrite.fetchall()
 
   #Updates the categories in the category filter
   def getCategories(self):
