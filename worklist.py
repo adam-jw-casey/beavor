@@ -310,7 +310,7 @@ class TaskListWindow():
 
   # todo put the next action / due date at a specific time?
   # todo add buttons to scroll the calendar forward week-by-week
-  # todo what if clicking on a day in the calendar would show all the tasks for that day in the task list
+  # todo what if clicking on a day in the calendar would show all the tasks for that day in the task list. Depending on how workloads are divied, it would be very challenging to show the tasks that were optimally assigned to that day. Showing all tasks theoretically available that day (those that are open, start before and end after) would be easier but not simple.
   # eg. thisDay["LoadLabel"].bind("<Button-1>", CALLBACK)
   # Set up the calendar display to show estimated workload each day for a several week forecast
   def setupCalendar(self):
@@ -1022,7 +1022,7 @@ class TaskListWindow():
         #updateSelectedTask() cancelled by user
         self.notify(e)
 
-  # todo a more elegant way of handling repeating tasks than just creating a bunch of duplicates. Maybe a task taht duplicates itself a number of days in the future when completed?
+  # todo a more elegant way of handling repeating tasks than just creating a bunch of duplicates. Maybe a task that duplicates itself a number of days in the future when completed?
   def createTaskFromInputs(self):
     newRowDict = {}
 
