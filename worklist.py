@@ -355,17 +355,13 @@ class TaskListWindow():
 
     self.calculateDayLoads()
 
-    #calendar.weekheader(3) prints Mon-Fri
-    #calendar.month(YYYY, month, width, height) prints calendar
     today = todayDate()
     thisMonday = today - datetime.timedelta(days=today.weekday())
-    self.calendarDays = []
     for week in range(self.numweeks):
-      thisWeek = []
       for day in range(5):
-        thisDate = thisMonday + datetime.timedelta(days=day, weeks=week)
-        thisWeek.append(thisDate)
         thisDay = self.calendar[week][day]
+        thisDate = thisMonday + datetime.timedelta(days=day, weeks=week)
+        thisDay["Date"] = thisDate
         thisDay["DateLabel"].config(text=thisDate.strftime("%b %d"))
         if thisDate == today:
           thisDay["DateLabel"].config(bg="lime")
@@ -377,7 +373,6 @@ class TaskListWindow():
                                       bg=greenRedScale(0,7,hoursThisDay))
         else:
           thisDay["LoadLabel"].config(text="", bg="#d9d9d9")
-      self.calendarDays.append(thisWeek)
 
   #Clears the annoying highlighting from all comboboxes
   def clearComboHighlights(self, event=tk.Event):
