@@ -358,7 +358,7 @@ class TaskListWindow():
 
     #calendar.weekheader(3) prints Mon-Fri
     #calendar.month(YYYY, month, width, height) prints calendar
-    today = datetime.datetime.today()
+    today = todayDate()
     thisMonday = today - datetime.timedelta(days=today.weekday())
     self.calendarDays = []
     for week in range(self.numweeks):
@@ -373,7 +373,7 @@ class TaskListWindow():
         else:
           thisDay["DateLabel"].config(bg="#d9d9d9")
         if thisDate >= today:
-          hoursThisDay = self.db.getDayTotalLoad(YMDdatetime2str(thisDate)) / 60
+          hoursThisDay = self.db.getDayTotalLoad(date2YMDstr(thisDate)) / 60
           thisDay["LoadLabel"].config(text=str(round(hoursThisDay,1)),
                                       bg=greenRedScale(0,7,hoursThisDay))
         else:
@@ -500,10 +500,10 @@ class TaskListWindow():
         pass
 
   def runTimer(self):
-    FMT = "%H:%M:%S"
+    timeFormat = "%H:%M:%S"
     if self.timing:
-      runTime = (datetime.datetime.strptime(time.strftime(FMT), FMT)
-                 - datetime.datetime.strptime(self.startTime, FMT))
+      runTime = (datetime.datetime.strptime(time.strftime(timeFormat), timeFormat)
+                 - datetime.datetime.strptime(self.startTime, timeFormat))
       # If the timer is run through midnight it goes negative. This fixes it.
       if runTime.days < 0:
         runTime = runTime + datetime.timedelta(days=1)
@@ -526,18 +526,18 @@ class TaskListWindow():
     convertedDate = ""
 
     try:
-      str2YMDdatetime(dateStr)
+      YMDstr2date(dateStr)
       convertedDate = dateStr
     except ValueError:
       try:
         #eg. Jan 1, 21
-        convertedDate = YMDdatetime2str(datetime.datetime.strptime(dateStr, "%b %d, %y"))
+        convertedDate = date2YMDstr(datetime.date.strptime(dateStr, "%b %d, %y"))
       except ValueError:
         #Date string doesn't match
         try:
           #Try to add the current year
           #eg. Jan 1
-          convertedDate = YMDdatetime2str(datetime.datetime.strptime(dateStr, "%b %d").replace(year = datetime.datetime.today().year))
+          convertedDate = date2YMDstr(datetime.date.strptime(dateStr, "%b %d").replace(year = todayDate().year))
         except ValueError:
           #Date really doesn't match
           self.notify("Can't match date format of {}".format(dateStr))
@@ -620,7 +620,7 @@ class TaskListWindow():
       line = ""
       for (header,length) in zip(self.displayColumns, self.maxlens):
         try:
-          line += str2YMDdatetime(str(task[header])).strftime("%b %d, %y").ljust(length) + " | "
+          line += YMDstr2date(str(task[header])).strftime("%b %d, %y").ljust(length) + " | "
         except ValueError:
           line += ljusttrunc(str(task[header]), length) + " | "
       line = line[:-2]
@@ -658,7 +658,7 @@ class TaskListWindow():
               quote     = "'%"
       elif filterBox.current():
         if header == "NextAction":
-          criterion = YMDdatetime2str(datetime.date.today())
+          criterion = todayStr()
           quote     = "'"
         else:
           criterion = filterBox.get()
@@ -869,7 +869,7 @@ class TaskListWindow():
         data = row[header]
         if header in ["NextAction", "DueDate", "DateAdded"]:
           try:
-              str2YMDdatetime(data)
+              YMDstr2date(data)
           except ValueError:
             if not (header == "DateAdded" and data == ""):
               raise ValueError("Incorrect date format: {}, {} should be YYYY-MM-DD".format(header, data))
@@ -888,7 +888,7 @@ class TaskListWindow():
 
   # takes a dict (or sqlite3.Row) representing a task, updates all calculated values and returns the new Row
   def calculateRow(self, inRow, event=tk.Event):
-    today = YMDdatetime2str(datetime.date.today())
+    today = todayStr()
 
     newRowDict = {}
     for header in self.db.headers:
@@ -989,7 +989,7 @@ class TaskListWindow():
     #Store original values
     newRowDict["Budget"] = newRowDict["Time"]
     newRowDict["StartDate"] = newRowDict["NextAction"]
-    newRowDict["DateAdded"] = YMDdatetime2str(datetime.date.today())
+    newRowDict["DateAdded"] = todayStr()
     #Defaults
     newRowDict["O"] = "O"
     newRowDict["rowid"] = None
@@ -1014,7 +1014,7 @@ class TaskListWindow():
     for i in range(repetitions):
       thisRowDict = newRowDict.copy()
       for header in ["StartDate", "NextAction", "DueDate"]:
-        thisRowDict[header] = YMDdatetime2str(str2YMDdatetime(thisRowDict[header]) + i * interval)
+        thisRowDict[header] = date2YMDstr(YMDstr2date(thisRowDict[header]) + i * interval)
 
       thisRowDict = self.calculateRow(thisRowDict)
       self.validateRow(thisRowDict)
@@ -1143,7 +1143,7 @@ class TaskListWindow():
             if change.find("Used") != -1:
                 timediff = int(re.findall(r"(\d+)", change)[0])
                 with open("timesheet.csv", "a") as f:
-                    f.write("{}, {}, {}, {}\n".format(YMDdatetime2str(datetime.datetime.today()), self.loadedTasks[self.selection]["Category"], timediff, self.loadedTasks[self.selection]["Task"]))
+                    f.write("{}, {}, {}, {}\n".format(todayStr(), self.loadedTasks[self.selection]["Category"], timediff, self.loadedTasks[self.selection]["Task"]))
 
       self.db.updateTasks(criteria, changes)
 
@@ -1170,8 +1170,7 @@ class TaskListWindow():
     except AttributeError:
       pass
 
-    today = YMDdatetime2str(datetime.datetime.today())
-    self.loadTasks(["O == 'O'","NextAction <= '{}'".format(today)])
+    self.loadTasks(["O == 'O'","NextAction <= '{}'".format(todayStr())])
 
     #Don't commit until the end - saves a few seconds each time
     for task in self.loadedTasks:
@@ -1230,7 +1229,7 @@ class DatabaseManager():
 
   def backup(self):
     #Strips '.db', inserts the -date and re-adds .db
-    path = self.databasePath[:-3] + "-" + str(datetime.date.today()) + ".db"
+    path = self.databasePath[:-3] + "-" + todayStr() + ".db"
     # Different system call for linux vs. Windows. Never tried running on Mac, but the first would probably work b/c *nix
     if sys.platform == "linux":
       subprocess.run(["cp", self.databasePath, path])
@@ -1243,10 +1242,10 @@ class DatabaseManager():
   # For each task, distribute time evenly across its open period. If a day hits 8 hours, do not add more time.
   def calculateDayLoads(self, numweeks):
     # Get a list of all unfinished tasks with start dates no more than self.numweeks in the future, sorted from soonest due date to latest
-    today = datetime.datetime.today()
+    today = todayDate()
     thisFriday = today - datetime.timedelta(days=today.weekday() + 4)
     lastRenderedDate = thisFriday + datetime.timedelta(weeks=numweeks-1)
-    self.cwrite.execute("SELECT NextAction, DueDate, Left FROM worklist WHERE O == 'O' AND NextAction <= ? ORDER BY DueDate;", [YMDdatetime2str(lastRenderedDate)])
+    self.cwrite.execute("SELECT NextAction, DueDate, Left FROM worklist WHERE O == 'O' AND NextAction <= ? ORDER BY DueDate;", [date2YMDstr(lastRenderedDate)])
     relevantTasks = self.cwrite.fetchall()
   
     # Iterate over the list of tasks (starting from soonest due date), distributing time evenly (each day gets time remaining / # days remaining) over days from max(today, start date) to due date. If adding time would push day over 8 hours, only add up to 8 hours, and withold extra time within the task. 
@@ -1254,35 +1253,35 @@ class DatabaseManager():
     for task in relevantTasks:
       # todo around here would be a decent place to do recursion
       remainingLoad = task["Left"]
-      startDate = max(today, str2YMDdatetime(task["NextAction"]))
-      dateRange = [startDate + datetime.timedelta(days=n) for n in range(0, daysBetween(YMDdatetime2str(startDate), task["DueDate"]) + 1)]
+      startDate = max(today, YMDstr2date(task["NextAction"]))
+      dateRange = [startDate + datetime.timedelta(days=n) for n in range(0, daysBetween(date2YMDstr(startDate), task["DueDate"]) + 1)]
 
       for thisDay in dateRange:
-        if np.is_busday(thisDay.date()):
+        if np.is_busday(thisDay):
           # TODO This needs to change once the overflow code down below is fixed. This backloads time by squishing extra time away, rather than distributing evenly or optimally
-          loadDeposit = remainingLoad / workDaysBetween(thisDay.date(), task["DueDate"])
+          loadDeposit = remainingLoad / workDaysBetween(thisDay, task["DueDate"])
           # Do not push a day over 8 hours
           try:
-              loadDeposit = min(max(8*60 - self.dayLoads[YMDdatetime2str(thisDay)], 0), loadDeposit)
-              self.dayLoads[YMDdatetime2str(thisDay)] += loadDeposit
+              loadDeposit = min(max(8*60 - self.dayLoads[date2YMDstr(thisDay)], 0), loadDeposit)
+              self.dayLoads[date2YMDstr(thisDay)] += loadDeposit
           except KeyError:
               # If this day has no load assigned to it yet, there will not be an entry in the dict and a key error will occur
               loadDeposit = min(8*60, loadDeposit)
-              self.dayLoads[YMDdatetime2str(thisDay)] = loadDeposit
+              self.dayLoads[date2YMDstr(thisDay)] = loadDeposit
   
           remainingLoad -= loadDeposit
 
         # TODO placeholder until we have a better way to deal with overflow (see TODO below)
         # TODO If time remains (i.e. one or more days was maxed out to 8 hours), distribute remaining time evenly over all tasks (TODO: doing it recursively, noting the number of days maxed out and using a new quotient to calculate average load each time would be better, although you would need an end condition other than "all time distributed" since it's not guaranteed that all days can be kept to 8 hours or less with this method).
-          if YMDdatetime2str(thisDay) == task["DueDate"] and remainingLoad != 0:
-            self.dayLoads[YMDdatetime2str(thisDay)] += remainingLoad
+          if date2YMDstr(thisDay) == task["DueDate"] and remainingLoad != 0:
+            self.dayLoads[date2YMDstr(thisDay)] += remainingLoad
             remainingLoad = 0 # unecessary but comforts me
 
   # Gets the work load for the day represented by the passed string
   #date should be a string formatted "YYYY-MM-DD"
   def getDayTotalLoad(self, date):
     # Will raise an error if date is poorly formatted
-    str2YMDdatetime(date)
+    YMDstr2date(date)
 
     return self.dayLoads[date]
 
@@ -1382,20 +1381,26 @@ def escapeSingleQuotes(text):
 
 # Takes a string "YYYY-MM-DD"
 def daysBetween(d1, d2):
-  d1 = str2YMDdatetime(d1)
-  d2 = str2YMDdatetime(d2)
+  d1 = YMDstr2date(d1)
+  d2 = YMDstr2date(d2)
   return (d2 - d1).days
 
 # takes strings "%Y-%m-%d"
 # inclusive of start and end date
 def workDaysBetween(d1, d2):
-  return int(np.busday_count(d1, (str2YMDdatetime(d2) + datetime.timedelta(days=1)).date()))
+  return int(np.busday_count(d1, (YMDstr2date(d2) + datetime.timedelta(days=1))))
 
-def str2YMDdatetime(dateString):
-    return datetime.datetime.strptime(dateString, "%Y-%m-%d")
+def YMDstr2date(dateString):
+  return datetime.datetime.strptime(dateString, "%Y-%m-%d").date()
 
-def YMDdatetime2str(dateVar):
-    return dateVar.strftime("%Y-%m-%d")
+def date2YMDstr(dateVar):
+  return dateVar.strftime("%Y-%m-%d")
+
+def todayStr():
+  return date2YMDstr(todayDate())
+
+def todayDate():
+  return datetime.date.today()
 
 if __name__ == '__main__':
   main()
