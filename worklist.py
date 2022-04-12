@@ -310,7 +310,6 @@ class TaskListWindow():
 
   # todo put the next action / due date at a specific time?
   # todo add buttons to scroll the calendar forward week-by-week
-  # todo what if clicking on a day in the calendar would show all the tasks for that day in the task list. Depending on how workloads are divied, it would be very challenging to show the tasks that were optimally assigned to that day. Showing all tasks theoretically available that day (those that are open, start before and end after) would be easier but not simple.
   # eg. thisDay["LoadLabel"].bind("<Button-1>", CALLBACK)
   # Set up the calendar display to show estimated workload each day for a several week forecast
   def setupCalendar(self):
@@ -362,6 +361,8 @@ class TaskListWindow():
         thisDay = self.calendar[week][day]
         thisDate = thisMonday + datetime.timedelta(days=day, weeks=week)
         thisDay["Date"] = thisDate
+        thisDay["DateLabel"].bind("<Button-1>", lambda event, a = thisDay["Date"]: self.filterDate(a))
+        thisDay["LoadLabel"].bind("<Button-1>", lambda event, a = thisDay["Date"]: self.filterDate(a))
         thisDay["DateLabel"].config(text=thisDate.strftime("%b %d"))
         if thisDate == today:
           thisDay["DateLabel"].config(bg="lime")
@@ -398,6 +399,15 @@ class TaskListWindow():
     self.statusBox.current(1)
     self.availableBox.current(1)
     self.overwriteEntryBox(self.searchBox, "")
+
+  # # TODO there should be a manual filter box to filter by start/end date so that this is persistent and can be layered with other filters.
+  # Filter to only show tasks available on the passed date
+  def filterDate(self, date):
+    self.selection = None
+    self.resetFilters()
+    criteria = ["O == 'O'", "NextAction <= '{}'".format(date2YMDstr(date)), "DueDate >= '{}'".format(date2YMDstr(date))]
+    self.loadTasks(criteria)
+    self.showTasks()
 
   #Set up filters to match the selected task (ideally catching all of a repeating task)
   def multiEditConfig(self):
@@ -573,13 +583,14 @@ class TaskListWindow():
           box.select_range(cursorPos, tk.END)
           box.icursor(tk.END)
 
+  #Updates the categories in the category filter
   def refreshFilterCategories(self):
     self.filterCategories = list(set([task["Category"] for task in self.loadedTasks]))
     self.filterCategories.sort()
     self.filterCategories = ["All categories"] + self.filterCategories
     self.catBox.config(values=self.filterCategories)
 
-  #Updates the categories in the category filter
+  # Updates the suggested categories in the category entrybox
   def refreshCategories(self):
     self.categories = self.db.getCategories()
     try:
