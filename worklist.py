@@ -400,7 +400,7 @@ class TaskListWindow():
     self.availableBox.current(1)
     self.overwriteEntryBox(self.searchBox, "")
 
-  # # TODO there should be a manual filter box to filter by start/end date so that this is persistent and can be layered with other filters.
+  # todo there should be a manual filter box to filter by start/end date so that this is persistent and can be layered with other filters.
   # Filter to only show tasks available on the passed date
   def filterDate(self, date):
     self.selection = None
@@ -1169,7 +1169,7 @@ class TaskListWindow():
 
     return changes
 
-  # todo would be nice if multiupdate could change names with a delta, not just dates UPDATE (REPLACE(str,search,replacement)?)
+  # todo would be nice if multiupdate could change names with a delta, not just dates UPDATE tablename SET var = REPLACE(string_to_modify, find_this, replace_with_this) WHERE searchCriteria
   # Update the currently selected task with values from the entry boxes
   # If multiEdit is enabled, updates all tasks matching current filter criteria
   # If a task is passed in ("row"), as a dict or sqlite3.Row, updates this instead, by rowid
@@ -1187,6 +1187,7 @@ class TaskListWindow():
         criteria = self.getSearchCriteria()
       else:
         criteria = ["rowid = {}".format(self.loadedTasks[self.selection]["rowid"])]
+
         # todo messy
         # Dump the time worked to external time tracker
         for change in changes:
