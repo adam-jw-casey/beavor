@@ -356,6 +356,7 @@ class TaskListWindow():
 
     today = todayDate()
     thisMonday = today - datetime.timedelta(days=today.weekday())
+    hoursLeftToday = max(0, 16 - (datetime.datetime.now().hour + datetime.datetime.now().minute/60))
     for week in range(self.numweeks):
       for day in range(5):
         thisDay = self.calendar[week][day]
@@ -371,7 +372,7 @@ class TaskListWindow():
         if thisDate >= today:
           hoursThisDay = self.getDayTotalLoad(date2YMDstr(thisDate)) / 60
           thisDay["LoadLabel"].config(text=str(round(hoursThisDay,1)),
-                                      bg=greenRedScale(0,7,hoursThisDay))
+                                      bg=greenRedScale(0,(8 if thisDate != today else hoursLeftToday),hoursThisDay))
         else:
           thisDay["LoadLabel"].config(text="", bg="#d9d9d9")
 
@@ -915,7 +916,6 @@ class TaskListWindow():
 
     return newRowDict
 
-# TODO shou;d not assign more hours of work to today than there are hours left before 5 PM
   def calculateDayLoads(self):
     # Get a list of all unfinished tasks with start dates no more than self.numweeks in the future, sorted from soonest due date to latest
     today = todayDate()
@@ -926,6 +926,10 @@ class TaskListWindow():
 
     # Iterate over the list of tasks (starting from soonest due date), distributing time evenly (each day gets time remaining / # days remaining) over days from max(today, start date) to due date. If adding time would push day over 8 hours, only add up to 8 hours, and withold extra time within the task.
     self.dayLoads = {}
+    # TODO this code ignores work start time and lunch break, i.e. at midnight it will assume there are 16 hours of work left today, and at 7 AM it will assume there are 9
+    # todo another way to do this would be to save how many hours of work are due today and to subtract the number of hours of tracked work. That would avoid rewarding with less work remaining simply because time has passed.
+    # calculates the time (in hours) remaining until 4 PM system time, because I work an hour ahead (i.e. 4 PM system time is 5 PM my time)
+    hoursLeftToday = max(0, 16 - (datetime.datetime.now().hour + datetime.datetime.now().minute/60))
     for task in relevantTasks:
       # todo around here would be a decent place to do recursion. A function like def distributeTimeOverRange(time, range)
       remainingLoad = task["Left"]
@@ -933,17 +937,18 @@ class TaskListWindow():
       dateRange = [startDate + datetime.timedelta(days=n) for n in range(0, daysBetween(date2YMDstr(startDate), task["DueDate"]) + 1)]
 
       for thisDay in dateRange:
+        maxHours = (8 if thisDay != today else hoursLeftToday)
         if np.is_busday(thisDay):
           # TODO This needs to change once the overflow code down below is fixed. This backloads time by squishing extra time away, rather than distributing evenly or optimally
           # TODO would also be better to individually count work days in the range. This assumes that no days are missing from the range (such as if they had been previously excluded because of being full)
           loadDeposit = remainingLoad / workDaysBetween(thisDay, task["DueDate"])
           # Do not push a day over 8 hours
           try:
-              loadDeposit = min(max(8*60 - self.dayLoads[date2YMDstr(thisDay)], 0), loadDeposit)
+              loadDeposit = min(max(maxHours*60 - self.dayLoads[date2YMDstr(thisDay)], 0), loadDeposit)
               self.dayLoads[date2YMDstr(thisDay)] += loadDeposit
           except KeyError:
               # If this day has no load assigned to it yet, there will not be an entry in the dict and a key error will occur
-              loadDeposit = min(8*60, loadDeposit)
+              loadDeposit = min(maxHours*60, loadDeposit)
               self.dayLoads[date2YMDstr(thisDay)] = loadDeposit
 
           remainingLoad -= loadDeposit
