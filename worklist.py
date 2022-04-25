@@ -939,8 +939,21 @@ class TaskListWindow():
       for thisDay in dateRange:
         maxHours = (8 if thisDay != today else hoursLeftToday)
         if np.is_busday(thisDay):
-          # TODO This needs to change once the overflow code down below is fixed. This backloads time by squishing extra time away, rather than distributing evenly or optimally
+          # TODO This needs to change once the overflow code down below is fixed. This backloads time by squishing extra time away, rather than distributing evenly or optimally. Note that this does not OPTIMALLY backload time, it simply backloads relative to an even distribution.
           # TODO would also be better to individually count work days in the range. This assumes that no days are missing from the range (such as if they had been previously excluded because of being full)
+          # todo would be nice if could switch between workload distribution modes - i.e.:
+          #    - evenload: spread the work as evenly as possible over available days
+          #      This is the system I've been using up to now, but with the added max work per day cap.
+          #      evenload could be implemented as described in the TODOs above:
+          #      allocate time evenly across available days. When even distribution would overwhelm a day, remove it from the list and continue at same rate. At the end, divide the remaining time and repeat over the rnage (with the overwhelmed day removed). 
+          #    - A frontload mode that pushes as much work to the front of availability as possible, without exceeding daily cap.
+          #      This would be useful to show the amount of work available (when will I need to start looking for more projects?)
+          #      This frontload mode is essentially what I have been working towards, as it is best at guaranteeing that tasks are completed.
+          #      This could be implemented by, for each task, starting from soonest due, allocating as much time as possible to each day from first available, until task is complete, without exceeding daily max.
+          #    - A backload mode to push work as far as possible while still completing all tasks.
+          #      This would visualize how crunched I actually am. 
+          #      backload is useful because it lets me know whether my time this week is actually full, or if I could move things around to take on more work.
+          #      This could be implemented by, for each task starting from soonest due, allocating as much time as possible to each day from last available, until task is complete, without exceeding daily max.
           loadDeposit = remainingLoad / workDaysBetween(thisDay, task["DueDate"])
           # Do not push a day over 8 hours
           try:
