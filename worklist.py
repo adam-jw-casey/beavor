@@ -915,6 +915,7 @@ class TaskListWindow():
 
     return newRowDict
 
+# TODO shou;d not assign more hours of work to today than there are hours left before 5 PM
   def calculateDayLoads(self):
     # Get a list of all unfinished tasks with start dates no more than self.numweeks in the future, sorted from soonest due date to latest
     today = todayDate()
