@@ -3,7 +3,6 @@
 import sqlite3
 import tkinter as tk
 import tkinter.ttk
-import tkinter.font as tkFont
 from tkinter import messagebox
 import datetime
 import time
@@ -243,7 +242,7 @@ class TaskListWindow():
         self.entryBoxes[header].bind("<Tab>", self.convertDate)
 
       self.entryBoxes[header].grid(sticky="NW",row=i, column=1, pady=self.padscale * 1)
-      self.entryBoxes[header].config(width=50, font=self.font)
+      self.entryBoxes[header].config(width=60, font=self.font)
 
     self.checkDone = tk.StringVar()
     self.doneCheck = tk.Checkbutton(self.entryButtonFrame,
@@ -356,7 +355,7 @@ class TaskListWindow():
 
     today = todayDate()
     thisMonday = today - datetime.timedelta(days=today.weekday())
-    hoursLeftToday = max(0, 16 - (datetime.datetime.now().hour + datetime.datetime.now().minute/60))
+    hoursLeftToday = max(0, min(7, 16 - (datetime.datetime.now().hour + datetime.datetime.now().minute/60)))
     for week in range(self.numweeks):
       for day in range(5):
         thisDay = self.calendar[week][day]
@@ -372,7 +371,7 @@ class TaskListWindow():
         if thisDate >= today:
           hoursThisDay = self.getDayTotalLoad(date2YMDstr(thisDate)) / 60
           thisDay["LoadLabel"].config(text=str(round(hoursThisDay,1)),
-                                      bg=greenRedScale(0,(8 if thisDate != today else hoursLeftToday),hoursThisDay))
+                                      bg=greenRedScale(0,(7 if thisDate != today else max(0.1, hoursLeftToday)),hoursThisDay))
         else:
           thisDay["LoadLabel"].config(text="", bg="#d9d9d9")
 
@@ -937,7 +936,7 @@ class TaskListWindow():
       dateRange = [startDate + datetime.timedelta(days=n) for n in range(0, daysBetween(date2YMDstr(startDate), task["DueDate"]) + 1)]
 
       for thisDay in dateRange:
-        maxHours = (8 if thisDay != today else hoursLeftToday)
+        maxHours = (6 if thisDay != today else hoursLeftToday)
         if np.is_busday(thisDay):
           # TODO This needs to change once the overflow code down below is fixed. This backloads time by squishing extra time away, rather than distributing evenly or optimally. Note that this does not OPTIMALLY backload time, it simply backloads relative to an even distribution.
           # TODO would also be better to individually count work days in the range. This assumes that no days are missing from the range (such as if they had been previously excluded because of being full)
