@@ -6,7 +6,6 @@ import tkinter.ttk
 from tkinter import messagebox
 import datetime
 import time
-import subprocess
 import sys, os
 import numpy as np
 import re
@@ -25,12 +24,12 @@ from dateutil.relativedelta import relativedelta
 # todo would be cool to support multi-step / project-type tasks
 # todo integration to put tasks into Google/Outlook calendar would be cool or just have a way of marking a task as scheduled
 # todo integration to get availability from Google/Outlook calendar to adjust daily workloads based on scheduled meetings
-# todo user-customizable settings (like font size, calendar colourscale)
+# todo user-customizable settings (like font size, calendar colourscale) -> This could write to external file read at startup?
 # todo Dark mode toggle (use .configure(bg='black') maybe? Or another better colour. Have to do it individually by pane though, self.root.configure() only does some of the background. Also probably have to change text colour too.)
 
 ###########################################
 
-class TaskListWindow():
+class WorklistWindow():
   def __init__(self, databasePath):
     self.os = sys.platform
 
@@ -41,8 +40,7 @@ class TaskListWindow():
 
     self.setupWindow()
 
-  # Start the program
-  def runLoop(self):
+    # Start the program
     self.root.mainloop()
 
   ######################################################
@@ -53,9 +51,11 @@ class TaskListWindow():
 
     if self.os == "linux":
       self.root.attributes('-zoomed', True)
+      self.font = ("Liberation Mono", 10)
     else:
       #win32
       self.root.state("zoomed")
+      self.font = ("Courier", 10)
 
     self.root.winfo_toplevel().title("WORKLIST Beta")
 
@@ -66,22 +66,21 @@ class TaskListWindow():
     self.loadTasks()
     self.setupFilters()
 
-    self.setupTaskListBox()
-
-    #recalculate timediffs and loads
-    self.updateLoadsToday()
-    self.refreshTasks()
+    self.lb = TaskList(self.taskDisplayFrame, self.font, self.onSelect, lambda event: self.timeButton.invoke())
 
     #Setup the lower half of the window
     self.setupTimer()
     self.setupEntryBoxes()
     self.setupButtons()
-    self.setupCalendar()
 
-    self.setupKeybindings()
+    # These aren't all the keybindings, but they're all the ones the user should notice
+    # Other keybindings mostly just make the app behave how you'd expect
+    self.root.bind("<Control-q>", lambda event: self.root.destroy())
+    self.root.bind("<Control-w>", lambda event: self.root.destroy())
+    self.root.bind("<Control-n>", lambda event: self.newTaskButton.invoke())
+    self.root.bind("<Control-f>", lambda event: self.searchBox.focus())
 
-    self.refreshCategories()
-    self.refreshFilterCategories()
+    self.refreshAll()
 
   def setupFrames(self):
 
@@ -98,7 +97,7 @@ class TaskListWindow():
     self.interactiveFrame.grid(pady=self.padscale * 4)
 
     # Frame for the calendar
-    self.calendarFrame = tk.Frame(self.interactiveFrame)
+    self.calendarFrame = Calendar(self.interactiveFrame, self.font, self.filterDate)
     self.calendarFrame.grid(row=0, column=3, pady=self.padscale * 4, padx=self.padscale * 4)
 
     # Timer and its button
@@ -161,44 +160,6 @@ class TaskListWindow():
                                           command = self.resetFilters)
     self.defaultFiltersButton.pack(side=tk.LEFT, padx=self.padscale * 3)
 
-  def setupTaskListBox(self):
-    #Get these columns from the database
-    self.displayColumns = ["Category", "O", "Task", "Time", "Used", "Left", "NextAction", "DueDate", "Flex", "Load", "Notes"]
-    self.editColumns    = ["Category", "Task", "Time", "Used", "NextAction", "DueDate", "Flex", "Notes"]
-
-    if self.os == "linux":
-      self.font = ("Liberation Mono", 9)
-    else:
-      #win32
-      self.font = ("Courier", 9)
-
-    #Headers for the ListBox
-    self.headerLabel = tk.Label(self.taskDisplayFrame, text="", font=self.font)
-    self.headerLabel.grid(sticky="W")
-
-    #The ListBox that allows us to view & select different tasks
-    self.lb = tk.Listbox(self.taskDisplayFrame,
-                         selectmode=tk.SINGLE,
-                         width = 140,
-                         height=18,
-                         font=self.font,
-                         selectbackground="SteelBlue1")
-    self.lb.grid(sticky="W")
-
-    #Lets you scroll with arrow keys
-    self.lb.bind("<Down>", self.onDown)
-    self.lb.bind("<j>", self.onDown)
-    self.lb.bind("<Up>", self.onUp)
-    self.lb.bind("<k>", self.onUp)
-    self.lb.bind("<<ListboxSelect>>", self.onSelect)
-    self.lb.bind("<FocusIn>", self.selectFirst)
-    self.lb.bind("<Double-1>", lambda event: self.timeButton.invoke())
-    self.lb.bind("<Return>", lambda event: self.timeButton.invoke())
-
-    self.selection = None
-
-    self.recordLabel = tk.Label(self.taskDisplayFrame, text="")
-    self.recordLabel.grid(sticky="E")
 
   def setupTimer(self):
     #Timer and button to start/stop
@@ -211,6 +172,8 @@ class TaskListWindow():
     self.timing = False
 
   def setupEntryBoxes(self):
+    self.editColumns = ["Category", "Task", "Time", "Used", "NextAction", "DueDate", "Flex", "Notes"]
+
     self.entryBoxes = {}
     self.entryLabels = {}
 
@@ -230,16 +193,15 @@ class TaskListWindow():
                                                   values=["Y","N"],
                                                   state="readonly")
         self.entryBoxes[header].bind("<FocusOut>", self.clearComboHighlights)
-
       elif header == "Notes":
-        self.entryBoxes[header] = tk.Text(self.entryFrame, height=6, wrap="word")
+        self.entryBoxes[header] = tk.Text(self.entryFrame, height=10, wrap="word")
         self.entryBoxes[header].bind("<Tab>", self.focusNextWidget)
       else:
-        self.entryBoxes[header] = tk.Entry(self.entryFrame)
+        if header in ["DueDate", "NextAction"]:
+          self.entryBoxes[header] = DateEntry(self.entryFrame, self.notify)
+        else:
+          self.entryBoxes[header] = tk.Entry(self.entryFrame)
         self.entryBoxes[header].bind("<Return>", self.save)
-
-      if header in ["DueDate", "NextAction"]:
-        self.entryBoxes[header].bind("<Tab>", self.convertDate)
 
       self.entryBoxes[header].grid(sticky="NW",row=i, column=1, pady=self.padscale * 1)
       self.entryBoxes[header].config(width=60, font=self.font)
@@ -297,83 +259,8 @@ class TaskListWindow():
     self.repetitionBox = tk.Entry(self.adminButtonFrame, width=2, state="disabled")
     self.repetitionBox.grid(sticky="W")
 
-    self.backupButton = tk.Button(self.adminButtonFrame,
-                                  text="Backup database",
-                                  command = lambda : self.notify(self.db.backup()))
-    self.backupButton.grid(sticky="W")
-
-    self.refreshButton = tk.Button(self.adminButtonFrame,
-                                       text="Refresh",
-                                       command = self.refreshAll)
-    self.refreshButton.grid(sticky="W")
-
-  # todo put the next action / due date at a specific time?
-  # todo add buttons to scroll the calendar forward week-by-week
-  # eg. thisDay["LoadLabel"].bind("<Button-1>", CALLBACK)
-  # Set up the calendar display to show estimated workload each day for a several week forecast
-  def setupCalendar(self):
-    self.numweeks = 4
-
-    #Build the calendar out of labels
-    self.calendar = []
-
-    #Add day of week names at top, but won't change so don't save
-    for i, day in enumerate(["Mon", "Tue", "Wed", "Thu", "Fri"]):
-      tk.Label(self.calendarFrame, font=self.font + ("bold",), text=day).grid(row=0, column=i, padx=4, pady=4)
-
-    for week in range(self.numweeks):
-      thisWeek = []
-      for day in range(5):
-        thisDay = {}
-        # todo *Sometimes* this significantly slows boot time. Could maybe cut down on labels by having dates all in a row for each week, but lining up with loads could be tricky. First row changes colour, so could do each date row below the first as a multi-column label.
-        #Alternate date labels and workloads
-        thisDay["DateLabel"] = tk.Label(self.calendarFrame, font=self.font)
-        thisDay["DateLabel"].grid(row=2*week + 1, column=day, padx=4, pady=4)
-        thisDay["LoadLabel"] = tk.Label(self.calendarFrame, font=self.font)
-        thisDay["LoadLabel"].grid(row=2*week + 2, column=day, padx=4, pady=4)
-        thisWeek.append(thisDay)
-      self.calendar.append(thisWeek)
-
-    self.updateCalendar()
-
-  def setupKeybindings(self):
-    # These aren't all the keybindings, but they're all the ones the user should notice
-    # Other keybindings mostly just make the app behave how you'd expect
-    self.root.bind("<Control-s>", lambda event: self.backupButton.invoke())
-    self.root.bind("<Control-q>", lambda event: self.root.destroy())
-    self.root.bind("<Control-w>", lambda event: self.root.destroy())
-    self.root.bind("<Control-n>", lambda event: self.newTaskButton.invoke())
-    self.root.bind("<Control-r>", lambda event: self.refreshButton.invoke())
-    self.root.bind("<Control-f>", lambda event: self.searchBox.focus())
-
   ######################################################
   # GUI update functions
-
-  def updateCalendar(self):
-
-    self.calculateDayLoads()
-
-    today = todayDate()
-    thisMonday = today - datetime.timedelta(days=today.weekday())
-    hoursLeftToday = max(0, min(7, 16 - (datetime.datetime.now().hour + datetime.datetime.now().minute/60)))
-    for week in range(self.numweeks):
-      for day in range(5):
-        thisDay = self.calendar[week][day]
-        thisDate = thisMonday + datetime.timedelta(days=day, weeks=week)
-        thisDay["Date"] = thisDate
-        thisDay["DateLabel"].bind("<Button-1>", lambda event, a = thisDay["Date"]: self.filterDate(a))
-        thisDay["LoadLabel"].bind("<Button-1>", lambda event, a = thisDay["Date"]: self.filterDate(a))
-        thisDay["DateLabel"].config(text=thisDate.strftime("%b %d"))
-        if thisDate == today:
-          thisDay["DateLabel"].config(bg="lime")
-        else:
-          thisDay["DateLabel"].config(bg="#d9d9d9")
-        if thisDate >= today:
-          hoursThisDay = self.getDayTotalLoad(date2YMDstr(thisDate)) / 60
-          thisDay["LoadLabel"].config(text=str(round(hoursThisDay,1)),
-                                      bg=greenRedScale(0,(7 if thisDate != today else max(0.1, hoursLeftToday)),hoursThisDay))
-        else:
-          thisDay["LoadLabel"].config(text="", bg="#d9d9d9")
 
   #Clears the annoying highlighting from all comboboxes
   def clearComboHighlights(self, event=tk.Event):
@@ -403,25 +290,24 @@ class TaskListWindow():
   # todo there should be a manual filter box to filter by start/end date so that this is persistent and can be layered with other filters.
   # Filter to only show tasks available on the passed date
   def filterDate(self, date):
-    self.selection = None
+    self.lb.selection = None
     self.resetFilters()
     criteria = ["O == 'O'", "NextAction <= '{}'".format(date2YMDstr(date)), "DueDate >= '{}'".format(date2YMDstr(date))]
     self.loadTasks(criteria)
-    self.showTasks()
+    self.lb.showTasks(self.loadedTasks)
 
   #Set up filters to match the selected task (ideally catching all of a repeating task)
   def multiEditConfig(self):
     if self.multiEdit.get():
       #Enter special mode
-      self.refreshButton.config(state="disabled")
       self.timeButton.config(state="disabled")
       self.entryBoxes["Used"].config(state="readonly")
 
-      if self.selection is not None:
+      if self.lb.selection is not None:
         #Enter multiedit mode
         self.previousSearch = self.searchBox.get()
-        self.overwriteEntryBox(self.searchBox, self.loadedTasks[self.selection]["Task"])
-        self.catBox.set(self.loadedTasks[self.selection]["Category"])
+        self.overwriteEntryBox(self.searchBox, self.loadedTasks[self.lb.selection]["Task"])
+        self.catBox.set(self.loadedTasks[self.lb.selection]["Category"])
         self.statusBox.current(1)
         self.availableBox.current(0)
 
@@ -441,11 +327,10 @@ class TaskListWindow():
         self.notify("Repeating mode")
     else:
       #Return to normal mode
-      self.refreshButton.config(state="normal")
       self.timeButton.config(state="normal")
       self.entryBoxes["Used"].config(state="normal")
 
-      if self.selection is not None:
+      if self.lb.selection is not None:
         #Leave multiedit mode
         self.overwriteEntryBox(self.searchBox, self.previousSearch)
         self.setDefaultFilters()
@@ -475,18 +360,7 @@ class TaskListWindow():
 
       self.notify("Normal mode")
 
-
-  #Pretty self explanatory. Used because select_set doesn't trigger <<ListboxSelect>> event
-  def selectListboxItem(self, item):
-    self.lb.select_set(item)
-    self.onSelect()
-
-  #When the listbox gains focus, select the first item
-  def selectFirst(self, event=tk.Event):
-    if self.selection is None:
-      self.selectListboxItem(0)
-
-  # todo timer should probably be its own class
+  # todo timer should probably be its own class - turns out this is tougher than you'd expect because of the links between the time, entryboxes and tasklist
   def toggleTimer(self, event=tk.Event):
     if not self.timing:
       self.timeButton.config(text="Stop")
@@ -506,6 +380,7 @@ class TaskListWindow():
   def runTimer(self):
     timeFormat = "%H:%M:%S"
     if self.timing:
+      # TODO would be better to handle this by accounting for date rather than just fudging the days
       runTime = (datetime.datetime.strptime(time.strftime(timeFormat), timeFormat)
                  - datetime.datetime.strptime(self.startTime, timeFormat))
       # If the timer is run through midnight it goes negative. This fixes it.
@@ -513,42 +388,16 @@ class TaskListWindow():
         runTime = runTime + datetime.timedelta(days=1)
 
       try:
-        if self.selection is None:
+        if self.lb.selection is None:
           raise ValueError("Cannot time an empty task")
         self.timerVal = (runTime
-                         + datetime.timedelta(minutes=(self.loadedTasks[self.selection]["Used"] or 0)))
+                         + datetime.timedelta(minutes=(self.loadedTasks[self.lb.selection]["Used"] or 0)))
         self.timeLabel.config(text=str(self.timerVal))
         self.root.after(1000, self.runTimer)
       except ValueError as e:
         self.notify(e)
         self.timerVal = None
         self.timeButton.invoke()
-
-  def convertDate(self, event=tk.Event):
-    box = event.widget
-    dateStr = box.get()
-    convertedDate = ""
-
-    try:
-      YMDstr2date(dateStr)
-      convertedDate = dateStr
-    except ValueError:
-      try:
-        #eg. Jan 1, 21
-        convertedDate = date2YMDstr(datetime.datetime.strptime(dateStr, "%b %d, %y"))
-      except ValueError:
-        #Date string doesn't match
-        try:
-          #Try to add the current year
-          #eg. Jan 1
-          convertedDate = date2YMDstr(datetime.datetime.strptime(dateStr, "%b %d").replace(year = todayDate().year))
-        except ValueError:
-          #Date really doesn't match
-          self.notify("Can't match date format of {}".format(dateStr))
-          return
-
-    box.delete(0, tk.END)
-    box.insert(0, convertedDate)
 
   def completeBox(self, event, sourceList):
     #Don't run when deleting, or when shift is released
@@ -599,45 +448,6 @@ class TaskListWindow():
       #Fails on setup
       pass
 
-  #Updates the listbox with the loaded tasks
-  def showTasks(self):
-    #Max length of any item in each column, including headers
-    self.maxlens = [max([len(str(row[column])) for row in self.loadedTasks] + [len(column)]) for column in self.displayColumns]
-    #Forces these two to 50 to try and maintain some order
-    self.maxlens[self.displayColumns.index("Task")] = 60
-    self.maxlens[self.displayColumns.index("Notes")] = 59
-
-    #Adjust the listbox to be wide enough
-    self.lb.config(width=sum(self.maxlens) + len(self.maxlens) * 3)
-
-    self.recordLabel.config(text=str(len(self.loadedTasks)) + " tasks found")
-
-    #Create the header text
-    headerline = ""
-    for header, length in zip(self.displayColumns, self.maxlens):
-      headerline += header.center(length) + " | "
-    headerline = headerline[:-2]
-    self.headerLabel.config(text = headerline)
-
-    #delete tasks and reinsert
-    self.lb.delete(0,'end')
-    for task in self.loadedTasks:
-      line = ""
-      for (header,length) in zip(self.displayColumns, self.maxlens):
-        try:
-          line += YMDstr2date(str(task[header])).strftime("%b %d, %y").ljust(length) + " | "
-        except ValueError:
-          line += ljusttrunc(str(task[header]), length) + " | "
-      line = line[:-2]
-
-      self.lb.insert(tk.END,line)
-      #Colour-coding!
-      try:
-        self.lb.itemconfig(tk.END, {'bg': greenRedScale(0, 60, task["Load"])})
-      except TypeError:
-        #Fails for items where Load is None, eg. completed, not yet active
-        pass
-
   def getSearchCriteria(self):
 
     criteria = []
@@ -676,14 +486,14 @@ class TaskListWindow():
 
   def refreshTasks(self, event=tk.Event):
     #Remember which task was selected
-    if self.selection not in [None, -1]:
-      self.selected_rowid = self.loadedTasks[self.selection]["rowid"]
+    if self.lb.selection not in [None, -1]:
+      self.selected_rowid = self.loadedTasks[self.lb.selection]["rowid"]
 
     criteria = self.getSearchCriteria()
     self.loadTasks(criteria)
-    self.showTasks()
+    self.lb.showTasks(self.loadedTasks)
 
-    if self.selection not in [None, -1]:
+    if self.lb.selection not in [None, -1]:
       #Find the previously selected task
       previousSelection = None
       for i, task in enumerate(self.loadedTasks):
@@ -691,24 +501,20 @@ class TaskListWindow():
           previousSelection = i
           break
 
-      self.selection = previousSelection
+      self.lb.selection = previousSelection
 
       if previousSelection is not None:
-        self.selectListboxItem(self.selection)
+        self.lb.selectListboxItem(self.lb.selection)
       else:
         self.clearEntryBoxes()
 
     #Update the category filterbox to only show available categories
     self.refreshFilterCategories()
 
-  def resetListboxSelection(self):
-    self.lb.selection_clear(0,'end')
-    self.lb.select_set(self.selection)
-
   def confirmDiscardChanges(self):
     if self.nonTrivialChanges():
       selection = tk.messagebox.askyesnocancel(title="Save before switching?",
-                                               message = "Do you want to save your changes to '{}' before switching?".format(self.loadedTasks[self.selection]["Task"]))
+                                               message = "Do you want to save your changes to '{}' before switching?".format(self.loadedTasks[self.lb.selection]["Task"]))
       if selection is True:
         self.save()
       elif selection is None:
@@ -724,7 +530,7 @@ class TaskListWindow():
       if self.timing:
         self.entryBoxes["Category"].focus()
         selection = tk.messagebox.askyesnocancel(title="Save before switching?",
-                                                 message="Do you want to save the timer for '{}' before switching?".format(self.loadedTasks[self.selection]["Task"]))
+                                                 message="Do you want to save the timer for '{}' before switching?".format(self.loadedTasks[self.lb.selection]["Task"]))
         if selection is True:
           pass
         elif selection is None:
@@ -746,19 +552,7 @@ class TaskListWindow():
     self.clearEntryBoxes()
     self.notify("Creating new entry")
     self.lb.selection_clear(0,'end')
-    self.selection = None
-
-  #Lets you scroll with arrow keys
-  def onDown(self, event):
-    if self.selection < self.lb.size() - 1:
-      self.lb.select_clear(self.selection)
-      self.selectListboxItem(self.selection + 1)
-
-  #Lets you scroll with arrow keys
-  def onUp(self, event):
-    if self.selection > 0:
-      self.lb.select_clear(self.selection)
-      self.selectListboxItem(self.selection - 1)
+    self.lb.selection = None
 
   #Bound to the Tab key for Text box, so that it will cycle widgets instead of inserting a tab character
   def focusNextWidget(self, event):
@@ -802,23 +596,24 @@ class TaskListWindow():
     # todo would be better to keep track of the actual rowid rather than just the selection index
     self.messageLabel.config(text="")
     try:
-      if self.selection != self.lb.curselection()[0]:
+      if self.lb.selection != self.lb.curselection()[0]:
         if self.confirmDiscardChanges():
           if self.confirmCancelTimer():
-            self.selection = self.lb.curselection()[0]
+            self.lb.selection = self.lb.curselection()[0]
           else:
+            # TODO wtf lol
             raise PermissionError
 
           #todo this could be a function "update entryBoxes" or something
           for (header, entry) in [(header, self.entryBoxes[header]) for header in self.editColumns]:
             if header == "Flex":
-              entry.set(self.loadedTasks[self.selection][header])
+              entry.set(self.loadedTasks[self.lb.selection][header])
             else:
-              self.overwriteEntryBox(entry, self.loadedTasks[self.selection][header])
+              self.overwriteEntryBox(entry, self.loadedTasks[self.lb.selection][header])
 
-          self.checkDone.set(self.loadedTasks[self.selection]["O"])
+          self.checkDone.set(self.loadedTasks[self.lb.selection]["O"])
       if not self.timing:
-        self.timeLabel.config(text=str(datetime.timedelta(minutes=(self.loadedTasks[self.selection]["Used"] or 0))))
+        self.timeLabel.config(text=str(datetime.timedelta(minutes=(self.loadedTasks[self.lb.selection]["Used"] or 0))))
 
     except IndexError:
       #This happens when you select into the entry boxes
@@ -831,7 +626,7 @@ class TaskListWindow():
     self.refreshCategories()
     self.refreshFilterCategories()
     self.updateLoadsToday()
-    self.updateCalendar()
+    self.calendarFrame.updateCalendar(self.db.getTasks4Workload())
     self.refreshTasks()
 
   def notify(self, msg):
@@ -915,69 +710,6 @@ class TaskListWindow():
 
     return newRowDict
 
-  def calculateDayLoads(self):
-    # Get a list of all unfinished tasks with start dates no more than self.numweeks in the future, sorted from soonest due date to latest
-    today = todayDate()
-    thisFriday = today - datetime.timedelta(days=today.weekday() + 4)
-    lastRenderedDate = thisFriday + datetime.timedelta(weeks=self.numweeks-1)
-    endDate = date2YMDstr(lastRenderedDate)
-    relevantTasks = self.db.getTasks4Workload(endDate)
-
-    # Iterate over the list of tasks (starting from soonest due date), distributing time evenly (each day gets time remaining / # days remaining) over days from max(today, start date) to due date. If adding time would push day over 8 hours, only add up to 8 hours, and withold extra time within the task.
-    self.dayLoads = {}
-    # TODO this code ignores work start time and lunch break, i.e. at midnight it will assume there are 16 hours of work left today, and at 7 AM it will assume there are 9
-    # todo another way to do this would be to save how many hours of work are due today and to subtract the number of hours of tracked work. That would avoid rewarding with less work remaining simply because time has passed.
-    # calculates the time (in hours) remaining until 4 PM system time, because I work an hour ahead (i.e. 4 PM system time is 5 PM my time)
-    hoursLeftToday = max(0, 16 - (datetime.datetime.now().hour + datetime.datetime.now().minute/60))
-    for task in relevantTasks:
-      # todo around here would be a decent place to do recursion. A function like def distributeTimeOverRange(time, range)
-      remainingLoad = task["Left"]
-      startDate = max(today, YMDstr2date(task["NextAction"]))
-      dateRange = [startDate + datetime.timedelta(days=n) for n in range(0, daysBetween(date2YMDstr(startDate), task["DueDate"]) + 1)]
-
-      for thisDay in dateRange:
-        maxHours = (6 if thisDay != today else hoursLeftToday)
-        if np.is_busday(thisDay):
-          # TODO This needs to change once the overflow code down below is fixed. This backloads time by squishing extra time away, rather than distributing evenly or optimally. Note that this does not OPTIMALLY backload time, it simply backloads relative to an even distribution.
-          # TODO would also be better to individually count work days in the range. This assumes that no days are missing from the range (such as if they had been previously excluded because of being full)
-          # todo would be nice if could switch between workload distribution modes - i.e.:
-          #    - evenload: spread the work as evenly as possible over available days
-          #      This is the system I've been using up to now, but with the added max work per day cap.
-          #      evenload could be implemented as described in the TODOs above:
-          #      allocate time evenly across available days. When even distribution would overwhelm a day, remove it from the list and continue at same rate. At the end, divide the remaining time and repeat over the rnage (with the overwhelmed day removed). 
-          #    - A frontload mode that pushes as much work to the front of availability as possible, without exceeding daily cap.
-          #      This would be useful to show the amount of work available (when will I need to start looking for more projects?)
-          #      This frontload mode is essentially what I have been working towards, as it is best at guaranteeing that tasks are completed.
-          #      This could be implemented by, for each task, starting from soonest due, allocating as much time as possible to each day from first available, until task is complete, without exceeding daily max.
-          #    - A backload mode to push work as far as possible while still completing all tasks.
-          #      This would visualize how crunched I actually am. 
-          #      backload is useful because it lets me know whether my time this week is actually full, or if I could move things around to take on more work.
-          #      This could be implemented by, for each task starting from soonest due, allocating as much time as possible to each day from last available, until task is complete, without exceeding daily max.
-          loadDeposit = remainingLoad / workDaysBetween(thisDay, task["DueDate"])
-          # Do not push a day over 8 hours
-          try:
-              loadDeposit = min(max(maxHours*60 - self.dayLoads[date2YMDstr(thisDay)], 0), loadDeposit)
-              self.dayLoads[date2YMDstr(thisDay)] += loadDeposit
-          except KeyError:
-              # If this day has no load assigned to it yet, there will not be an entry in the dict and a key error will occur
-              loadDeposit = min(maxHours*60, loadDeposit)
-              self.dayLoads[date2YMDstr(thisDay)] = loadDeposit
-
-          remainingLoad -= loadDeposit
-
-        # TODO If time remains (i.e. one or more days was maxed out to 8 hours), distribute remaining time evenly over all tasks (TODO: doing it recursively, noting the number of days maxed out and using a new quotient to calculate average load each time would be better, although you would need an end condition other than "all time distributed" since it's not guaranteed that all days can be kept to 8 hours or less with this method).
-          if date2YMDstr(thisDay) == task["DueDate"] and remainingLoad != 0:
-            self.dayLoads[date2YMDstr(thisDay)] += remainingLoad
-            remainingLoad = 0 # unecessary but comforts me
-
-  # Gets the work load for the day represented by the passed string
-  #date should be a string formatted "YYYY-MM-DD"
-  def getDayTotalLoad(self, date):
-    # Will raise an error if date is poorly formatted
-    YMDstr2date(date)
-
-    return self.dayLoads[date]
-
   ######################################################
   # Task functions
 
@@ -989,7 +721,7 @@ class TaskListWindow():
 
   #Deletes the task selected in the listbox from the database
   def deleteSelected(self, event=tk.Event):
-    taskToDelete = self.loadedTasks[self.selection]
+    taskToDelete = self.loadedTasks[self.lb.selection]
     try:
       deleted = False
       if not self.multiEdit.get():
@@ -1021,7 +753,7 @@ class TaskListWindow():
         self.refreshTasks()
 
         #Prevents listbox from grabbing focus and selecting first task
-        self.selection = -1
+        self.lb.selection = -1
 
     except TypeError:
       self.notify("Cannot delete - none selected")
@@ -1030,7 +762,7 @@ class TaskListWindow():
   def save(self, event=tk.Event()):
     if self.confirmCancelTimer():
       try:
-        if self.selection is None:
+        if self.lb.selection is None:
           self.createTaskFromInputs()
         else:
           self.updateSelectedTask()
@@ -1071,7 +803,6 @@ class TaskListWindow():
           raise ValueError
       except:
         raise ValueError("Invalid repetition count")
-
     else:
       #Creating single task
       # 1 task, with no offset
@@ -1131,13 +862,13 @@ class TaskListWindow():
 
   def getChanges(self):
     changes = []
-    if self.selection in [None, -1]:
+    if self.lb.selection in [None, -1]:
       pass
     else:
       #Find which columns were changed and how
 
       newRow = {}
-      oldRow = dict(self.loadedTasks[self.selection])
+      oldRow = dict(self.loadedTasks[self.lb.selection])
 
       for (header, old) in [(header, oldRow[header]) for header in self.db.headers]:
         if header in self.editColumns + ["O"]:
@@ -1204,7 +935,7 @@ class TaskListWindow():
       if self.multiEdit.get():
         criteria = self.getSearchCriteria()
       else:
-        criteria = ["rowid = {}".format(self.loadedTasks[self.selection]["rowid"])]
+        criteria = ["rowid = {}".format(self.loadedTasks[self.lb.selection]["rowid"])]
 
         # todo messy
         # Dump the time worked to external time tracker
@@ -1212,7 +943,7 @@ class TaskListWindow():
             if change.find("Used") != -1:
                 timediff = int(re.findall(r"(\d+)", change)[0])
                 with open("timesheet.csv", "a") as f:
-                    f.write("{}, {}, {}, {}\n".format(todayStr(), self.loadedTasks[self.selection]["Category"], timediff, self.loadedTasks[self.selection]["Task"]))
+                    f.write("{}, {}, {}, {}\n".format(todayStr(), self.loadedTasks[self.lb.selection]["Category"], timediff, self.loadedTasks[self.lb.selection]["Task"]))
 
       self.db.updateTasks(criteria, changes)
 
@@ -1225,10 +956,10 @@ class TaskListWindow():
 
   def duplicateTask(self):
 
-    oldSelection = self.selection
-    self.selection = None
+    oldSelection = self.lb.selection
+    self.lb.selection = None
     self.save()
-    self.selectListboxItem(oldSelection)
+    self.lb.selectListboxItem(oldSelection)
     self.notify("Duplicated task")
 
   #scans all tasks and updates using calculateRow()
@@ -1260,10 +991,6 @@ class TaskListWindow():
 
 class DatabaseManager():
   def __init__(self, databasePath):
-    self.connect(databasePath)
-    self.databasePath = databasePath
-
-  def connect(self, databasePath):
     self.conn = sqlite3.connect(databasePath)
     self.conn.row_factory = sqlite3.Row
 
@@ -1296,18 +1023,8 @@ class DatabaseManager():
 
     return tasks
 
-  def backup(self):
-    #Strips '.db', inserts the -date and re-adds .db
-    path = self.databasePath[:-3] + "-" + todayStr() + ".db"
-    # Different system call for linux vs. Windows. Never tried running on Mac, but the first would probably work b/c *nix
-    if sys.platform == "linux":
-      subprocess.run(["cp", self.databasePath, path])
-    else:
-      subprocess.run(["copy", self.databasePath, path], shell=True)
-    return "Database backed up to: {}".format(path)
-
-  def getTasks4Workload(self, endDate):
-    self.cwrite.execute("SELECT NextAction, DueDate, Left FROM worklist WHERE O == 'O' AND NextAction <= ? ORDER BY DueDate;", [endDate])
+  def getTasks4Workload(self):
+    self.cwrite.execute("SELECT NextAction, DueDate, Left FROM worklist WHERE O == 'O' ORDER BY DueDate;")
     return self.cwrite.fetchall()
 
   #Updates the categories in the category filter
@@ -1362,14 +1079,267 @@ class DatabaseManager():
 
     self.cwrite.execute(command)
 
+# todo put the next action / due date at a specific time?
+# todo add buttons to scroll the calendar forward week-by-week
+# todo Days of the week shown should be user-configurable (M-F vs. student schedule lol, or freelance).
+# eg. thisDay["LoadLabel"].bind("<Button-1>", CALLBACK)
+# Set up the calendar display to show estimated workload each day for a several week forecast
+class Calendar(tk.Frame):
+  def __init__(self, parentFrame, parentFont, dateCallback):
+    tk.Frame.__init__(self, parentFrame)
+
+    self.numweeks = 4
+    self.dateCallback = dateCallback
+
+    #Build the calendar out of labels
+    self.calendar = []
+
+    #Add day of week names at top, but won't change so don't save
+    for i, day in enumerate(["Mon", "Tue", "Wed", "Thu", "Fri"]):
+      tk.Label(self, font=parentFont + ("bold",), text=day).grid(row=0, column=i, padx=4, pady=4)
+
+    for week in range(self.numweeks):
+      thisWeek = []
+      for day in range(5):
+        thisDay = {}
+        # todo *Sometimes* this significantly slows boot time. Could maybe cut down on labels by having dates all in a row for each week, but lining up with loads could be tricky. First row changes colour, so could do each date row below the first as a multi-column label.
+        #Alternate date labels and workloads
+        thisDay["DateLabel"] = tk.Label(self, font=parentFont)
+        thisDay["DateLabel"].grid(row=2*week + 1, column=day, padx=4, pady=4)
+        thisDay["LoadLabel"] = tk.Label(self, font=parentFont)
+        thisDay["LoadLabel"].grid(row=2*week + 2, column=day, padx=4, pady=4)
+        thisWeek.append(thisDay)
+      self.calendar.append(thisWeek)
+
+  def updateCalendar(self, openTasks):
+
+    self.calculateDayLoads(openTasks)
+
+    today = todayDate()
+    thisMonday = today - datetime.timedelta(days=today.weekday())
+    hoursLeftToday = max(0, min(7, 16 - (datetime.datetime.now().hour + datetime.datetime.now().minute/60)))
+    for week in range(self.numweeks):
+      for day in range(5):
+        thisDay = self.calendar[week][day]
+        thisDate = thisMonday + datetime.timedelta(days=day, weeks=week)
+        thisDay["Date"] = thisDate
+        thisDay["DateLabel"].bind("<Button-1>", lambda event, a = thisDay["Date"]: self.dateCallback(a))
+        thisDay["LoadLabel"].bind("<Button-1>", lambda event, a = thisDay["Date"]: self.dateCallback(a))
+        thisDay["DateLabel"].config(text=thisDate.strftime("%b %d"))
+        if thisDate == today:
+          thisDay["DateLabel"].config(bg="lime")
+        else:
+          thisDay["DateLabel"].config(bg="#d9d9d9")
+        if thisDate >= today:
+          hoursThisDay = self.getDayTotalLoad(date2YMDstr(thisDate)) / 60
+          thisDay["LoadLabel"].config(text=str(round(hoursThisDay,1)),
+                                      bg=greenRedScale(0,(7 if thisDate != today else max(0.1, hoursLeftToday)),hoursThisDay))
+        else:
+          thisDay["LoadLabel"].config(text="", bg="#d9d9d9")
+
+  def calculateDayLoads(self, openTasks):
+    # Get a list of all unfinished tasks with start dates no more than self.numweeks in the future, sorted from soonest due date to latest
+    today = todayDate()
+    thisFriday = today - datetime.timedelta(days=today.weekday() + 4)
+    lastRenderedDate = thisFriday + datetime.timedelta(weeks=self.numweeks-1)
+    endDate = date2YMDstr(lastRenderedDate)
+    relevantTasks = [task for task in openTasks if task["NextAction"] <= endDate]
+
+    # Iterate over the list of tasks (starting from soonest due date), distributing time evenly (each day gets time remaining / # days remaining) over days from max(today, start date) to due date. If adding time would push day over 8 hours, only add up to 8 hours, and withold extra time within the task.
+    self.dayLoads = {}
+    # TODO this code ignores work start time and lunch break, i.e. at midnight it will assume there are 16 hours of work left today, and at 7 AM it will assume there are 9
+    # todo another way to do this would be to save how many hours of work are due today and to subtract the number of hours of tracked work. That would avoid rewarding with less work remaining simply because time has passed.
+    # calculates the time (in hours) remaining until 4 PM system time, because I work an hour ahead (i.e. 4 PM system time is 5 PM my time)
+    hoursLeftToday = max(0, 16 - (datetime.datetime.now().hour + datetime.datetime.now().minute/60))
+    for task in relevantTasks:
+      # todo around here would be a decent place to do recursion. A function like def distributeTimeOverRange(time, range)
+      remainingLoad = task["Left"]
+      startDate = max(today, YMDstr2date(task["NextAction"]))
+      dateRange = [startDate + datetime.timedelta(days=n) for n in range(0, daysBetween(date2YMDstr(startDate), task["DueDate"]) + 1)]
+
+      for thisDay in dateRange:
+        maxHours = (6 if thisDay != today else hoursLeftToday)
+        if np.is_busday(thisDay):
+          # TODO This needs to change once the overflow code down below is fixed. This backloads time by squishing extra time away, rather than distributing evenly or optimally. Note that this does not OPTIMALLY backload time, it simply backloads relative to an even distribution.
+          # TODO would also be better to individually count work days in the range. This assumes that no days are missing from the range (such as if they had been previously excluded because of being full)
+          # todo would be nice if could switch between workload distribution modes - i.e.:
+          #    - evenload: spread the work as evenly as possible over available days
+          #      This is the system I've been using up to now, but with the added max work per day cap.
+          #      evenload could be implemented as described in the TODOs above:
+          #      allocate time evenly across available days. When even distribution would overwhelm a day, remove it from the list and continue at same rate. At the end, divide the remaining time and repeat over the range (with the overwhelmed day removed).
+          #    - A frontload mode that pushes as much work to the front of availability as possible, without exceeding daily cap.
+          #      This would be useful to show the amount of work available (when will I need to start looking for more projects?)
+          #      This frontload mode is essentially what I have been working towards, as it is best at guaranteeing that tasks are completed.
+          #      This could be implemented by, for each task, starting from soonest due, allocating as much time as possible to each day from first available, until task is complete, without exceeding daily max.
+          #    - A backload mode to push work as far as possible while still completing all tasks.
+          #      This would visualize how crunched I actually am.
+          #      backload is useful because it lets me know whether my time this week is actually full, or if I could move things around to take on more work.
+          #      This could be implemented by, for each task starting from soonest due, allocating as much time as possible to each day from last available, until task is complete, without exceeding daily max.
+          loadDeposit = remainingLoad / workDaysBetween(thisDay, task["DueDate"])
+          # Do not push a day over 8 hours
+          try:
+              loadDeposit = min(max(maxHours*60 - self.dayLoads[date2YMDstr(thisDay)], 0), loadDeposit)
+              self.dayLoads[date2YMDstr(thisDay)] += loadDeposit
+          except KeyError:
+              # If this day has no load assigned to it yet, there will not be an entry in the dict and a key error will occur
+              loadDeposit = min(maxHours*60, loadDeposit)
+              self.dayLoads[date2YMDstr(thisDay)] = loadDeposit
+
+          remainingLoad -= loadDeposit
+
+        # TODO If time remains (i.e. one or more days was maxed out to 8 hours), distribute remaining time evenly over all tasks (TODO: doing it recursively, noting the number of days maxed out and using a new quotient to calculate average load each time would be better, although you would need an end condition other than "all time distributed" since it's not guaranteed that all days can be kept to 8 hours or less with this method).
+          if date2YMDstr(thisDay) == task["DueDate"] and remainingLoad != 0:
+            self.dayLoads[date2YMDstr(thisDay)] += remainingLoad
+            remainingLoad = 0 # unecessary but comforts me
+
+  # Gets the work load for the day represented by the passed string
+  #date should be a string formatted "YYYY-MM-DD"
+  def getDayTotalLoad(self, date):
+    # Will raise an error if date is poorly formatted
+    YMDstr2date(date)
+
+    try:
+      return self.dayLoads[date]
+    except KeyError:
+      return 0;
+
+class DateEntry(tk.Entry):
+  def __init__(self, parentFrame, notificationFunc):
+    tk.Entry.__init__(self, parentFrame)
+    self.notify = notificationFunc
+    self.bind("<Tab>", self.convertDate)
+
+  def convertDate(self, event=tk.Event):
+    box = event.widget
+    dateStr = box.get()
+    convertedDate = ""
+
+    try:
+      YMDstr2date(dateStr)
+      convertedDate = dateStr
+    except ValueError:
+      try:
+        #eg. Jan 1, 21
+        convertedDate = date2YMDstr(datetime.datetime.strptime(dateStr, "%b %d, %y"))
+      except ValueError:
+        #Date string doesn't match
+        try:
+          #Try to add the current year
+          #eg. Jan 1
+          convertedDate = date2YMDstr(datetime.datetime.strptime(dateStr, "%b %d").replace(year = todayDate().year))
+        except ValueError:
+          #Date really doesn't match
+          self.notify("Can't match date format of {}".format(dateStr))
+          return
+
+    box.delete(0, tk.END)
+    box.insert(0, convertedDate)
+
+class TaskList(tk.Listbox):
+  def __init__(self, parentFrame, parentFont, onSelect, onDoubleClick):
+    tk.Listbox.__init__(self, parentFrame,
+                        selectmode=tk.SINGLE,
+                        width = 140,
+                        height=10,
+                        font=parentFont,
+                        selectbackground="SteelBlue1")
+
+    #Get these columns from the database
+    self.displayColumns = ["Category", "O", "Task", "Time", "Used", "Left", "NextAction", "DueDate", "Flex", "Load"]
+
+    #Headers for the Listbox
+    self.headerLabel = tk.Label(parentFrame, text="", font=parentFont)
+    self.headerLabel.grid(sticky="W")
+    self.grid(sticky="W")
+
+    #The Listbox that allows us to view & select different tasks
+
+    self.onSelect = onSelect
+    self.selection = None
+
+    #Lets you scroll with arrow keys
+    self.bind("<Down>", self.onDown)
+    self.bind("<j>", self.onDown)
+    self.bind("<Up>", self.onUp)
+    self.bind("<k>", self.onUp)
+    self.bind("<<ListboxSelect>>", self.onSelect)
+    self.bind("<FocusIn>", self.selectFirst)
+    self.bind("<Double-1>", onDoubleClick)
+    self.bind("<Return>", onDoubleClick)
+
+    self.recordLabel = tk.Label(parentFrame, text="")
+    self.recordLabel.grid(sticky="E")
+
+  #Updates the listbox with the loaded tasks
+  def showTasks(self, loadedTasks):
+    #Max length of any item in each column, including headers
+    self.maxlens = [max([len(str(row[column])) for row in loadedTasks] + [len(column)]) for column in self.displayColumns]
+    #Forces these two to 50 to try and maintain some order
+    self.maxlens[self.displayColumns.index("Task")] = 60
+
+    #Adjust the listbox to be wide enough
+    self.config(width=sum(self.maxlens) + len(self.maxlens) * 3)
+
+    self.recordLabel.config(text=str(len(loadedTasks)) + " tasks found")
+
+    #Create the header text
+    headerline = ""
+    for header, length in zip(self.displayColumns, self.maxlens):
+      headerline += header.center(length) + " | "
+    headerline = headerline[:-2]
+    self.headerLabel.config(text = headerline)
+
+    #delete tasks and reinsert
+    self.delete(0,'end')
+    for task in loadedTasks:
+      line = ""
+      for (header,length) in zip(self.displayColumns, self.maxlens):
+        try:
+          line += YMDstr2date(str(task[header])).strftime("%b %d, %y").ljust(length) + " | "
+        except ValueError:
+          line += ljusttrunc(str(task[header]), length) + " | "
+      line = line[:-2]
+
+      self.insert(tk.END,line)
+      #Colour-coding!
+      try:
+        self.itemconfig(tk.END, {'bg': greenRedScale(0, 60, task["Load"])})
+      except TypeError:
+        #Fails for items where Load is None, eg. completed, not yet active
+        pass
+
+  def resetListboxSelection(self):
+    self.selection_clear(0,'end')
+    self.select_set(self.selection)
+
+  #Lets you scroll with arrow keys
+  def onDown(self, event):
+    if self.selection < self.size() - 1:
+      self.select_clear(self.selection)
+      self.selectListboxItem(self.selection + 1)
+
+  #Lets you scroll with arrow keys
+  def onUp(self, event):
+    if self.selection > 0:
+      self.select_clear(self.selection)
+      self.selectListboxItem(self.selection - 1)
+
+  #When the listbox gains focus, select the first item
+  def selectFirst(self, event=tk.Event):
+    if self.selection is None:
+      self.selectListboxItem(0)
+
+  #Pretty self explanatory. Used because select_set doesn't trigger <<ListboxSelect>> event
+  def selectListboxItem(self, item):
+    self.select_set(item)
+    self.onSelect()
+
 def main():
   if len(sys.argv) > 1:
-    taskWindow = TaskListWindow(sys.argv[1])
-    taskWindow.runLoop()
+    worklist = WorklistWindow(sys.argv[1])
   elif os.path.isfile("worklist.db"):
     #default
-    taskWindow = TaskListWindow("worklist.db")
-    taskWindow.runLoop()
+    worklist = WorklistWindow("worklist.db")
   else:
     print("No worklist found and none specified.\nCreating new worklist.db")
     conn = sqlite3.connect("worklist.db")
@@ -1377,8 +1347,7 @@ def main():
     # todo a better name for "Load" would be "CurrentLoad"
     cur.execute("CREATE TABLE worklist('Category' TEXT,'O' TEXT,'Task' TEXT,'Budget' INTEGER,'Time' INTEGER,'Used' INTEGER,'Left' INTEGER,'StartDate' TEXT,'NextAction' TEXT,'DueDate' TEXT,'Flex' TEXT,'DaysLeft' INTEGER,'TotalLoad' REAL,'Load' REAL,'Notes' TEXT,'DateAdded' TEXT)")
     cur.close()
-    taskWindow = TaskListWindow("worklist.db")
-    taskWindow.runLoop()
+    worklist = WorklistWindow("worklist.db")
 
 #Like .ljust, but truncates to length if necessary
 def ljusttrunc(text, length):
