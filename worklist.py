@@ -1021,7 +1021,10 @@ class TaskScroller(ScrollFrame):
     def unhighlightAndSelectTask(self, task):
         # todo would be more performant to track the highlighted row and only unhighlight that one
         for tr in self.taskRows:
-            tr.unhighlight()
+            if tr.rowid == task["rowid"]:
+                tr.highlight()
+            else:
+                tr.unhighlight()
 
         self.selectTask(task)
 
@@ -1029,6 +1032,8 @@ class TaskRow(tk.LabelFrame):
     def __init__(self, parentFrame, task, select):
         super().__init__(parentFrame)
         self.select = select
+        self.rowid = task["rowid"]
+
         self.taskName = tk.Label(self, text=task["Task"])
         self.taskName.grid(row=0, column=0, sticky = tk.W)
 
@@ -1084,6 +1089,10 @@ def main():
     """)
     cur.close()
     worklist = WorklistWindow("worklist.db")
+
+###############################
+# Utilities
+###############################
 
 #Like .ljust, but truncates to length if necessary
 def ljusttrunc(text, length):
