@@ -2,7 +2,7 @@
 
 import sqlite3
 import tkinter as tk
-import tkinter.ttk
+import tkinter.ttk as ttk
 from tkinter import messagebox
 import datetime
 import time
@@ -10,6 +10,7 @@ import sys, os
 import numpy as np
 import re
 from dateutil.relativedelta import relativedelta
+import platform
 
 ###########################################
 #Readability / coding style / maintainability
@@ -64,9 +65,12 @@ class WorklistWindow():
 
     self.setupFrames()
     self.loadTasks()
-    self.setupFilters()
 
-    self.lb = TaskList(self.taskDisplayFrame, self.font, self.onSelect, lambda event: self.timeButton.invoke())
+    recordLabel = tk.Label(self.taskDisplayFrame, text="")
+    self.scroller = TaskScroller(self.taskDisplayFrame, self.selectTask, recordLabel)
+    self.scroller.pack(side=tk.TOP, fill="both", expand="true")
+    recordLabel.pack(side=tk.BOTTOM)
+    recordLabel.pack(side=tk.RIGHT)
 
     #Setup the lower half of the window
     self.setupTimer()
@@ -85,24 +89,16 @@ class WorklistWindow():
   def setupFrames(self):
 
     # Frame to hold the tasklist display and associated frames and widgets
-    self.taskDisplayFrame = tk.Frame(self.root)
-    self.taskDisplayFrame.grid(pady=self.padscale * 4, padx=self.padscale * 4)
-
-    # Frame for the filters above the listbox displaying tasks
-    self.filterFrame = tk.Frame(self.taskDisplayFrame)
-    self.filterFrame.grid(sticky="W", pady=self.padscale * (6,2), padx=self.padscale * 2)
+    self.taskDisplayFrame = tk.LabelFrame(self.root, text="Tasks", padx=self.padscale*4, pady=self.padscale*4)
+    self.taskDisplayFrame.grid(row=0, column=0, pady=self.padscale * 4, padx=self.padscale * 4, sticky=tk.N+tk.S+tk.E+tk.W)
 
     # Frame for all the buttons and boxes below the tasklist pane
     self.interactiveFrame = tk.Frame(self.root)
-    self.interactiveFrame.grid(pady=self.padscale * 4)
+    self.interactiveFrame.grid(row=0, column=1, pady=self.padscale * 4)
 
     # Frame for the calendar
-    self.calendarFrame = Calendar(self.interactiveFrame, self.font, self.filterDate)
-    self.calendarFrame.grid(row=0, column=3, pady=self.padscale * 4, padx=self.padscale * 4)
-
-    # Timer and its button
-    self.timerFrame = tk.Frame(self.interactiveFrame)
-    self.timerFrame.grid(row=0, column=0, padx=self.padscale * [0,30])
+    self.calendarFrame = Calendar(self.interactiveFrame, self.font)
+    self.calendarFrame.grid(row=0, column=3, pady=self.padscale * 4, padx=self.padscale * 4, sticky=tk.S)
 
     # Entry boxes and labels
     self.entryFrame = tk.Frame(self.interactiveFrame)
@@ -112,67 +108,28 @@ class WorklistWindow():
     self.entryButtonFrame = tk.Frame(self.interactiveFrame)
     self.entryButtonFrame.grid(row=1, column=1)
 
+    # Timer and its button
+    self.timerFrame = tk.Frame(self.entryButtonFrame)
+    self.timerFrame.grid(row=0, column=1, padx=self.padscale * [0,30])
+
     # The buttons to the right of the entry boxes, eg. backup
     self.adminButtonFrame = tk.Frame(self.interactiveFrame)
     self.adminButtonFrame.grid(row=0, column=2, padx=self.padscale * 4)
 
-  def setupFilters(self):
-    #Add filters at top
-    self.filterBoxes = {}
-
-    #Get categories
-    self.catBox = tk.ttk.Combobox(self.filterFrame)
-    self.catBox.bind("<KeyRelease>", lambda event: [self.completeBox(event, self.categories), self.refreshTasks()])
-    self.filterBoxes["Category"] = [" LIKE ", self.catBox]
-
-    #Finished/unfinished filter
-    self.statusBox = tk.ttk.Combobox(self.filterFrame, values=["Any", "O", "X"], state="readonly")
-    self.filterBoxes["O"] = [" == ", self.statusBox]
-
-    #Task name search box
-    self.searchBox = tk.Entry(self.filterFrame, width=25)
-    self.searchBox.bind("<KeyRelease>", self.refreshTasks)
-    self.filterBoxes["Task"] = [" LIKE ", self.searchBox]
-
-    #Filter for available work vs. all
-    self.availableBox = tk.ttk.Combobox(self.filterFrame,
-                                        values=["Any Availability", "Available Now"],
-                                        state="readonly")
-    self.filterBoxes["NextAction"] = [" <= ", self.availableBox]
-
-    self.refreshFilterCategories()
-    self.refreshCategories()
-    self.setDefaultFilters()
-
-    #Bind so new selection refreshes, set width and pad, pack
-    for (header, [operator, filterBox]) in list(self.filterBoxes.items()):
-      # Task search box is already configured
-      if header != "Task":
-        filterBox.config(width=max([len(val) for val in filterBox["values"]]))
-        filterBox.bind("<<ComboboxSelected>>", self.refreshTasks)
-        filterBox.bind("<FocusOut>", self.clearComboHighlights)
-
-      filterBox.pack(side=tk.LEFT, padx=self.padscale * 3)
-
-    #Button to reset to default filters
-    self.defaultFiltersButton = tk.Button(self.filterFrame,
-                                          text="Reset Filters",
-                                          command = self.resetFilters)
-    self.defaultFiltersButton.pack(side=tk.LEFT, padx=self.padscale * 3)
-
-
   def setupTimer(self):
     #Timer and button to start/stop
     self.timeLabel = tk.Label(self.timerFrame, text="0:00:00", font=self.font)
-    self.timeLabel.grid()
+    self.timeLabel.grid(row=0, column=1)
 
     self.timeButton = tk.Button(self.timerFrame, text="Start", command=self.toggleTimer)
-    self.timeButton.grid()
+    self.timeButton.grid(row=0, column=0)
     self.timeButton.bind("<Return>", self.toggleTimer)
     self.timing = False
 
   def setupEntryBoxes(self):
     self.editColumns = ["Category", "Task", "Time", "Used", "NextAction", "DueDate", "Flex", "Notes"]
+
+    self.selection = None
 
     self.entryBoxes = {}
     self.entryLabels = {}
@@ -194,7 +151,7 @@ class WorklistWindow():
                                                   state="readonly")
         self.entryBoxes[header].bind("<FocusOut>", self.clearComboHighlights)
       elif header == "Notes":
-        self.entryBoxes[header] = tk.Text(self.entryFrame, height=10, wrap="word")
+        self.entryBoxes[header] = tk.Text(self.entryFrame, height=20, wrap="word")
         self.entryBoxes[header].bind("<Tab>", self.focusNextWidget)
       else:
         if header in ["DueDate", "NextAction"]:
@@ -217,148 +174,38 @@ class WorklistWindow():
 
   def setupButtons(self):
     #Add buttons to interact
-    self.saveButton = tk.Button(self.entryButtonFrame, text="Save Task", command=self.save)
-    self.saveButton.grid(row=0, column=1)
+    self.saveButton = tk.Button(self.entryButtonFrame, text="Save", command=self.save)
+    self.saveButton.grid(row=0, column=2)
     self.saveButton.bind("<Return>", self.save)
 
-    self.newTaskButton = tk.Button(self.entryButtonFrame, text="New Task", command = self.newTask)
-    self.newTaskButton.grid(row=0, column=2)
+    self.newTaskButton = tk.Button(self.entryButtonFrame, text="New", command = self.newTask)
+    self.newTaskButton.grid(row=0, column=3)
     self.newTaskButton.bind("<Return>", self.newTask)
 
     self.deleteButton = tk.Button(self.entryButtonFrame,
-                                  text="Delete Task",
-                                  command = self.deleteSelected)
-    self.deleteButton.grid(row=0, column=3)
-    self.deleteButton.bind("<Return>", self.deleteSelected)
+                                  text="Delete",
+                                  command = lambda e: self.deleteTask())
+    self.deleteButton.grid(row=0, column=4)
+    self.deleteButton.bind("<Return>", lambda e: self.deleteTask())
 
     self.messageLabel = tk.Label(self.interactiveFrame, text="")
     self.messageLabel.grid(column=0, columnspan=3)
 
     # todo doesn't really belong here. The multiedit stuff should probably move down below with the other task buttons too
     self.duplicateButton = tk.Button(self.adminButtonFrame,
-                                     text="Duplicate Task",
+                                     text="Duplicate",
                                      command=self.duplicateTask)
     self.duplicateButton.grid(sticky="W")
-
-    self.multiEdit = tk.IntVar()
-    self.multiEditButton = tk.Checkbutton(self.adminButtonFrame,
-                                          text="Edit multiple",
-                                          command = self.multiEditConfig,
-                                          variable=self.multiEdit,
-                                          onvalue=True,
-                                          offvalue=False)
-    self.multiEditButton.grid(sticky="W")
-
-    # todo because of where these two are, it's inconvenient to tab through when using the keyboard instead of a mouse
-    self.intervalBox = tk.ttk.Combobox(self.adminButtonFrame,
-                                       values=["", "Weekly", "Biweekly", "Monthly", "Annually"],
-                                       state="disabled")
-    self.intervalBox.grid(sticky="W")
-    self.intervalBox.bind("<FocusOut>", self.clearComboHighlights)
-
-    self.repetitionBox = tk.Entry(self.adminButtonFrame, width=2, state="disabled")
-    self.repetitionBox.grid(sticky="W")
 
   ######################################################
   # GUI update functions
 
   #Clears the annoying highlighting from all comboboxes
   def clearComboHighlights(self, event=tk.Event):
-    for header in ["Category","O","NextAction"]:
-      self.filterBoxes[header][1].selection_clear()
-
     for header in ["Category", "Flex"]:
       self.entryBoxes[header].selection_clear()
 
     self.intervalBox.selection_clear()
-
-  def resetFilters(self, eventy=tk.Event):
-    self.refreshAll()
-    self.setDefaultFilters()
-    self.refreshTasks()
-    if self.multiEdit.get():
-      self.multiEdit.set(False)
-      self.multiEditConfig()
-
-  #Sets filters to default
-  def setDefaultFilters(self, event=tk.Event):
-    self.catBox.current(0)
-    self.statusBox.current(1)
-    self.availableBox.current(1)
-    self.overwriteEntryBox(self.searchBox, "")
-
-  # todo there should be a manual filter box to filter by start/end date so that this is persistent and can be layered with other filters.
-  # Filter to only show tasks available on the passed date
-  def filterDate(self, date):
-    self.lb.selection = None
-    self.resetFilters()
-    criteria = ["O == 'O'", "NextAction <= '{}'".format(date2YMDstr(date)), "DueDate >= '{}'".format(date2YMDstr(date))]
-    self.loadTasks(criteria)
-    self.lb.showTasks(self.loadedTasks)
-
-  #Set up filters to match the selected task (ideally catching all of a repeating task)
-  def multiEditConfig(self):
-    if self.multiEdit.get():
-      #Enter special mode
-      self.timeButton.config(state="disabled")
-      self.entryBoxes["Used"].config(state="readonly")
-
-      if self.lb.selection is not None:
-        #Enter multiedit mode
-        self.previousSearch = self.searchBox.get()
-        self.overwriteEntryBox(self.searchBox, self.loadedTasks[self.lb.selection]["Task"])
-        self.catBox.set(self.loadedTasks[self.lb.selection]["Category"])
-        self.statusBox.current(1)
-        self.availableBox.current(0)
-
-        for widget in [self.catBox, self.statusBox, self.availableBox]:
-          widget.config(state="disabled")
-
-        self.refreshTasks()
-        self.notify("Multiedit mode")
-      else:
-        #If no task selected, go to repeating task mode
-        self.intervalBox.config(state="readonly")
-        self.repetitionBox.config(state="normal")
-        #Disable all widgets in the list
-        for widget in [item[1][1] for item in list(self.filterBoxes.items())] + [self.lb, self.defaultFiltersButton]:
-          widget.config(state="disabled")
-
-        self.notify("Repeating mode")
-    else:
-      #Return to normal mode
-      self.timeButton.config(state="normal")
-      self.entryBoxes["Used"].config(state="normal")
-
-      if self.lb.selection is not None:
-        #Leave multiedit mode
-        self.overwriteEntryBox(self.searchBox, self.previousSearch)
-        self.setDefaultFilters()
-
-        for widget in [self.statusBox, self.availableBox]:
-          widget.config(state="readonly")
-
-        self.catBox.config(state="normal")
-
-        self.refreshTasks()
-      else:
-        #Leave repeating mode
-        self.intervalBox.set("")
-        self.overwriteEntryBox(self.repetitionBox,"")
-
-        for widget in [self.intervalBox, self.repetitionBox]:
-          widget.config(state="disabled")
-
-        for widget in [self.lb, self.defaultFiltersButton, self.searchBox]:
-          widget.config(state="normal")
-
-        for widget in [item[1][1] for item in list(self.filterBoxes.items())]:
-          if widget not in [self.searchBox, self.catBox]:
-            widget.config(state="readonly")
-
-        self.catBox.config(state="normal")
-
-      self.notify("Normal mode")
 
   # todo timer should probably be its own class - turns out this is tougher than you'd expect because of the links between the time, entryboxes and tasklist
   def toggleTimer(self, event=tk.Event):
@@ -366,7 +213,7 @@ class WorklistWindow():
       self.timeButton.config(text="Stop")
       self.timing = True
       self.startTime = time.strftime("%H:%M:%S")
-      self.runTimer()
+      self.runTimer(self.selection)
     else:
       self.timeButton.config(text="Start")
       self.timing = False
@@ -377,7 +224,7 @@ class WorklistWindow():
         #Empty task
         pass
 
-  def runTimer(self):
+  def runTimer(self, task):
     timeFormat = "%H:%M:%S"
     if self.timing:
       # TODO would be better to handle this by accounting for date rather than just fudging the days
@@ -388,12 +235,12 @@ class WorklistWindow():
         runTime = runTime + datetime.timedelta(days=1)
 
       try:
-        if self.lb.selection is None:
+        if self.selection is None:
           raise ValueError("Cannot time an empty task")
         self.timerVal = (runTime
-                         + datetime.timedelta(minutes=(self.loadedTasks[self.lb.selection]["Used"] or 0)))
+                         + datetime.timedelta(minutes=(task["Used"] or 0)))
         self.timeLabel.config(text=str(self.timerVal))
-        self.root.after(1000, self.runTimer)
+        self.root.after(1000, lambda t=task: self.runTimer(t))
       except ValueError as e:
         self.notify(e)
         self.timerVal = None
@@ -432,109 +279,53 @@ class WorklistWindow():
           box.select_range(cursorPos, tk.END)
           box.icursor(tk.END)
 
-  #Updates the categories in the category filter
-  def refreshFilterCategories(self):
-    self.filterCategories = list(set([task["Category"] for task in self.loadedTasks]))
-    self.filterCategories.sort()
-    self.filterCategories = ["All categories"] + self.filterCategories
-    self.catBox.config(values=self.filterCategories)
-
-  # Updates the suggested categories in the category entrybox
-  def refreshCategories(self):
-    self.categories = self.db.getCategories()
-    try:
-      self.entryBoxes["Category"].config(values=self.categories)
-    except AttributeError:
-      #Fails on setup
-      pass
-
   def getSearchCriteria(self):
-
-    criteria = []
-
-    #Iterate over all stored filter boxes, adding their criteria
-    for (header, [operator, filterBox]) in list(self.filterBoxes.items()):
-
-      criterion = None
-      quote     = None
-
-      #If Task searchbox and has string, or if on non-null combobox option
-      if header in ["Category", "Task"]:
-        #These ifs have to be nested without and because we don't want header == "Task" but not filterBox.get() to fall through
-        if filterBox.get():
-          # Don't even bother when "Category" is "All"
-          if not (header == "Category" and not filterBox.current()):
-            # On multiedit, use exact matches only (unless you manually enter the % wildcard)
-            if self.multiEdit.get():
-              criterion = filterBox.get()
-              quote     = "'"
-            else:
-              criterion = filterBox.get()
-              quote     = "'%"
-      elif filterBox.current():
-        if header == "NextAction":
-          criterion = todayStr()
-          quote     = "'"
-        else:
-          criterion = filterBox.get()
-          quote     = "'"
-
-      if criterion is not None:
-        criteria.append(header + operator + surround(escapeSingleQuotes(criterion), quote))
-
-    return criteria
+    return ["O != 'X'"]
 
   def refreshTasks(self, event=tk.Event):
     #Remember which task was selected
-    if self.lb.selection not in [None, -1]:
-      self.selected_rowid = self.loadedTasks[self.lb.selection]["rowid"]
+    if self.selection != None:
+      self.selected_rowid = self.selection["rowid"]
 
     criteria = self.getSearchCriteria()
     self.loadTasks(criteria)
-    self.lb.showTasks(self.loadedTasks)
+    self.scroller.showTasks(self.loadedTasks)
 
-    if self.lb.selection not in [None, -1]:
-      #Find the previously selected task
+    if self.selection != None:
       previousSelection = None
       for i, task in enumerate(self.loadedTasks):
         if task["rowid"] == self.selected_rowid:
           previousSelection = i
           break
 
-      self.lb.selection = previousSelection
-
       if previousSelection is not None:
-        self.lb.selectListboxItem(self.lb.selection)
+        self.selection = self.loadedTasks[previousSelection]
+        self.scroller.unhighlightAndSelectTask(self.selection)
       else:
         self.clearEntryBoxes()
 
-    #Update the category filterbox to only show available categories
-    self.refreshFilterCategories()
-
-  def confirmDiscardChanges(self):
+  def confirmDiscardChanges(self, taskName):
     if self.nonTrivialChanges():
       selection = tk.messagebox.askyesnocancel(title="Save before switching?",
-                                               message = "Do you want to save your changes to '{}' before switching?".format(self.loadedTasks[self.lb.selection]["Task"]))
+                                               message = "Do you want to save your changes to '{}' before switching?".format(taskName))
       if selection is True:
         self.save()
       elif selection is None:
-        self.resetListboxSelection()
         return False
       else:
         self.notify("Discarded changes")
 
     return True
 
-  def confirmCancelTimer(self):
+  def confirmCancelTimer(self, taskName):
     try:
       if self.timing:
         self.entryBoxes["Category"].focus()
         selection = tk.messagebox.askyesnocancel(title="Save before switching?",
-                                                 message="Do you want to save the timer for '{}' before switching?".format(self.loadedTasks[self.lb.selection]["Task"]))
+                                                 message="Do you want to save the timer for '{}' before switching?".format(taskName))
         if selection is True:
           pass
         elif selection is None:
-          self.resetListboxSelection()
           return False
         else:
           self.timerVal = None
@@ -547,12 +338,9 @@ class WorklistWindow():
       pass
 
   def newTask(self, event=tk.Event):
-    #This needs to be here to prevent the message box from dumping us into self.lb on exit and calling onSelect()
-    self.entryBoxes["Category"].focus()
     self.clearEntryBoxes()
     self.notify("Creating new entry")
-    self.lb.selection_clear(0,'end')
-    self.lb.selection = None
+    self.scroller.unhighlightAndSelectTask(None)
 
   #Bound to the Tab key for Text box, so that it will cycle widgets instead of inserting a tab character
   def focusNextWidget(self, event):
@@ -560,7 +348,7 @@ class WorklistWindow():
     return("break")
 
   def clearEntryBoxes(self):
-    if self.confirmDiscardChanges():
+    if self.confirmDiscardChanges(self.selection["Task"]):
       try:
         #Nothing selected, just clear the box
         self.checkDone.set("O")
@@ -591,43 +379,39 @@ class WorklistWindow():
     if changeFlag:
       entry.config(state="readonly")
 
-  #Updates the entry boxes when a task is selected
-  def onSelect(self, event=tk.Event):
-    # todo would be better to keep track of the actual rowid rather than just the selection index
+  def selectTask(self, task):
     self.messageLabel.config(text="")
-    try:
-      if self.lb.selection != self.lb.curselection()[0]:
-        if self.confirmDiscardChanges():
-          if self.confirmCancelTimer():
-            self.lb.selection = self.lb.curselection()[0]
-          else:
-            # TODO wtf lol
-            raise PermissionError
+    if self.confirmDiscardChanges(task["Task"]) and self.confirmCancelTimer(task["Task"]):
 
-          #todo this could be a function "update entryBoxes" or something
-          for (header, entry) in [(header, self.entryBoxes[header]) for header in self.editColumns]:
-            if header == "Flex":
-              entry.set(self.loadedTasks[self.lb.selection][header])
-            else:
-              self.overwriteEntryBox(entry, self.loadedTasks[self.lb.selection][header])
+      #todo this could be a function "update entryBoxes" or something
+      for (header, entry) in [(header, self.entryBoxes[header]) for header in self.editColumns]:
+        if header == "Flex":
+          entry.set(task[header])
+        else:
+          self.overwriteEntryBox(entry, task[header])
 
-          self.checkDone.set(self.loadedTasks[self.lb.selection]["O"])
+      self.checkDone.set(task["O"])
+
+      self.selection = task
+
       if not self.timing:
-        self.timeLabel.config(text=str(datetime.timedelta(minutes=(self.loadedTasks[self.lb.selection]["Used"] or 0))))
-
-    except IndexError:
-      #This happens when you select into the entry boxes
-      pass
-    except PermissionError:
-      pass
+        self.timeLabel.config(text=str(datetime.timedelta(minutes=(task["Used"] or 0))))
 
   # todo the refresh message gets clobbered here somewhere
   def refreshAll(self, event=tk.Event):
     self.refreshCategories()
-    self.refreshFilterCategories()
     self.updateLoadsToday()
     self.calendarFrame.updateCalendar(self.db.getTasks4Workload())
     self.refreshTasks()
+
+  def refreshCategories(self):
+    self.categories = self.db.getCategories()
+    try:
+      self.entryBoxes["Category"].config(values=self.categories)
+    except AttributeError:
+      #Fails on setup
+      pass
+
 
   def notify(self, msg):
     try:
@@ -720,27 +504,15 @@ class WorklistWindow():
       self.notify("No tasks found")
 
   #Deletes the task selected in the listbox from the database
-  def deleteSelected(self, event=tk.Event):
-    taskToDelete = self.loadedTasks[self.lb.selection]
+  def deleteTask(self, task):
     try:
       deleted = False
-      if not self.multiEdit.get():
-        if(tk.messagebox.askyesno(title="Confirm deletion",
-                                  message="Are you sure you want to delete '{}'?".format(
-                                            taskToDelete["Task"]))):
-          self.db.deleteByRowid(taskToDelete["rowid"])
-          self.notify("Deleted '{}'".format(taskToDelete["Task"]))
-          deleted = True
-      else:
-        #Delete multi
-        if(tk.messagebox.askyesno(title="Confirm deletion",
-                                  message="This will DELETE ALL TASKS matching: '{}' in '{}'.\
-                                           Are you sure you want to proceed?".format(
-                                            taskToDelete["Task"],
-                                            taskToDelete["Category"]))):
-          self.db.deleteByNameCat(taskToDelete["Task"], taskToDelete["Category"])
-          self.notify("Deleted '{}'".format(taskToDelete["Task"]))
-          deleted = True
+      if(tk.messagebox.askyesno(title="Confirm deletion",
+                                message="Are you sure you want to delete '{}'?".format(
+                                          task["Task"]))):
+        self.db.deleteByRowid(task["rowid"])
+        self.notify("Deleted '{}'".format(task["Task"]))
+        deleted = True
 
       # Only need to do this if deleted a task
       if deleted:
@@ -752,17 +524,14 @@ class WorklistWindow():
         self.newTask()
         self.refreshTasks()
 
-        #Prevents listbox from grabbing focus and selecting first task
-        self.lb.selection = -1
-
     except TypeError:
       self.notify("Cannot delete - none selected")
 
   #Save the current state of the entry boxes for that task
   def save(self, event=tk.Event()):
-    if self.confirmCancelTimer():
+    if self.confirmCancelTimer(self.selection["Task"]):
       try:
-        if self.lb.selection is None:
+        if self.selection is None:
           self.createTaskFromInputs()
         else:
           self.updateSelectedTask()
@@ -794,20 +563,10 @@ class WorklistWindow():
     newRowDict["O"] = "O"
     newRowDict["rowid"] = None
 
-    if self.multiEdit.get():
-      #Get interval between tasks and number of tasks to create
-      interval = self.getSelectedInterval()
-      try:
-        repetitions = int(self.repetitionBox.get())
-        if not repetitions > 0:
-          raise ValueError
-      except:
-        raise ValueError("Invalid repetition count")
-    else:
-      #Creating single task
-      # 1 task, with no offset
-      repetitions = 1
-      interval = relativedelta()
+    #Creating single task
+    # 1 task, with no offset
+    repetitions = 1
+    interval = relativedelta()
 
     # Iterate over tasks to create. For single task creation, runs only once
     for i in range(repetitions):
@@ -825,13 +584,7 @@ class WorklistWindow():
 
     self.db.commit()
     # This is so you don't accidentally create multiple of the same task by clicking save multiple times
-    # todo would be more elegant to just select the newly created task. This is tricky because the newly created task isn't necessarily shown by the current filters (e.g. if it is far in the future)
     self.clearEntryBoxes()
-
-    if self.multiEdit.get():
-      #If in multiedit mode, set back to normal mode
-      self.multiEdit.set(False)
-      self.multiEditConfig()
 
   # Like updateSelectedTask, but you pass the updated task in rather than pulling from input
   # Doesn't commit the changes, so you can loop without a huge overhead
@@ -862,23 +615,20 @@ class WorklistWindow():
 
   def getChanges(self):
     changes = []
-    if self.lb.selection in [None, -1]:
+    if self.selection == None:
       pass
     else:
       #Find which columns were changed and how
 
       newRow = {}
-      oldRow = dict(self.loadedTasks[self.lb.selection])
+      oldRow = dict(self.selection)
 
       for (header, old) in [(header, oldRow[header]) for header in self.db.headers]:
         if header in self.editColumns + ["O"]:
           #This is a checkbox and not in the edit list
           if header == "O":
             # double ifs so "O" can't fall through
-            if self.multiEdit.get():
-              new = old
-            else:
-              new = self.checkDone.get()
+            new = self.checkDone.get()
           else:
             new = self.getEntry(self.entryBoxes[header])
 
@@ -913,53 +663,35 @@ class WorklistWindow():
               timediff = int(new if new != '' else 0) - int(old if old != '' else 0)
               changes.append(" {} = {} + {} ".format(header, header, timediff))
           else:
-            if not (self.multiEdit.get() and header == "Load"):
               changes.append(" {} = '{}' ".format(header, escapeSingleQuotes(str(new))))
 
     return changes
 
-  # todo would be nice if multiupdate could change names with a delta, not just dates UPDATE tablename SET var = REPLACE(string_to_modify, find_this, replace_with_this) WHERE searchCriteria
   # Update the currently selected task with values from the entry boxes
-  # If multiEdit is enabled, updates all tasks matching current filter criteria
   # If a task is passed in ("row"), as a dict or sqlite3.Row, updates this instead, by rowid
   def updateSelectedTask(self):
-    # verify before multiupdating
-    if self.multiEdit.get() and not tk.messagebox.askyesno(title="Confirm multiupdate",
-                                                           message="Are you sure you want to change all tasks matching: '{}'?".format(self.searchBox.get())):
-      #User cancelled
-      raise PermissionError("Cancelled task update")
-
     changes = self.getChanges()
 
     if changes:
-      if self.multiEdit.get():
-        criteria = self.getSearchCriteria()
-      else:
-        criteria = ["rowid = {}".format(self.loadedTasks[self.lb.selection]["rowid"])]
+      criteria = ["rowid = {}".format(self.selection["rowid"])]
 
-        # todo messy
-        # Dump the time worked to external time tracker
-        for change in changes:
-            if change.find("Used") != -1:
-                timediff = int(re.findall(r"(\d+)", change)[0])
-                with open("timesheet.csv", "a") as f:
-                    f.write("{}, {}, {}, {}\n".format(todayStr(), self.loadedTasks[self.lb.selection]["Category"], timediff, self.loadedTasks[self.lb.selection]["Task"]))
+      # todo messy
+      # Dump the time worked to external time tracker
+      for change in changes:
+          if change.find("Used") != -1:
+              timediff = int(re.findall(r"(\d+)", change)[0])
+              with open("timesheet.csv", "a") as f:
+                  f.write("{}, {}, {}, {}\n".format(todayStr(), self.selection["Category"], timediff, self.selection["Task"]))
 
       self.db.updateTasks(criteria, changes)
 
       self.db.commit()
 
-      if self.multiEdit.get():
-        #So the new search still includes the task, even if you change the name or category
-        self.overwriteEntryBox(self.searchBox, self.getEntry(self.entryBoxes["Task"]))
-        self.catBox.set(self.getEntry(self.entryBoxes["Category"]))
-
   def duplicateTask(self):
-
-    oldSelection = self.lb.selection
-    self.lb.selection = None
+    oldSelection = self.selection
+    self.selection = None
     self.save()
-    self.lb.selectListboxItem(oldSelection)
+    self.scroller.unhighlightAndSelectTask(oldSelection)
     self.notify("Duplicated task")
 
   #scans all tasks and updates using calculateRow()
@@ -1084,12 +816,11 @@ class DatabaseManager():
 # todo Days of the week shown should be user-configurable (M-F vs. student schedule lol, or freelance).
 # eg. thisDay["LoadLabel"].bind("<Button-1>", CALLBACK)
 # Set up the calendar display to show estimated workload each day for a several week forecast
-class Calendar(tk.Frame):
-  def __init__(self, parentFrame, parentFont, dateCallback):
-    tk.Frame.__init__(self, parentFrame)
+class Calendar(tk.LabelFrame):
+  def __init__(self, parentFrame, parentFont):
+    super().__init__(parentFrame, text="Calendar", padx=4, pady=4)
 
     self.numweeks = 4
-    self.dateCallback = dateCallback
 
     #Build the calendar out of labels
     self.calendar = []
@@ -1123,8 +854,6 @@ class Calendar(tk.Frame):
         thisDay = self.calendar[week][day]
         thisDate = thisMonday + datetime.timedelta(days=day, weeks=week)
         thisDay["Date"] = thisDate
-        thisDay["DateLabel"].bind("<Button-1>", lambda event, a = thisDay["Date"]: self.dateCallback(a))
-        thisDay["LoadLabel"].bind("<Button-1>", lambda event, a = thisDay["Date"]: self.dateCallback(a))
         thisDay["DateLabel"].config(text=thisDate.strftime("%b %d"))
         if thisDate == today:
           thisDay["DateLabel"].config(bg="lime")
@@ -1235,105 +964,113 @@ class DateEntry(tk.Entry):
     box.delete(0, tk.END)
     box.insert(0, convertedDate)
 
-class TaskList(tk.Listbox):
-  def __init__(self, parentFrame, parentFont, onSelect, onDoubleClick):
-    tk.Listbox.__init__(self, parentFrame,
-                        selectmode=tk.SINGLE,
-                        width = 140,
-                        height=10,
-                        font=parentFont,
-                        selectbackground="SteelBlue1")
+class ScrollFrame(tk.Frame):
+    def __init__(self, parent):
+        super().__init__(parent) # create a frame (self)
 
-    #Get these columns from the database
-    self.displayColumns = ["Category", "O", "Task", "Time", "Used", "Left", "NextAction", "DueDate", "Flex", "Load"]
+        self.canvas = tk.Canvas(self, borderwidth=0)                                #place canvas on self
+        self.viewPort = tk.Frame(self.canvas)                                       #place a frame on the canvas, this frame will hold the child widgets
+        self.vsb = tk.Scrollbar(self, orient="vertical", command=self.canvas.yview) #place a scrollbar on self
+        self.canvas.configure(yscrollcommand=self.vsb.set)                          #attach scrollbar action to scroll of canvas
 
-    #Headers for the Listbox
-    self.headerLabel = tk.Label(parentFrame, text="", font=parentFont)
-    self.headerLabel.grid(sticky="W")
-    self.grid(sticky="W")
+        self.vsb.pack(side="right", fill="y")                                       #pack scrollbar to right of self
+        self.canvas.pack(side="left", fill="both", expand=True)                     #pack canvas to left of self and expand to fil
+        self.canvas_window = self.canvas.create_window((4,4), window=self.viewPort, anchor="nw",            #add view port frame to canvas
+        tags="self.viewPort")
 
-    #The Listbox that allows us to view & select different tasks
+        self.viewPort.bind("<Configure>", self.onFrameConfigure)                    #bind an event whenever the size of the viewPort frame changes.
+        self.canvas.bind("<Configure>", self.onCanvasConfigure)                     #bind an event whenever the size of the canvas frame changes.
 
-    self.onSelect = onSelect
-    self.selection = None
+        self.viewPort.bind('<Enter>', self.onEnter)                                 # bind wheel events when the cursor enters the control
+        self.viewPort.bind('<Leave>', self.onLeave)                                 # unbind wheel events when the cursorl leaves the control
 
-    #Lets you scroll with arrow keys
-    self.bind("<Down>", self.onDown)
-    self.bind("<j>", self.onDown)
-    self.bind("<Up>", self.onUp)
-    self.bind("<k>", self.onUp)
-    self.bind("<<ListboxSelect>>", self.onSelect)
-    self.bind("<FocusIn>", self.selectFirst)
-    self.bind("<Double-1>", onDoubleClick)
-    self.bind("<Return>", onDoubleClick)
+        self.onFrameConfigure(None)                                                 #perform an initial stretch on render, otherwise the scroll region has a tiny border until the first resize
 
-    self.recordLabel = tk.Label(parentFrame, text="")
-    self.recordLabel.grid(sticky="E")
+    def onFrameConfigure(self, event):
+        '''Reset the scroll region to encompass the inner frame'''
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))                 #whenever the size of the frame changes, alter the scroll region respectively.
 
-  #Updates the listbox with the loaded tasks
-  def showTasks(self, loadedTasks):
-    #Max length of any item in each column, including headers
-    self.maxlens = [max([len(str(row[column])) for row in loadedTasks] + [len(column)]) for column in self.displayColumns]
-    #Forces these two to 50 to try and maintain some order
-    self.maxlens[self.displayColumns.index("Task")] = 60
+    def onCanvasConfigure(self, event):
+        '''Reset the canvas window to encompass inner frame when required'''
+        canvas_width = event.width
+        self.canvas.itemconfig(self.canvas_window, width = canvas_width)            #whenever the size of the canvas changes alter the window region respectively.
 
-    #Adjust the listbox to be wide enough
-    self.config(width=sum(self.maxlens) + len(self.maxlens) * 3)
+    def onMouseWheel(self, event):                                                  # cross platform scroll wheel event
+        if platform.system() == 'Windows':
+            self.canvas.yview_scroll(int(-1* (event.delta/120)), "units")
+        elif platform.system() == 'Darwin':
+            self.canvas.yview_scroll(int(-1 * event.delta), "units")
+        else:
+            if event.num == 4:
+                self.canvas.yview_scroll( -1, "units" )
+            elif event.num == 5:
+                self.canvas.yview_scroll( 1, "units" )
 
-    self.recordLabel.config(text=str(len(loadedTasks)) + " tasks found")
+    def onEnter(self, event):                                                       # bind wheel events when the cursor enters the control
+        if platform.system() == 'Linux':
+            self.canvas.bind_all("<Button-4>", self.onMouseWheel)
+            self.canvas.bind_all("<Button-5>", self.onMouseWheel)
+        else:
+            self.canvas.bind_all("<MouseWheel>", self.onMouseWheel)
 
-    #Create the header text
-    headerline = ""
-    for header, length in zip(self.displayColumns, self.maxlens):
-      headerline += header.center(length) + " | "
-    headerline = headerline[:-2]
-    self.headerLabel.config(text = headerline)
+    def onLeave(self, event):                                                       # unbind wheel events when the cursorl leaves the control
+        if platform.system() == 'Linux':
+            self.canvas.unbind_all("<Button-4>")
+            self.canvas.unbind_all("<Button-5>")
+        else:
+            self.canvas.unbind_all("<MouseWheel>")
 
-    #delete tasks and reinsert
-    self.delete(0,'end')
-    for task in loadedTasks:
-      line = ""
-      for (header,length) in zip(self.displayColumns, self.maxlens):
-        try:
-          line += YMDstr2date(str(task[header])).strftime("%b %d, %y").ljust(length) + " | "
-        except ValueError:
-          line += ljusttrunc(str(task[header]), length) + " | "
-      line = line[:-2]
+class TaskScroller(ScrollFrame):
+    def __init__(self, parent, selectTask, recordLabel):
+        super().__init__(parent)
+        self.tasks = []
+        self.selectTask = selectTask
 
-      self.insert(tk.END,line)
-      #Colour-coding!
-      try:
-        self.itemconfig(tk.END, {'bg': greenRedScale(0, 60, task["Load"])})
-      except TypeError:
-        #Fails for items where Load is None, eg. completed, not yet active
-        pass
+        self.recordLabel = recordLabel
 
-  def resetListboxSelection(self):
-    self.selection_clear(0,'end')
-    self.select_set(self.selection)
+    def showTasks(self, tasks):
+        self.taskRows = []
+        for (i, task) in enumerate(tasks):
+            taskRow = TaskRow(self.viewPort, task, lambda t=task: self.unhighlightAndSelectTask(t))
+            taskRow.grid(row=i, column=0, sticky= tk.W+tk.E)
+            self.taskRows.append(taskRow)
 
-  #Lets you scroll with arrow keys
-  def onDown(self, event):
-    if self.selection < self.size() - 1:
-      self.select_clear(self.selection)
-      self.selectListboxItem(self.selection + 1)
+        self.recordLabel.config(text=str(len(tasks)) + " tasks found")
 
-  #Lets you scroll with arrow keys
-  def onUp(self, event):
-    if self.selection > 0:
-      self.select_clear(self.selection)
-      self.selectListboxItem(self.selection - 1)
+    def unhighlightAndSelectTask(self, task):
+        # todo would be more performant to track the highlighted row and only unhighlight that one
+        for tr in self.taskRows:
+            tr.unhighlight()
 
-  #When the listbox gains focus, select the first item
-  def selectFirst(self, event=tk.Event):
-    if self.selection is None:
-      self.selectListboxItem(0)
+        self.selectTask(task)
 
-  #Pretty self explanatory. Used because select_set doesn't trigger <<ListboxSelect>> event
-  def selectListboxItem(self, item):
-    self.select_set(item)
-    self.onSelect()
+class TaskRow(tk.LabelFrame):
+    def __init__(self, parentFrame, task, select):
+        super().__init__(parentFrame)
+        self.select = select
+        self.taskName = tk.Label(self, text=task["Task"])
+        self.taskName.grid(row=0, column=0, sticky = tk.W)
 
+        self.category = tk.Label(self, text=task["Category"], font=("helvetica", 8))
+        self.category.grid(row=1, column=0, sticky=tk.W)
+
+        self.visible = [self, self.taskName, self.category]
+        for o in self.visible:
+            o.bind("<1>", lambda e: self.selectAndHighlight())
+
+        self.unhighlight()
+
+    def selectAndHighlight(self):
+        self.select()
+        self.highlight()
+
+    def highlight(self):
+        for w in self.visible:
+            w.config(bg="lightblue")
+
+    def unhighlight(self):
+        for w in self.visible:
+            w.config(bg="white")
 def main():
   if len(sys.argv) > 1:
     worklist = WorklistWindow(sys.argv[1])
