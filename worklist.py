@@ -1066,7 +1066,25 @@ def main():
     conn = sqlite3.connect("worklist.db")
     cur  = conn.cursor()
     # todo a better name for "Load" would be "CurrentLoad"
-    cur.execute("CREATE TABLE worklist('Category' TEXT,'O' TEXT,'Task' TEXT,'Budget' INTEGER,'Time' INTEGER,'Used' INTEGER,'Left' INTEGER,'StartDate' TEXT,'NextAction' TEXT,'DueDate' TEXT,'Flex' TEXT,'DaysLeft' INTEGER,'TotalLoad' REAL,'Load' REAL,'Notes' TEXT,'DateAdded' TEXT)")
+    cur.execute("""
+        CREATE TABLE worklist(
+            'Category'  TEXT,
+            'O'         TEXT,
+            'Task'      TEXT,
+            'Budget'    INTEGER,
+            'Time'      INTEGER,
+            'Used'      INTEGER,
+            'Left'      INTEGER,
+            'StartDate' TEXT,
+            'NextAction'TEXT,
+            'DueDate'   TEXT,
+            'Flex'      TEXT,
+            'DaysLeft'  INTEGER,
+            'TotalLoad' REAL,
+            'Load'      REAL,
+            'Notes'     TEXT,
+            'DateAdded' TEXT)
+    """)
     cur.close()
     worklist = WorklistWindow("worklist.db")
 
