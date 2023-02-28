@@ -206,8 +206,6 @@ class WorklistWindow():
     for header in ["Category", "Flex"]:
       self.entryBoxes[header].selection_clear()
 
-    self.intervalBox.selection_clear()
-
   # todo timer should probably be its own class - turns out this is tougher than you'd expect because of the links between the time, entryboxes and tasklist
   def toggleTimer(self, event=tk.Event):
     if not self.timing:
@@ -425,21 +423,6 @@ class WorklistWindow():
   ######################################################
   # Calculation functions
 
-  def getSelectedInterval(self):
-    selection = self.intervalBox.get()
-    if selection == "":
-      raise ValueError("No interval selected")
-    elif selection == "Weekly":
-      interval = relativedelta(weeks=1)
-    elif selection == "Biweekly":
-      interval = relativedelta(weeks=2)
-    elif selection == "Monthly":
-      interval = relativedelta(months=1)
-    elif selection == "Annually":
-      interval = relativedelta(years=1)
-
-    return interval
-
   #Gets the text in the passed entryBox
   def getEntry(self, entryBox):
     try:
@@ -530,7 +513,7 @@ class WorklistWindow():
 
   #Save the current state of the entry boxes for that task
   def save(self, event=tk.Event()):
-    if self.confirmCancelTimer(self.selection["Task"]):
+    if self.selection is None or self.confirmCancelTimer(self.selection["Task"]):
       try:
         if self.selection is None:
           self.createTaskFromInputs()
