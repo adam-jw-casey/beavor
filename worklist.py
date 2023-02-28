@@ -151,8 +151,9 @@ class WorklistWindow():
                                                   state="readonly")
         self.entryBoxes[header].bind("<FocusOut>", self.clearComboHighlights)
       elif header == "Notes":
-        self.entryBoxes[header] = tk.Text(self.entryFrame, height=20, wrap="word")
+        self.entryBoxes[header] = tk.Text(self.entryFrame, wrap="word")
         self.entryBoxes[header].bind("<Tab>", self.focusNextWidget)
+        self.entryFrame.grid_columnconfigure(i, weight=1)
       else:
         if header in ["DueDate", "NextAction"]:
           self.entryBoxes[header] = DateEntry(self.entryFrame, self.notify)
@@ -280,7 +281,7 @@ class WorklistWindow():
           box.icursor(tk.END)
 
   def getSearchCriteria(self):
-    return ["O != 'X'"]
+    return ["O != 'X'", "NextAction <= '{}'".format(todayStr())]
 
   def refreshTasks(self, event=tk.Event):
     #Remember which task was selected
@@ -348,7 +349,7 @@ class WorklistWindow():
     return("break")
 
   def clearEntryBoxes(self):
-    if self.confirmDiscardChanges(self.selection["Task"]):
+    if self.selection is None or self.confirmDiscardChanges(self.selection["Task"]):
       try:
         #Nothing selected, just clear the box
         self.checkDone.set("O")
@@ -381,7 +382,7 @@ class WorklistWindow():
 
   def selectTask(self, task):
     self.messageLabel.config(text="")
-    if self.confirmDiscardChanges(task["Task"]) and self.confirmCancelTimer(task["Task"]):
+    if self.selection is None or (self.confirmDiscardChanges(task["Task"]) and self.confirmCancelTimer(task["Task"])):
 
       #todo this could be a function "update entryBoxes" or something
       for (header, entry) in [(header, self.entryBoxes[header]) for header in self.editColumns]:
