@@ -1,5 +1,6 @@
 import datetime
 import numpy as np
+import sqlite3
 
 #Like .ljust, but truncates to length if necessary
 def ljusttrunc(text: str, length: int) -> str:
@@ -47,3 +48,120 @@ def todayStr() -> str:
 
 def todayDate() -> datetime.date:
   return datetime.date.today()
+
+class DatabaseManager():
+  def __init__(self, databasePath: str):
+    self.conn = sqlite3.connect(databasePath)
+    self.conn.row_factory = sqlite3.Row
+
+    self.c = self.conn.cursor()
+    self.cwrite = self.conn.cursor()
+
+  @classmethod
+  def createNew(cls, path: str) -> None:
+    conn = sqlite3.connect(path)
+    cur  = conn.cursor()
+    # todo a better name for "Load" would be "CurrentLoad"
+    cur.execute("""
+        CREATE TABLE worklist(
+            'Category'  TEXT,
+            'O'         TEXT,
+            'Task'      TEXT,
+            'Budget'    INTEGER,
+            'Time'      INTEGER,
+            'Used'      INTEGER,
+            'Left'      INTEGER,
+            'StartDate' TEXT,
+            'NextAction'TEXT,
+            'DueDate'   TEXT,
+            'Flex'      TEXT,
+            'DaysLeft'  INTEGER,
+            'TotalLoad' REAL,
+            'Load'      REAL,
+            'Notes'     TEXT,
+            'DateAdded' TEXT)
+    """)
+    cur.close()
+
+  def commit(self) -> None:
+    self.conn.commit()
+
+  #Loads the tasks by searching the database with the criteria specified
+  def getTasks(self, criteria: list[str] =[]) -> list[dict]:
+    #Super basic SQL injection check
+    if True in [';' in s for s in criteria]:
+      raise ValueError("; in SQL input!")
+
+    command = "SELECT *, rowid FROM worklist"
+
+    if criteria:
+      command += " WHERE "
+      command += " AND ".join(criteria)
+
+    command += " ORDER BY DueDate;"
+
+    self.c.execute(command)
+
+    tasks = self.c.fetchall()
+
+    # todo only needs to be done on startup
+    self.headers = [description[0] for description in self.c.description]
+
+    return tasks
+
+  def getTasks4Workload(self) -> list[dict]:
+    self.cwrite.execute("SELECT NextAction, DueDate, Left FROM worklist WHERE O == 'O' ORDER BY DueDate;")
+    return self.cwrite.fetchall()
+
+  #Updates the categories in the category filter
+  def getCategories(self) -> list[str]:
+    self.cwrite.execute("SELECT DISTINCT Category FROM worklist ORDER BY Category;")
+    return [line["Category"] for line in self.cwrite.fetchall()]
+
+  def deleteByRowid(self, rowid: int) -> None:
+    self.cwrite.execute("DELETE FROM worklist WHERE rowid == ?", [rowid])
+
+  def deleteByNameCat(self, taskName: str, category: str) -> None:
+    self.cwrite.execute("DELETE FROM worklist WHERE Task==? AND Category==? AND O='O'", [taskName, category])
+
+  def checkSqlInput(self, sqlString) -> None:
+    if type(sqlString) not in [int, float, type(None)]:
+      #todo a better way of cleaning input
+      badChars = [';']
+      if any((c in badChars) for c in sqlString):
+        raise ValueError("Bad SQL input: {}".format(sqlString))
+
+  def updateTasks(self, criteria: list[str], changes: list[str]) -> None:
+    for string in criteria + changes:
+      self.checkSqlInput(string)
+
+    command = "UPDATE worklist SET "
+    command += ", ".join(changes)
+    command += " WHERE "
+    command += " AND ".join(criteria)
+    command += ";"
+
+    self.cwrite.execute(command)
+
+  def createTask(self, headers: list[str], vals: list[str]) -> None:
+    for string in headers + vals:
+      self.checkSqlInput(string)
+
+    cleanVals = []
+    # Cleans quotes in SQL input
+    for val in vals:
+      try:
+        cleanVals.append(surround(escapeSingleQuotes(str(val)), "'"))
+      except TypeError:
+        cleanVals.append(str(val))
+
+    command = "INSERT INTO worklist ("
+
+    command += ", ".join(headers)
+    command +=  " ) VALUES ("
+
+    command += ", ".join(cleanVals)
+    command += " );"
+
+    self.cwrite.execute(command)
+
