@@ -35,9 +35,74 @@ from utils import *
 
 ###########################################
 
+class Timer(tk.Frame):
+
+    TIME_FMT = "%H:%M:%S"
+
+    def __init__(self, parent: tk.Frame | tk.LabelFrame, font, getSelectedTask, save, setUsedTime):
+        super().__init__(parent)
+
+        self.timeLabel = tk.Label(self, text="0:00:00", font=font)
+        self.timeLabel.grid(row=0, column=1)
+
+        self.timeButton = tk.Button(self, text="Start", command=lambda: self.toggleTimer(getSelectedTask()))
+        self.timeButton.grid(row=0, column=0)
+        self.timeButton.bind("<Return>", lambda _: self.toggleTimer(getSelectedTask()))
+        self.timing = False
+
+        self.save = save
+        self.setUsedTime = setUsedTime
+
+    def toggleTimer(self, selected_task) -> None:
+      if not self.timing:
+        self.start(selected_task)
+      else:
+        self.save()
+
+    def start(self, task) -> None:
+      if task is None:
+        # todo better way of handling this -> this dumps the exception in the console
+        raise self.EmptyTaskError("Cannot time an empty task")
+
+      self.timeButton.config(text="Stop")
+      self.startTime = time.strftime(self.TIME_FMT)
+      self.initialTime = datetime.timedelta(minutes=(task["Used"] or 0))
+
+      self.timing = True
+      self._update_diplayed_time()
+
+    def stop(self):
+        self.timeButton.config(text="Start")
+        self.timing = False
+        self.setUsedTime(round(self.timerVal.total_seconds()/60))
+
+    def setDisplay(self, time):
+        self.timeLabel.config(text=str(time))
+
+    def confirmCancel(self, taskName: str) -> bool:
+        return tk.messagebox.askyesnocancel(title="Save before switching?",
+                                            message=f"Do you want to save the timer for '{taskName}' before switching?")
+
+    def _update_diplayed_time(self):
+        if self.timing:
+            # TODO would be better to handle this by accounting for date rather than just fudging the days
+            runTime = (datetime.datetime.strptime(time.strftime(self.TIME_FMT), self.TIME_FMT)
+                       - datetime.datetime.strptime(self.startTime, self.TIME_FMT))
+            # If the timer is run through midnight it goes negative. This fixes it.
+            if runTime.days < 0:
+              runTime = runTime + datetime.timedelta(days=1)
+
+            self.timerVal = (runTime + self.initialTime)
+            self.setDisplay(self.timerVal)
+
+            self.after(1000, self._update_diplayed_time)
+
+    class EmptyTaskError(Exception):
+      pass
+
 class DateEntry(tk.Entry):
   def __init__(self, parentFrame, notificationFunc):
-    tk.Entry.__init__(self, parentFrame)
+    super().__init__(parentFrame)
     self.notify = notificationFunc
     self.bind("<Tab>", self.convertDate)
 
@@ -78,6 +143,9 @@ class WorklistWindow():
 
     self.setupWindow()
 
+  def getSelectedTask(self):
+      return self.selection
+
   ######################################################
   # GUI setup functions
 
@@ -96,30 +164,6 @@ class WorklistWindow():
 
     #Scale all padding by this multiplier (not tested lol)
     self.padscale = 1
-
-    self.setupFrames()
-    self.loadTasks()
-
-    recordLabel = tk.Label(self.taskDisplayFrame, text="")
-    self.scroller = TaskScroller(self.taskDisplayFrame, self.selectTask, recordLabel)
-    self.scroller.pack(side=tk.TOP, fill="both", expand=True)
-    recordLabel.pack(side=tk.BOTTOM)
-    recordLabel.pack(side=tk.RIGHT)
-
-    #Setup the lower half of the window
-    self.setupTimer()
-    self.setupEntryBoxes()
-    self.setupButtons()
-
-    # These aren't all the keybindings, but they're all the ones the user should notice
-    # Other keybindings mostly just make the app behave how you'd expect
-    self.root.bind("<Control-q>", lambda _: self.root.destroy())
-    self.root.bind("<Control-w>", lambda _: self.root.destroy())
-    self.root.bind("<Control-n>", lambda _: self.newTaskButton.invoke())
-
-    self.refreshAll()
-
-  def setupFrames(self) -> None:
 
     # Frame to hold the tasklist display and associated frames and widgets
     self.taskDisplayFrame = tk.LabelFrame(self.root, text="Tasks", padx=self.padscale*4, pady=self.padscale*4)
@@ -141,24 +185,23 @@ class WorklistWindow():
     self.entryButtonFrame = tk.Frame(self.interactiveFrame)
     self.entryButtonFrame.grid(row=1, column=1)
 
-    # Timer and its button
-    self.timerFrame = tk.Frame(self.entryButtonFrame)
-    self.timerFrame.grid(row=0, column=1, padx=self.padscale * (0,30))
-
-  def setupTimer(self) -> None:
-    #Timer and button to start/stop
-    self.timeLabel = tk.Label(self.timerFrame, text="0:00:00", font=self.font)
-    self.timeLabel.grid(row=0, column=1)
-
-    self.timeButton = tk.Button(self.timerFrame, text="Start", command=self.toggleTimer)
-    self.timeButton.grid(row=0, column=0)
-    self.timeButton.bind("<Return>", self.toggleTimer)
-    self.timing = False
-
-  def setupEntryBoxes(self) -> None:
-    self.editColumns = ["Category", "Task", "Time", "Used", "NextAction", "DueDate", "Flex", "Notes"]
-
     self.selection = None
+
+    # Timer and its button
+    self.timer = Timer(self.entryButtonFrame, self.font, self.getSelectedTask, self.save, lambda time: self.overwriteEntryBox(self.entryBoxes["Used"], time))
+    self.timer.grid(row=0, column=1, padx=self.padscale * (0,30))
+
+    self.loadTasks()
+
+    recordLabel = tk.Label(self.taskDisplayFrame, text="")
+    self.scroller = TaskScroller(self.taskDisplayFrame, self.selectTask, recordLabel)
+    self.scroller.pack(side=tk.TOP, fill="both", expand=True)
+    recordLabel.pack(side=tk.BOTTOM)
+    recordLabel.pack(side=tk.RIGHT)
+
+    #Setup the lower half of the window
+
+    self.editColumns = ["Category", "Task", "Time", "Used", "NextAction", "DueDate", "Flex", "Notes"]
 
     self.entryBoxes: dict[str, ttk.Combobox | tk.Text | tk.Entry | DateEntry] = {}
     self.entryLabels: dict[str, tk.Label] = {}
@@ -201,7 +244,6 @@ class WorklistWindow():
     self.doneCheck.grid(row=0, column=0)
     self.doneCheck.deselect()
 
-  def setupButtons(self) -> None:
     #Add buttons to interact
     self.saveButton = tk.Button(self.entryButtonFrame, text="Save", command=self.save)
     self.saveButton.grid(row=0, column=2)
@@ -225,6 +267,14 @@ class WorklistWindow():
     self.messageLabel = tk.Label(self.interactiveFrame, text="")
     self.messageLabel.grid(column=0, columnspan=3)
 
+    # These aren't all the keybindings, but they're all the ones the user should notice
+    # Other keybindings mostly just make the app behave how you'd expect
+    self.root.bind("<Control-q>", lambda _: self.root.destroy())
+    self.root.bind("<Control-w>", lambda _: self.root.destroy())
+    self.root.bind("<Control-n>", lambda _: self.newTaskButton.invoke())
+
+    self.refreshAll()
+
   ######################################################
   # GUI update functions
 
@@ -233,45 +283,6 @@ class WorklistWindow():
     for header in ["Category", "Flex"]:
       self.entryBoxes[header].selection_clear()
 
-  # todo timer should probably be its own class - turns out this is tougher than you'd expect because of the links between the time, entryboxes and tasklist
-  #     -> note that these links are themselves a code smell
-  def toggleTimer(self, _=tk.Event) -> None:
-    if not self.timing:
-      self.timeButton.config(text="Stop")
-      self.timing = True
-      self.startTime = time.strftime("%H:%M:%S")
-      self.runTimer(self.selection)
-    else:
-      self.timeButton.config(text="Start")
-      self.timing = False
-      try:
-        self.overwriteEntryBox(self.entryBoxes["Used"], round(self.timerVal.total_seconds()/60))
-        self.save()
-      except AttributeError:
-        #Empty task
-        pass
-
-  def runTimer(self, task) -> None:
-    timeFormat = "%H:%M:%S"
-    if self.timing:
-      # TODO would be better to handle this by accounting for date rather than just fudging the days
-      runTime = (datetime.datetime.strptime(time.strftime(timeFormat), timeFormat)
-                 - datetime.datetime.strptime(self.startTime, timeFormat))
-      # If the timer is run through midnight it goes negative. This fixes it.
-      if runTime.days < 0:
-        runTime = runTime + datetime.timedelta(days=1)
-
-      try:
-        if self.selection is None:
-          raise ValueError("Cannot time an empty task")
-        self.timerVal = (runTime
-                         + datetime.timedelta(minutes=(task["Used"] or 0)))
-        self.timeLabel.config(text=str(self.timerVal))
-        self.root.after(1000, lambda t=task: self.runTimer(t))
-      except ValueError as e:
-        self.notify(str(e))
-        self.timerVal = None
-        self.timeButton.invoke()
 
   def completeBox(self, event: tk.Event, sourceList: List[str]) -> None:
     #Don't run when deleting, or when shift is released
@@ -346,26 +357,6 @@ class WorklistWindow():
 
     return True
 
-  def confirmCancelTimer(self, taskName: str) -> bool:
-    try:
-      if self.timing:
-        self.entryBoxes["Category"].focus()
-        selection = tk.messagebox.askyesnocancel(title="Save before switching?",
-                                                 message="Do you want to save the timer for '{}' before switching?".format(taskName))
-        if selection is True:
-          pass
-        elif selection is None:
-          return False
-        else:
-          self.timerVal = None
-          self.notify("Discarded timer")
-
-        self.timeButton.invoke()
-      return True
-    except AttributeError:
-      #On startup the timer isn't setup yet
-      return False
-
   def newTask(self, _=tk.Event) -> None:
     self.clearEntryBoxes()
     self.notify("Creating new entry")
@@ -382,7 +373,7 @@ class WorklistWindow():
         #Nothing selected, just clear the box
         self.checkDone.set("O")
         self.entryBoxes["Flex"].set("")
-        self.timeLabel.config(text="0:00:00")
+        self.timer.setDisplay("0:00:00")
         for header in self.editColumns:
           self.overwriteEntryBox(self.entryBoxes[header], "")
       except AttributeError:
@@ -409,7 +400,16 @@ class WorklistWindow():
 
   def selectTask(self, task) -> None:
     self.messageLabel.config(text="")
-    if self.selection is None or (self.confirmDiscardChanges(task["Task"]) and self.confirmCancelTimer(task["Task"])):
+    if self.timer.timing:
+        match self.timer.confirmCancel(task["Task"]):
+            case True:
+                self.timer.save()
+            case False:
+                self.timer.stop()
+            case None:
+                return
+
+    if self.selection is None or (self.confirmDiscardChanges(task["Task"])):
 
       #todo this could be a function "update entryBoxes" or something
       for (header, entry) in [(header, self.entryBoxes[header]) for header in self.editColumns]:
@@ -422,8 +422,8 @@ class WorklistWindow():
 
       self.selection = task
 
-      if not self.timing:
-        self.timeLabel.config(text=str(datetime.timedelta(minutes=(task["Used"] or 0))))
+      if not self.timer.timing:
+        self.timer.setDisplay(datetime.timedelta(minutes=(task["Used"] or 0)))
 
   def refreshAll(self, _=tk.Event) -> None:
     self.refreshCategories()
@@ -542,23 +542,25 @@ class WorklistWindow():
 
   #Save the current state of the entry boxes for that task
   def save(self, _=tk.Event()) -> None:
-    if self.selection is None or self.confirmCancelTimer(self.selection["Task"]):
-      try:
-        if self.selection is None:
-          self.createTaskFromInputs()
-        else:
-          self.updateSelectedTask()
+    if self.timer.timing:
+        self.timer.stop()
 
-        #Refresh the screen
-        self.refreshAll()
+    try:
+      if self.selection is None:
+        self.createTaskFromInputs()
+      else:
+        self.updateSelectedTask()
 
-        self.notify("Task saved")
-      except ValueError as e:
-        #Something wrong with the inputs given
-        self.notify(str(e))
-      except PermissionError as e:
-        #updateSelectedTask() cancelled by user
-        self.notify(str(e))
+      #Refresh the screen
+      self.refreshAll()
+
+      self.notify("Task saved")
+    except ValueError as e:
+      #Something wrong with the inputs given
+      self.notify(str(e))
+    except PermissionError as e:
+      #updateSelectedTask() cancelled by user
+      self.notify(str(e))
 
   # TODO a more elegant way of handling repeating tasks than just creating a bunch of duplicates. Maybe a task that duplicates itself a number of days in the future when completed?
   def createTaskFromInputs(self) -> None:
