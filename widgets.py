@@ -174,8 +174,8 @@ class WorklistWindow():
     self.interactiveFrame.grid(row=0, column=1, pady=self.padscale * 4)
 
     # Frame for the calendar
-    self.calendarFrame = Calendar(self.interactiveFrame, self.font)
-    self.calendarFrame.grid(row=0, column=3, pady=self.padscale * 4, padx=self.padscale * 4, sticky=tk.S)
+    self.calendar = Calendar(self.interactiveFrame, self.font)
+    self.calendar.grid(row=0, column=3, pady=self.padscale * 4, padx=self.padscale * 4, sticky=tk.S)
 
     # Entry boxes and labels
     self.entryFrame = tk.Frame(self.interactiveFrame)
@@ -189,7 +189,7 @@ class WorklistWindow():
 
     # Timer and its button
     self.timer = Timer(self.entryButtonFrame, self.font, self.getSelectedTask, self.save, lambda time: self.overwriteEntryBox(self.entryBoxes["Used"], time))
-    self.timer.grid(row=0, column=1, padx=self.padscale * (0,30))
+    self.timer.grid(row=0, column=1, padx=(self.padscale * 0, self.padscale * 30))
 
     self.loadTasks()
 
@@ -434,7 +434,7 @@ class WorklistWindow():
   def refreshAll(self, _=tk.Event) -> None:
     self.refreshCategories()
     self.updateLoadsToday()
-    self.calendarFrame.updateCalendar(self.db.getTasks4Workload())
+    self.calendar.updateCalendar(self.db.getTasks4Workload())
     self.refreshTasks()
 
   def refreshCategories(self) -> None:
