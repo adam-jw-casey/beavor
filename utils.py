@@ -49,6 +49,25 @@ def todayStr() -> str:
 def todayDate() -> datetime.date:
   return datetime.date.today()
 
+class Task:
+    def __init__(self, data: sqlite3.Row | dict):
+        self.category:   str    = data["Category"]
+        self.o:          str    = data["O"]
+        self.task:       str    = data["Task"]
+        self.budget:     int    = data["Budget"]
+        self.time:       int    = data["Time"]
+        self.used:       int    = data["Used"]
+        self.left:       int    = data["Left"]
+        self.startDate:  str    = data["StartDate"]
+        self.nextAction: str    = data["NextAction"]
+        self.dueDate:    str    = data["DueDate"]
+        self.flex:       str    = data["Flex"]
+        self.daysLeft:   int    = data["DaysLeft"]
+        self.totalLoad:  float  = data["TotalLoad"]
+        self.load:       float  = data["Load"]
+        self.notes:      str    = data["Notes"]
+        self.dateAdded:  str    = data["DateAdded"]
+
 class DatabaseManager():
   def __init__(self, databasePath: str):
     self.conn = sqlite3.connect(databasePath)
@@ -57,8 +76,10 @@ class DatabaseManager():
     self.c = self.conn.cursor()
     self.cwrite = self.conn.cursor()
 
+    self.headers = [description[0] for description in self.c.description]
+
   @classmethod
-  def createNew(cls, path: str) -> None:
+  def createNewDatabase(cls, path: str) -> None:
     conn = sqlite3.connect(path)
     cur  = conn.cursor()
     # todo a better name for "Load" would be "CurrentLoad"
@@ -102,15 +123,10 @@ class DatabaseManager():
 
     self.c.execute(command)
 
-    tasks = self.c.fetchall()
-
-    # todo only needs to be done on startup
-    self.headers = [description[0] for description in self.c.description]
-
-    return tasks
+    return self.c.fetchall()
 
   def getTasks4Workload(self) -> list[dict]:
-    self.cwrite.execute("SELECT NextAction, DueDate, Left FROM worklist WHERE O == 'O' ORDER BY DueDate;")
+    self.cwrite.execute("SELECT * FROM worklist WHERE O == 'O' ORDER BY DueDate;")
     return self.cwrite.fetchall()
 
   #Updates the categories in the category filter
