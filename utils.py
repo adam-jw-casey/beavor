@@ -1,6 +1,7 @@
 import datetime
 import numpy as np
 import sqlite3
+from enum import IntEnum
 
 #Like .ljust, but truncates to length if necessary
 def ljusttrunc(text: str, length: int) -> str:
@@ -68,6 +69,25 @@ class Task:
         self.notes:      str    = data["Notes"]
         self.dateAdded:  str    = data["DateAdded"]
 
+class DueDateType(IntEnum):
+    NONE = 0
+    DATE = 2
+    ASAP = 4
+
+class DueDate:
+    def __init__(self, date: DueDateType | datetime.date):
+        match type(date):
+            case type(DueDateType):
+                if date == DueDateType.DATE:
+                    raise ValueError("Must specify date")
+                else:
+                    self.type = date
+            case type(datetime.date):
+                self.type = DueDateType.DATE
+                self.date = date
+            case _:
+                raise TypeError(f"Invalid DueDateType: {type(date)}")
+
 class DatabaseManager():
   def __init__(self, databasePath: str):
     self.conn = sqlite3.connect(databasePath)
@@ -76,6 +96,7 @@ class DatabaseManager():
     self.c = self.conn.cursor()
     self.cwrite = self.conn.cursor()
 
+    self.getTasks([])
     self.headers = [description[0] for description in self.c.description]
 
   @classmethod
