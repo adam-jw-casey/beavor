@@ -710,11 +710,8 @@ class WorklistWindow():
 
   #scans all tasks and updates using calculateRow()
   def updateLoadsToday(self, _=tk.Event) -> None:
-    try:
-      #backup task list
-      oldTasks = self.loadedTasks
-    except AttributeError:
-      return
+    #backup task list
+    oldTasks = self.loadedTasks
 
     self.loadTasks(["O == 'O'","NextAction <= '{}'".format(todayStr())])
 
@@ -723,17 +720,8 @@ class WorklistWindow():
       self.updatePassedTask(task)
     self.db.commit()
 
-    try:
-      #put original task list back
-      self.loadedTasks = oldTasks
-    except UnboundLocalError:
-      pass
-
-    try:
-      self.notify("Workloads refreshed")
-    except AttributeError:
-      #This fails during startup, which is good because we don't want the message anyways
-      pass
+    #put original task list back
+    self.loadedTasks = oldTasks
 
 # todo put the next action / due date at a specific time?
 # todo add buttons to scroll the calendar forward week-by-week
