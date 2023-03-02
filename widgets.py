@@ -201,7 +201,7 @@ class WorklistWindow():
 
     #Setup the lower half of the window
 
-    self.editColumns = ["Category", "Task", "Time", "Used", "NextAction", "DueDate", "Flex", "Notes"]
+    self.editColumns = ["Category", "Task", "Time", "Used", "NextAction", "DueDate", "Notes"]
 
     self.entryBoxes: dict[str, ttk.Combobox | tk.Text | tk.Entry | DateEntry] = {}
     self.entryLabels: dict[str, tk.Label] = {}
@@ -216,11 +216,6 @@ class WorklistWindow():
         self.entryBoxes[header].bind("<FocusOut>", self.clearComboHighlights)
         self.entryBoxes[header].bind("<KeyRelease>", lambda event: self.completeBox(event, self.categories))
         self.entryBoxes[header].bind("<Return>", lambda _: self.entryBoxes["Category"].icursor(tk.END))
-      elif header == "Flex":
-        self.entryBoxes[header] = ttk.Combobox(self.entryFrame,
-                                                  values=["Y","N"],
-                                                  state="readonly")
-        self.entryBoxes[header].bind("<FocusOut>", self.clearComboHighlights)
       elif header == "Notes":
         self.entryBoxes[header] = tk.Text(self.entryFrame, wrap="word")
         self.entryBoxes[header].bind("<Tab>", self.focusNextWidget)
@@ -280,9 +275,8 @@ class WorklistWindow():
 
   #Clears the annoying highlighting from all comboboxes
   def clearComboHighlights(self, _=tk.Event) -> None:
-    for header in ["Category", "Flex"]:
+    for header in ["Category"]:
       self.entryBoxes[header].selection_clear()
-
 
   def completeBox(self, event: tk.Event, sourceList: List[str]) -> None:
     #Don't run when deleting, or when shift is released
@@ -370,7 +364,6 @@ class WorklistWindow():
 
         #Nothing selected, just clear the box
         self.checkDone.set("O")
-        self.entryBoxes["Flex"].set("")
         self.timer.setDisplay("0:00:00")
         for header in self.editColumns:
           self.overwriteEntryBox(self.entryBoxes[header], "")
@@ -415,9 +408,6 @@ class WorklistWindow():
 
         #todo this could be a function "update entryBoxes" or something
         for (header, entry) in [(header, self.entryBoxes[header]) for header in self.editColumns]:
-          if header == "Flex":
-            entry.set(task[header])
-          else:
             self.overwriteEntryBox(entry, task[header])
 
         self.checkDone.set(task["O"])
@@ -479,8 +469,6 @@ class WorklistWindow():
           except ValueError:
             if data != "":
               raise ValueError("{} must be >= 0, not '{}'".format(header, data))
-        elif header == "Flex" and data not in ["Y","N"]:
-          raise ValueError("{} should be Y or N, not '{}'".format(header, data))
         elif header in ["Task", "Notes"] and type(data) != type(str()):
           raise ValueError("Unacceptable {}: {}".format(header, data))
 
@@ -496,8 +484,7 @@ class WorklistWindow():
         newRowDict[header] = workDaysBetween(today, newRowDict["DueDate"])
       elif header == "TotalLoad":
         if inRow["O"] == "O":
-          newRowDict[header] = round((1.1 if inRow["Flex"] == "N" else
-              1)*newRowDict["Left"]/max(1,(newRowDict["DaysLeft"] if
+          newRowDict[header] = round(newRowDict["Left"]/max(1,(newRowDict["DaysLeft"] if
                   newRowDict["NextAction"] <= today else workDaysBetween(newRowDict["NextAction"], newRowDict["DueDate"]))),1)
         else:
           newRowDict[header] = None
