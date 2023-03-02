@@ -61,8 +61,7 @@ class Task:
         self.left:       int    = data["Left"]
         self.startDate:  str    = data["StartDate"]
         self.nextAction: str    = data["NextAction"]
-        self.dueDate:    str    = data["DueDate"]
-        self.flex:       str    = data["Flex"]
+        self.dueDate:    DueDate= DueDate.fromString(data["DueDate"])
         self.daysLeft:   int    = data["DaysLeft"]
         self.totalLoad:  float  = data["TotalLoad"]
         self.load:       float  = data["Load"]
@@ -87,6 +86,16 @@ class DueDate:
                 self.date = date
             case _:
                 raise TypeError(f"Invalid DueDateType: {type(date)}")
+
+    @classmethod
+    def fromString(cls, string):
+        match string:
+            case "NONE":
+                return DueDate(DueDateType.NONE)
+            case "ASAP":
+                return DueDate(DueDateType.ASAP)
+            case _:
+                return DueDate(YMDstr2date(string))
 
 class DatabaseManager():
   def __init__(self, databasePath: str):
@@ -116,7 +125,6 @@ class DatabaseManager():
             'StartDate' TEXT,
             'NextAction'TEXT,
             'DueDate'   TEXT,
-            'Flex'      TEXT,
             'DaysLeft'  INTEGER,
             'TotalLoad' REAL,
             'Load'      REAL,
