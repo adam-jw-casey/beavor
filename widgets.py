@@ -79,7 +79,7 @@ class Timer(tk.Frame):
     def setDisplay(self, time):
         self.timeLabel.config(text=str(time))
 
-    def confirmCancel(self, taskName: str) -> bool:
+    def askSaveTimer(self, taskName: str) -> bool:
         return tk.messagebox.askyesnocancel(title="Save before switching?",
                                             message=f"Do you want to save the timer for '{taskName}' before switching?")
 
@@ -343,19 +343,12 @@ class WorklistWindow():
       else:
         self.clearEntryBoxes()
 
-  # TODO save() calls this recursively until you click "no" or "cancel"
-  def confirmDiscardChanges(self, taskName: str) -> bool:
+  def askSaveChanges(self, taskName: str) -> bool:
     if self.nonTrivialChanges():
-      selection = tk.messagebox.askyesnocancel(title="Save before switching?",
-                                               message = "Do you want to save your changes to '{}' before switching?".format(taskName))
-      if selection is True:
-        self.save()
-      elif selection is None:
+      return tk.messagebox.askyesnocancel(title="Save before switching?",
+                                          message=f"Do you want to save your changes to '{taskName}' before switching?")
+    else:
         return False
-      else:
-        self.notify("Discarded changes")
-
-    return True
 
   def newTask(self, _=tk.Event) -> None:
     self.clearEntryBoxes()
@@ -368,19 +361,23 @@ class WorklistWindow():
     return("break")
 
   def clearEntryBoxes(self) -> None:
-    if self.selection is None or self.confirmDiscardChanges(self.selection["Task"]):
-      try:
+    if self.selection is not None:
+        # TODO shouldn't have to check this here - should probably be done higher up????
+        match self.askSaveChanges(self.selection["Task"]):
+            case True:
+                self.save()
+            case False:
+                pass
+            case None:
+                # TODO this is janky - fix it
+                raise PermissionError("Cancelled by user")
+
         #Nothing selected, just clear the box
         self.checkDone.set("O")
         self.entryBoxes["Flex"].set("")
         self.timer.setDisplay("0:00:00")
         for header in self.editColumns:
           self.overwriteEntryBox(self.entryBoxes[header], "")
-      except AttributeError:
-        #fails on startup
-        pass
-    else:
-      raise PermissionError("Cancelled by user")
 
   def overwriteEntryBox(self, entry: ttk.Combobox | tk.Text | tk.Entry | DateEntry, text) -> None:
     #Check if we need to temporarily enable the box
@@ -401,7 +398,7 @@ class WorklistWindow():
   def selectTask(self, task) -> None:
     self.messageLabel.config(text="")
     if self.timer.timing:
-        match self.timer.confirmCancel(task["Task"]):
+        match self.timer.askSaveTimer(task["Task"]):
             case True:
                 self.timer.save()
             case False:
@@ -409,21 +406,30 @@ class WorklistWindow():
             case None:
                 return
 
-    if self.selection is None or (self.confirmDiscardChanges(task["Task"])):
+    if task is None:
+       self.clearEntryBoxes()
+    else:
+        match self.askSaveChanges(task["Task"]):
+            case True:
+                self.save()
+            case False:
+                pass
+            case None:
+                return
 
-      #todo this could be a function "update entryBoxes" or something
-      for (header, entry) in [(header, self.entryBoxes[header]) for header in self.editColumns]:
-        if header == "Flex":
-          entry.set(task[header])
-        else:
-          self.overwriteEntryBox(entry, task[header])
+        #todo this could be a function "update entryBoxes" or something
+        for (header, entry) in [(header, self.entryBoxes[header]) for header in self.editColumns]:
+          if header == "Flex":
+            entry.set(task[header])
+          else:
+            self.overwriteEntryBox(entry, task[header])
 
-      self.checkDone.set(task["O"])
+        self.checkDone.set(task["O"])
 
-      self.selection = task
+        self.selection = task
 
-      if not self.timer.timing:
-        self.timer.setDisplay(datetime.timedelta(minutes=(task["Used"] or 0)))
+        if not self.timer.timing:
+          self.timer.setDisplay(datetime.timedelta(minutes=(task["Used"] or 0)))
 
   def refreshAll(self, _=tk.Event) -> None:
     self.refreshCategories()
@@ -919,7 +925,7 @@ class TaskScroller(ScrollFrame):
 
     def unhighlightAndSelectTask(self, task) -> None:
         for tr in self.taskRows:
-            if tr.rowid == task["rowid"]:
+            if task is not None and tr.rowid == task["rowid"]:
                 tr.highlight()
             else:
                 tr.unhighlight()
