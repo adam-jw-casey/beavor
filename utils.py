@@ -52,21 +52,20 @@ def todayDate() -> datetime.date:
 
 class Task:
     def __init__(self, data: sqlite3.Row | dict):
-        self.category:   str    = data["Category"]
-        self.o:          str    = data["O"]
-        self.task:       str    = data["Task"]
-        self.budget:     int    = data["Budget"]
-        self.time:       int    = data["Time"]
-        self.used:       int    = data["Used"]
-        self.left:       int    = data["Left"]
-        self.startDate:  str    = data["StartDate"]
-        self.nextAction: str    = data["NextAction"]
-        self.dueDate:    DueDate= DueDate.fromString(data["DueDate"])
-        self.daysLeft:   int    = data["DaysLeft"]
-        self.totalLoad:  float  = data["TotalLoad"]
-        self.load:       float  = data["Load"]
-        self.notes:      str    = data["Notes"]
-        self.dateAdded:  str    = data["DateAdded"]
+        self.category:         str     = data["Category"]
+        self.finished:         str     = data["O"] == 'X'
+        self.task_name:        str     = data["Task"]
+        self.time_budgeted:    int     = data["Budget"]
+        self.time_need:        int     = data["Time"]
+        self.time_used:        int     = data["Used"]
+        self.time_left:        int     = data["Left"]
+        self.next_action_date: str     = data["NextAction"]
+        self.days_left:        int     = data["DaysLeft"]
+        self.total_load:       float   = data["TotalLoad"]
+        self.load:             float   = data["Load"]
+        self.notes:            str     = data["Notes"]
+        self.date_added:       str     = data["DateAdded"]
+        self.due_date:         DueDate = DueDate.fromString(data["DueDate"])
 
 class DueDateType(IntEnum):
     NONE = 0

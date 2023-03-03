@@ -564,7 +564,6 @@ class WorklistWindow():
 
     #Store original values
     newRowDict["Budget"] = newRowDict["Time"]
-    newRowDict["StartDate"] = newRowDict["NextAction"]
     newRowDict["DateAdded"] = todayStr()
     #Defaults
     newRowDict["O"] = "O"
@@ -578,7 +577,7 @@ class WorklistWindow():
     # Iterate over tasks to create. For single task creation, runs only once
     for i in range(repetitions):
       thisRowDict = newRowDict.copy()
-      for header in ["StartDate", "NextAction", "DueDate"]:
+      for header in ["NextAction", "DueDate"]:
         thisRowDict[header] = date2YMDstr(YMDstr2date(thisRowDict[header]) + i * interval)
 
       thisRowDict = self.calculateRow(thisRowDict)
