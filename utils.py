@@ -121,7 +121,6 @@ class DatabaseManager():
             'Time'      INTEGER,
             'Used'      INTEGER,
             'Left'      INTEGER,
-            'StartDate' TEXT,
             'NextAction'TEXT,
             'DueDate'   TEXT,
             'DaysLeft'  INTEGER,
