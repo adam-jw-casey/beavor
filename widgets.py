@@ -6,7 +6,6 @@ import tkinter.ttk as ttk
 import datetime
 import time
 import sys
-import numpy as np
 import platform
 from typing import List, Any, Optional
 
@@ -169,12 +168,22 @@ class CompletingComboBox(ttk.Combobox):
 
 class EditingPane(tk.Frame):
     def __init__(self, parent, getSelectedTask, save, notify, getCategories, newTask, deleteTask):
+        def canBeInt(d, i, P, s, S, v, V, W) ->  bool:
+            try:
+                int(S)
+                return True
+            except:
+                return False
+
         super().__init__(parent)
 
         self.save = lambda: save(self._createTaskFromInputs())
         self.getCategories = getCategories
 
         self.selection: Optional[Task] = None
+
+        int_validation = vcmd = (self.register(canBeInt),
+                '%d', '%i', '%P', '%s', '%S', '%v', '%V', '%W')
 
         # Entry boxes and labels
         self.entryFrame = tk.Frame(self)
@@ -205,13 +214,13 @@ class EditingPane(tk.Frame):
         self.timeLabel.grid(sticky="W",row=2, column=0)
         self.timeBox = tk.Entry(self.entryFrame)
         self.timeBox.grid(sticky="NW",row=2, column=1, pady=1)
-        self.timeBox.config(width=50)
+        self.timeBox.config(width=50, validate="key", validatecommand=int_validation)
 
         self.usedLabel = tk.Label(self.entryFrame, text="Time Used")
         self.usedLabel.grid(sticky="W",row=3, column=0)
         self.usedBox = tk.Entry(self.entryFrame)
         self.usedBox.grid(sticky="NW",row=3, column=1, pady=1)
-        self.usedBox.config(width=50)
+        self.usedBox.config(width=50, validate="key", validatecommand=int_validation)
 
         self.nextActionLabel = tk.Label(self.entryFrame, text="Next Action")
         self.nextActionLabel.grid(sticky="W",row=4, column=0)
@@ -282,19 +291,23 @@ class EditingPane(tk.Frame):
 
       return True
 
+    # TODO this needs better input validation - currently it just dumps an exception in console
+    #      but ideally it would highlight the offending box in red, or something like that
+    #      maybe .bind() red highlighting to onKeyUp on each input, and this function could
+    #      notify() on failures?
     def _createTaskFromInputs(self) -> Task:
         self.timer.stop()
 
         task: Task             = Task.default()
 
-        task.category          = self._getEntry(self.categoryBox)
-        task.task_name         = self._getEntry(self.taskNameBox)
-        task.time_needed       = int(self._getEntry(self.timeBox))
-        task.time_used         = int(self._getEntry(self.usedBox))
-        task.next_action_date  = YMDstr2date(self._getEntry(self.nextActionBox))
-        task.notes             = self._getEntry(self.notesBox)
+        task.category          = self.categoryBox.get()
+        task.task_name         = self.taskNameBox.get()
+        task.time_needed       = int(self.timeBox.get())
+        task.time_used         = int(self.usedBox.get())
+        task.next_action_date  = YMDstr2date(self.nextActionBox.get())
+        task.notes             = self.notesBox.get('1.0', 'end')[:-1]
         task.id                = self.selection.id if self.selection is not None else None
-        task.due_date          = DueDate.fromString(self._getEntry(self.dueDateBox))
+        task.due_date          = DueDate.fromString(self.dueDateBox.get())
         task.finished          = self.doneIsChecked.get()
 
         return task
@@ -344,14 +357,6 @@ class EditingPane(tk.Frame):
             title="Save before switching?",
             message=f"Do you want to save your changes to '{taskName}' before switching?"
         )
-
-    #Gets the text in the passed entryBox
-    def _getEntry(self, entryBox: tk.Text | ttk.Combobox | tk.Entry | DateEntry) -> str:
-      try:
-        return entryBox.get()
-      except TypeError:
-        #Notes
-        return entryBox.get('1.0','end')[:-1]
 
 # todo put the next action / due date at a specific time?
 # todo add buttons to scroll the calendar forward week-by-week
@@ -645,7 +650,7 @@ class WorklistWindow():
         self.editingPane.selection = None
         #Refresh the screen
         self.refreshAll()
-        self.select(selected)
+        self.select(selected) # TODO this doesn't highlight the newly-created task when creating a new task
 
         self.notify("Task saved")
 

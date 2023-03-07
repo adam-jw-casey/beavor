@@ -147,7 +147,6 @@ class DatabaseManager():
     def createNewDatabase(cls, path: str) -> None:
       conn = sqlite3.connect(path)
       cur  = conn.cursor()
-      # todo a better name for "Load" would be "CurrentLoad"
       cur.execute("""
           CREATE TABLE worklist(
               Category  TEXT,
@@ -271,7 +270,6 @@ class DatabaseManager():
                 date2YMDstr(task.date_added)       
             )
         )
-        self.commit()
       
         self.cwrite.execute("SELECT * FROM worklist WHERE rowid == last_insert_rowid()")
         self.commit()
