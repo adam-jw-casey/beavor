@@ -32,12 +32,12 @@ from utils import *
 
 class Timer(tk.Frame):
 
-    TIME_FMT = "%H:%M:%S"
-
-    def __init__(self, parent: tk.Frame | tk.LabelFrame, getSelectedTask, save, setUsedTime):
+    def __init__(self, parent: tk.Frame | tk.LabelFrame, getSelectedTask, save, setUsedTime, notify):
         super().__init__(parent)
 
-        self.timeLabel = tk.Label(self, text="0:00:00")
+        self.notify = notify
+
+        self.timeLabel = tk.Label(self, text=str(datetime.timedelta()))
         self.timeLabel.grid(row=0, column=1)
 
         self.timeButton = tk.Button(self, text="Start", command=lambda: self.toggleTimer(getSelectedTask()))
@@ -57,14 +57,15 @@ class Timer(tk.Frame):
     def start(self, task) -> None:
       if task is None:
         # todo better way of handling this -> this dumps the exception in the console
+        self.notify("Cannot time an empty task")
         raise self.EmptyTaskError("Cannot time an empty task")
 
       self.timeButton.config(text="Stop")
-      self.startTime = time.strftime(self.TIME_FMT)
+      self.startTime = datetime.datetime.now()
       self.initialTime = datetime.timedelta(minutes=(task.time_used or 0))
 
       self.timing = True
-      self._update_diplayed_time()
+      self._keep_displayed_time_updated()
 
     def stop(self):
         if self.timing:
@@ -72,22 +73,17 @@ class Timer(tk.Frame):
             self.timing = False
             self.setUsedTime(round(self.timerVal.total_seconds()/60))
 
-    def setDisplay(self, time):
+    def setTime(self, time: datetime.timedelta):
         self.timerVal = time
         self.timeLabel.config(text=str(time))
 
-    def _update_diplayed_time(self):
+    def _keep_displayed_time_updated(self):
         if self.timing:
-            # TODO would be better to handle this by accounting for date rather than just fudging the days
-            runTime = (datetime.datetime.strptime(time.strftime(self.TIME_FMT), self.TIME_FMT)
-                     - datetime.datetime.strptime(self.startTime, self.TIME_FMT))
-            # If the timer is run through midnight it goes negative. This fixes it.
-            if runTime.days < 0:
-              runTime = runTime + datetime.timedelta(days=1)
+            runTime = datetime.datetime.now() - self.startTime
 
-            self.setDisplay((runTime + self.initialTime))
+            self.setTime((runTime + self.initialTime))
 
-            self.after(1000, self._update_diplayed_time)
+            self.after(1000, self._keep_displayed_time_updated)
 
     class EmptyTaskError(Exception):
       pass
@@ -195,7 +191,7 @@ class EditingPane(tk.Frame):
         self.entryButtonFrame.grid(row=1, column=0)
 
         # Timer and its button
-        self.timer = Timer(self.entryButtonFrame, getSelectedTask, self.save, lambda time: self._overwriteEntryBox(self.usedBox, time))
+        self.timer = Timer(self.entryButtonFrame, getSelectedTask, self.save, lambda time: self._overwriteEntryBox(self.usedBox, time), notify)
         self.timer.grid(row=0, column=1)
 
         #Setup the lower half of the window
@@ -282,7 +278,7 @@ class EditingPane(tk.Frame):
       self._overwriteEntryBox(self.dueDateBox,      task.due_date)
       self._overwriteEntryBox(self.nextActionBox,   task.next_action_date)
       self._overwriteEntryBox(self.notesBox,        task.notes)
-      self.timer.setDisplay(datetime.timedelta(minutes=(task.time_used or 0)))
+      self.timer.setTime(datetime.timedelta(minutes=(task.time_used or 0)))
       self.doneIsChecked.set(task.finished)
 
       return True
@@ -305,7 +301,7 @@ class EditingPane(tk.Frame):
             task.finished          = self.doneIsChecked.get()
         except ValueError as e:
             # On any input validation errors, notify the user and pass on the error - not pretty but better than nothing
-            self.notify(str(e))
+            self.notify(e.__str__())
             raise(e)
 
         return task
@@ -329,7 +325,7 @@ class EditingPane(tk.Frame):
 
     def _clearEntryBoxes(self) -> None:
         self.doneIsChecked.set("O")
-        self.timer.setDisplay("0:00:00")
+        self.timer.setTime("0:00:00")
         for w in [self.categoryBox, self.taskNameBox, self.timeBox, self.usedBox, self.dueDateBox, self.nextActionBox, self.notesBox]:
           self._overwriteEntryBox(w, "")
 
