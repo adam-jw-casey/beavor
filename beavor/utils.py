@@ -6,10 +6,6 @@ from typing import Optional
 
 DATE_FORMAT = "%Y-%m-%d"
 
-#Like .ljust, but truncates to length if necessary
-def ljusttrunc(text: str, length: int) -> str:
-  return text[:length].ljust(length)
-
 def greenRedScale(low: float, high: float, val: float) -> str:
   #linear interpolation bounded on [0,1]
   frac = max(0, min(1, (val - low) / (high - low)))
@@ -21,16 +17,6 @@ def greenRedScale(low: float, high: float, val: float) -> str:
     green = 255
 
   return "#{}{}00".format(str(hex(red)[2:]).rjust(2,'0'), str(hex(green)[2:]).rjust(2,'0'))
-
-#Double up single quotes in a string
-def escapeSingleQuotes(text) -> str:
-  return "".join([c if c != "'" else c+c for c in text])
-
-# Takes a string "YYYY-MM-DD"
-def daysBetween(d1: str, d2: str) -> int:
-  d1d = YMDstr2date(d1)
-  d2d = YMDstr2date(d2)
-  return (d2d - d1d).days
 
 # takes strings "%Y-%m-%d"
 # inclusive of start and end date
