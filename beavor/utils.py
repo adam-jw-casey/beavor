@@ -22,10 +22,6 @@ def greenRedScale(low: float, high: float, val: float) -> str:
 
   return "#{}{}00".format(str(hex(red)[2:]).rjust(2,'0'), str(hex(green)[2:]).rjust(2,'0'))
 
-#Surrounds the string inner with string outer, reversed the second time, and returns the result
-def surround(inner: str, outer: str) -> str:
-  return outer + inner + outer[::-1]
-
 #Double up single quotes in a string
 def escapeSingleQuotes(text) -> str:
   return "".join([c if c != "'" else c+c for c in text])

@@ -7,7 +7,7 @@ import datetime
 import sys
 import platform
 from typing import List, Any, Optional
-from beavor.backend.target.release.backend import surround
+from beavor.backend import surround
 
 from .utils import *
 
