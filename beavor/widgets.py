@@ -8,7 +8,7 @@ import sys
 import platform
 from typing import List, Any, Optional
 
-from .utils import *
+from beavor.utils import YMDstr2date, date2YMDstr, todayDate, Task, DatabaseManager, greenRedScale, DueDate
 
 ###########################################
 #Readability / coding style / maintainability
@@ -173,7 +173,7 @@ class EditingPane(tk.Frame):
 
         self.selection: Optional[Task] = None
 
-        int_validation = vcmd = (self.register(canBeInt),
+        int_validation = (self.register(canBeInt),
                 '%d', '%i', '%P', '%s', '%S', '%v', '%V', '%W')
 
         # Entry boxes and labels
