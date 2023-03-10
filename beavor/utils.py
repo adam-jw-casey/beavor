@@ -40,7 +40,7 @@ class Task:
         self.category:         str           = data["Category"]
         self.finished:         str           = data["O"]      # 'O' for open, 'X' for finished TODO would be better as a bool
         self.task_name:        str           = data["Task"]
-        self._time_budgeted:    int           = data["Budget"] # in minutes
+        self._time_budgeted:   int           = data["Budget"] # in minutes
         self.time_needed:      int           = data["Time"]   # in minutes
         self.time_used:        int           = data["Used"]   # in minutes
         self.next_action_date: datetime.date = YMDstr2date(data["NextAction"])
