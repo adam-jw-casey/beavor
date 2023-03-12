@@ -2,7 +2,7 @@
 
 import sys, os
 from beavor.widgets import WorklistWindow
-from beavor.utils import DatabaseManager
+from beavor.backend import DatabaseManager
 
 DEFAULT_DATABASE_PATH = "worklist.db"
 
