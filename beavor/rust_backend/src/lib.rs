@@ -11,7 +11,6 @@ use pyo3::types::PyType;
 use pyo3::{
     wrap_pyfunction,
     PyErr,
-    PyAny,
 };
 use pyo3::exceptions::{
     PyValueError,
@@ -282,6 +281,8 @@ impl DatabaseManager{
                 .await
                 .expect("Should be able to connect to database");
 
+            // This doesn't use query! because when creating a database, it doesn't make sense to
+            // check against an existing database
             sqlx::query("
                 CREATE TABLE worklist(
                     Category   TEXT,
@@ -303,8 +304,14 @@ impl DatabaseManager{
     fn create_task(&self, task: Task) -> Task{
         let mut new_task = self.default_task();
 
+        // These must be stored so that they are not dropped in-between
+        // the calls to query! and .execute
+        let due_date_str = task.due_date.to_string();
+        let next_action_str = DueDate::Date(task.next_action_date).to_string();
+        let date_added_str = DueDate::Date(task.date_added).to_string();
+
         self.rt.block_on(async{
-            sqlx::query("
+            sqlx::query!("
                 INSERT INTO worklist
                     (
                         Category,
@@ -331,21 +338,24 @@ impl DatabaseManager{
                         ?,
                         ?
                     )
-            ")
-                .bind(task.category)
-                .bind(task.finished)
-                .bind(task.task_name)
-                .bind(task.time_needed) // When creating a new task, save the initial time_needed estimate as time_budgeted
-                .bind(task.time_needed)
-                .bind(task.time_used)
-                .bind(DueDate::Date(task.next_action_date).to_string())
-                .bind(task.due_date.to_string())
-                .bind(task.notes)
-                .bind(DueDate::Date(task.date_added).to_string())
+            ",
+                task.category,
+                task.finished,
+                task.task_name,
+                task.time_needed, // When creating a new task, save the initial time_needed estimate as time_budgeted
+                task.time_needed,
+                task.time_used,
+                next_action_str,
+                due_date_str,
+                task.notes,
+                date_added_str,
+            )
                 .execute(&self.pool)
                 .await
                 .expect("Should be able to insert Task into database");
 
+            // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
+            // return type of query! to write an impl From<T> for Task
             new_task = sqlx::query("
                 SELECT *
                 FROM worklist
@@ -399,12 +409,13 @@ impl DatabaseManager{
 
     fn delete_task(&self, task: Task){
         self.rt.block_on(async{
-            sqlx::query("
+            sqlx::query!("
                 DELETE
                 FROM worklist
                 WHERE rowid == ?
-            ")
-                .bind(task.id)
+            ",
+                task.id
+            )
                 .execute(&self.pool)
                 .await
                 .expect("Should be able do delete task");
@@ -415,6 +426,8 @@ impl DatabaseManager{
         let mut tasks: Vec<Task> = Vec::new();
 
         self.rt.block_on(async{
+            // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
+            // return type of query! to write an impl From<T> for Task
             tasks = sqlx::query("
                 SELECT *, rowid
                 FROM worklist
@@ -436,7 +449,7 @@ impl DatabaseManager{
         let mut categories: Vec<String> = Vec::new();
 
         self.rt.block_on(async{
-            categories = sqlx::query("
+            categories = sqlx::query!("
                 SELECT DISTINCT Category
                 FROM worklist
                 ORDER BY Category
@@ -445,7 +458,7 @@ impl DatabaseManager{
                 .await
                 .expect("Should be able to get categories")
                 .into_iter()
-                .map(|r: SqliteRow| r.get("Category"))
+                .map(|r| r.Category.expect("Each category should be a string"))
                 .collect()
 
         });
