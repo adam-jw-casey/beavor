@@ -8,7 +8,8 @@ import sys
 import platform
 from typing import List, Any, Optional
 
-from beavor.utils import YMDstr2date, date2YMDstr, todayDate, Task, DatabaseManager, greenRedScale, DueDate
+from beavor.utils import YMDstr2date, date2YMDstr, todayDate
+from beavor.backend import green_red_scale, DatabaseManager, Task
 
 ###########################################
 #Readability / coding style / maintainability
@@ -157,7 +158,7 @@ class CompletingComboBox(ttk.Combobox):
             self.icursor(tk.END)
 
 class EditingPane(tk.Frame):
-    def __init__(self, parent, getSelectedTask, save, notify, getCategories, newTask, deleteTask):
+    def __init__(self, parent, getSelectedTask, save, notify, get_categories, newTask, deleteTask, defaultTask):
         def canBeInt(d, i, P, s, S, v, V, W) ->  bool:
             try:
                 int(S)
@@ -168,10 +169,12 @@ class EditingPane(tk.Frame):
         super().__init__(parent)
 
         self.save = lambda: save(self._createTaskFromInputs())
-        self.getCategories = getCategories
+        self.get_categories = get_categories
         self.notify = notify
 
         self.selection: Optional[Task] = None
+
+        self.defaultTask = defaultTask
 
         int_validation = (self.register(canBeInt),
                 '%d', '%i', '%P', '%s', '%S', '%v', '%V', '%W')
@@ -190,7 +193,7 @@ class EditingPane(tk.Frame):
 
         #Setup the lower half of the window
         self.categoryLabel = tk.Label(eframe, text= "Category")
-        self.categoryBox = CompletingComboBox(eframe, getCategories)
+        self.categoryBox = CompletingComboBox(eframe, get_categories)
 
         self.taskNameLabel = tk.Label(eframe, text="Task Name")
         self.taskNameBox = tk.Entry(eframe)
@@ -246,7 +249,7 @@ class EditingPane(tk.Frame):
         self.deleteButton.grid(row=0, column=4)
 
     def tryShow(self, task: Optional[Task]) -> bool:
-      self.categoryBox.config(values=self.getCategories())
+      self.categoryBox.config(values=self.get_categories())
 
       if self.selection is not None:
           self.timer.stop()
@@ -263,7 +266,7 @@ class EditingPane(tk.Frame):
       self.deleteButton.config(state="normal" if task is not None else "disabled")
 
       self.selection = task
-      task = task or Task.default()
+      task = task or self.defaultTask
 
       self._overwriteEntryBox(self.categoryBox,     task.category)
       self._overwriteEntryBox(self.taskNameBox,     task.task_name)
@@ -281,7 +284,7 @@ class EditingPane(tk.Frame):
     def _createTaskFromInputs(self) -> Task:
         self.timer.stop()
 
-        task: Task             = Task.default()
+        task: Task             = self.defaultTask
 
         try:
             task.category          = self.categoryBox.get()
@@ -394,7 +397,7 @@ class Calendar(tk.LabelFrame):
         if thisDate >= today:
           hoursThisDay = self.getDayTotalLoad(thisDate) / 60
           thisDay["LoadLabel"].config(text=str(round(hoursThisDay,1)),
-                                      bg=greenRedScale(0,(7 if thisDate != today else max(0.1, hoursLeftToday)), hoursThisDay))
+                                      bg=green_red_scale(0,(7 if thisDate != today else max(0.1, hoursLeftToday)), hoursThisDay))
         else:
           thisDay["LoadLabel"].config(text="", bg="#d9d9d9")
 
@@ -515,8 +518,6 @@ class TaskRow(tk.LabelFrame):
 
 class WorklistWindow():
 
-    SEARCH_CRITERIA = [f"O == 'O'","NextAction <= '{todayStr()}'"]
-
     def __init__(self, databasePath: str):
       self.os = sys.platform
 
@@ -550,10 +551,10 @@ class WorklistWindow():
       self.taskListFrame = tk.LabelFrame(self.root, text="Tasks", padx=4, pady=4)
       self.taskListFrame.grid(row=0, column=0, pady=4, padx=4, sticky=tk.N+tk.S+tk.E+tk.W)
 
-      self.db.getTasks(self.SEARCH_CRITERIA)
+      self.db.get_open_tasks()
 
       # Editing interface
-      self.editingPane = EditingPane(self.root, self.getSelectedTask, self.save, self.notify, self.db.getCategories, self.newTask, self.deleteTask)
+      self.editingPane = EditingPane(self.root, self.getSelectedTask, self.save, self.notify, self.db.get_categories, self.newTask, self.deleteTask, self.db.default_task)
       self.editingPane.grid(row=0, column=1, padx=4, pady=4)
 
       self.scroller = TaskScroller(self.taskListFrame, self.select)
@@ -582,7 +583,7 @@ class WorklistWindow():
         #Remember which task was selected
         selected_rowid = self.selection.id if self.selection is not None else None
 
-        self.loadedTasks = self.db.getTasks(self.SEARCH_CRITERIA)
+        self.loadedTasks = self.db.get_open_tasks()
         self.scroller.showTasks(self.loadedTasks)
 
         match list(filter(lambda t: t.id == selected_rowid, self.loadedTasks)):
@@ -598,7 +599,7 @@ class WorklistWindow():
       print("New task created")
 
     def refreshAll(self) -> None:
-      self.calendar.updateCalendar(self.db.getTasks4Workload())
+      self.calendar.updateCalendar(self.db.get_open_tasks())
       self.refreshTasks()
 
     def notify(self, msg: str) -> None:

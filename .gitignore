@@ -3,3 +3,5 @@
 *.swp
 *.so
 __pycache__/
+beavor/rust_backend/Cargo.lock
+perf.py
