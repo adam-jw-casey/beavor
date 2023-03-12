@@ -267,6 +267,7 @@ class EditingPane(tk.Frame):
 
       self.selection = task
       task = task or self.defaultTask
+      assert(task is not None) # Just to make the linter happy, this is unnecessary because of the line above
 
       self._overwriteEntryBox(self.categoryBox,     task.category)
       self._overwriteEntryBox(self.taskNameBox,     task.task_name)
@@ -554,7 +555,7 @@ class WorklistWindow():
       self.db.get_open_tasks()
 
       # Editing interface
-      self.editingPane = EditingPane(self.root, self.getSelectedTask, self.save, self.notify, self.db.get_categories, self.newTask, self.deleteTask, self.db.default_task)
+      self.editingPane = EditingPane(self.root, self.getSelectedTask, self.save, self.notify, self.db.get_categories, self.newTask, self.deleteTask, self.db.default_task())
       self.editingPane.grid(row=0, column=1, padx=4, pady=4)
 
       self.scroller = TaskScroller(self.taskListFrame, self.select)
