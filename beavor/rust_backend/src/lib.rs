@@ -11,7 +11,6 @@ use pyo3::types::PyType;
 use pyo3::{
     wrap_pyfunction,
     PyErr,
-    IntoPy,
 };
 use pyo3::exceptions::PyValueError;
 
@@ -28,6 +27,7 @@ use chrono::Local;
 
 use std::str::FromStr;
 use std::convert::From;
+use core::fmt::Display;
 
 #[pyfunction]
 // Tested and this is ~3x faster than the exact same implementation in Python,
@@ -92,6 +92,13 @@ struct PyDueDate{
     date: Option<NaiveDate>,
 }
 
+#[pymethods]
+impl PyDueDate{
+    fn __str__(&self) -> String{
+        (&DueDate::from(self)).into()
+    }
+}
+
 #[derive(Clone, Copy)]
 #[allow(clippy::upper_case_acronyms)]
 enum DueDate{
@@ -106,6 +113,16 @@ impl From<DueDate> for PyDueDate{
             DueDate::None => PyDueDate{date_type: PyDueDateType::None, date: None},
             DueDate::Date(date) => PyDueDate{date_type: PyDueDateType::Date, date: Some(date)},
             DueDate::ASAP => PyDueDate{date_type: PyDueDateType::ASAP, date: None},
+        }
+    }
+}
+
+impl From<&PyDueDate> for DueDate{
+    fn from(pyvalue: &PyDueDate) -> Self {
+        match pyvalue.date_type{
+            PyDueDateType::None => DueDate::None,
+            PyDueDateType::Date => DueDate::Date(pyvalue.date.expect("If PyDueDateType is Date then date will no be None")),
+            PyDueDateType::ASAP => DueDate::ASAP,
         }
     }
 }
@@ -139,13 +156,19 @@ impl TryFrom<String> for DueDate{
     }
 }
 
-impl ToString for DueDate{
-    fn to_string(&self) -> String {
-        match self{
+impl From<&DueDate> for String{
+    fn from(value: &DueDate) -> Self {
+        match value{
             DueDate::None => "None".into(),
             DueDate::ASAP => "ASAP".into(),
             DueDate::Date(date) => format_date_borrowed(date),
         }
+    }
+}
+
+impl Display for DueDate{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", String::from(self))
     }
 }
 
