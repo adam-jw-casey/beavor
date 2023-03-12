@@ -3,5 +3,6 @@
 *.swp
 *.so
 __pycache__/
+.git
 beavor/rust_backend/Cargo.lock
 perf.py
