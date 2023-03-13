@@ -595,7 +595,7 @@ class WorklistWindow():
 
     def newTask(self, _=tk.Event) -> None:
       self.select(None)
-      print("New task created")
+      self.notify("New task created")
 
     def refreshAll(self) -> None:
       self.calendar.updateCalendar(self.db.get_open_tasks())
@@ -613,7 +613,7 @@ class WorklistWindow():
       if(tk.messagebox.askyesno(
           title="Confirm deletion",
           message=f"Are you sure you want to delete '{task.task_name}'?")):
-        self.db.deleteTask(task)
+        self.db.delete_task(task)
         self.notify(f"Deleted '{task.task_name}'")
 
         self.newTask()
@@ -624,7 +624,7 @@ class WorklistWindow():
         self.editingPane.timer.stop()
 
         if self.selection is None:
-            selected = self.db.createTask(task)
+            selected = self.db.create_task(task)
         else:
             self.db.update_task(task)
             selected = task
