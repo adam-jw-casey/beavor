@@ -22,12 +22,14 @@ use tokio::runtime::Runtime;
 
 use sqlx::sqlite::{
     SqlitePool,
+    SqlitePoolOptions,
     SqliteRow,
     SqliteConnectOptions,
 };
 use sqlx::{
     Row,
-    ConnectOptions
+    ConnectOptions,
+    Executor,
 };
 
 use chrono::naive::NaiveDate;
@@ -271,8 +273,14 @@ impl DatabaseManager{
     fn new(database_path: String) -> PyResult<Self>{
         let rt = Runtime::new().unwrap();
         Ok(Self{
-            pool: rt.block_on(SqlitePool::connect(database_path.as_str()))
-                .expect("Should be able to connect to database"),
+            pool: rt.block_on(
+                      SqlitePoolOptions::new()
+                      .after_connect(|&mut conn, _meta| Box::pin( async {
+                          conn.execute("PRAGMA FOREIGN_KEYS=ON").await?;
+                        Ok(())
+                      }))
+                      .connect(database_path.as_str())
+                    ).expect("Should be able to connect to database"),
             rt,
         })
     }
