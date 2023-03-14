@@ -23,8 +23,12 @@ use tokio::runtime::Runtime;
 use sqlx::sqlite::{
     SqlitePool,
     SqliteRow,
+    SqliteConnectOptions,
 };
-use sqlx::Row;
+use sqlx::{
+    Row,
+    ConnectOptions
+};
 
 use chrono::naive::NaiveDate;
 use chrono::Local;
@@ -277,25 +281,17 @@ impl DatabaseManager{
     fn create_new_database(_cls: &PyType, database_path: String){
         let rt = Runtime::new().unwrap();
         rt.block_on(async{
-            let pool = SqlitePool::connect(database_path.as_str())
+            let mut conn = SqliteConnectOptions::from_str(&database_path)
+                .expect("This should work")
+                .create_if_missing(true)
+                .connect()
                 .await
                 .expect("Should be able to connect to database");
 
             // This doesn't use query! because when creating a database, it doesn't make sense to
             // check against an existing database
-            sqlx::query("
-                CREATE TABLE worklist(
-                    Category   TEXT,
-                    O          TEXT,
-                    Task       TEXT,
-                    Budget     INTEGER,
-                    Time       INTEGER,
-                    Used       INTEGER,
-                    NextAction TEXT,
-                    DueDate    TEXT,
-                    Notes      TEXT,
-                    DateAdded  TEXT)
-            ").execute(&pool)
+            sqlx::query_file!("resources/schema.sql")
+                .execute(&mut conn)
                 .await
                 .expect("Should be able to create the schema");
         });

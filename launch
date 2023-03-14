@@ -15,7 +15,7 @@ def main():
     worklist = WorklistWindow(DEFAULT_DATABASE_PATH)
   else:
     print(f"No worklist found and none specified.\nCreating new {DEFAULT_DATABASE_PATH}")
-    DatabaseManager.createNewDatabase(DEFAULT_DATABASE_PATH)
+    DatabaseManager.create_new_database(DEFAULT_DATABASE_PATH)
     worklist = WorklistWindow(DEFAULT_DATABASE_PATH)
 
   worklist.root.mainloop()
