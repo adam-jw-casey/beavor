@@ -18,7 +18,7 @@ $(BACKEND)/target/debug/libbackend.so: $(BACKEND)/Cargo.toml $(BACKEND)/src/* $(
 	touch $@
 
 $(BACKEND)/resources/schema.db: $(BACKEND)/resources/schema.sql
-	cd $(@D); rm $(@F); sqlite3 $(@F) < schema.sql
+	cd $(@D); rm -f $(@F); sqlite3 $(@F) < schema.sql
 
 clean:
 	@rm __pycache__ -rf
