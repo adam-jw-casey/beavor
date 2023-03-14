@@ -1,19 +1,24 @@
+BACKEND = beavor/rust_backend
+
 default: debug
 
-release: beavor/rust_backend/target/release/libbackend.so
-	cp beavor/rust_backend/target/debug/libbackend.so beavor/backend.so
+release: $(BACKEND)/target/release/libbackend.so
+	cp $(BACKEND)/target/release/libbackend.so beavor/backend.so
 
-debug: beavor/rust_backend/target/debug/libbackend.so
-	cp beavor/rust_backend/target/debug/libbackend.so beavor/backend.so
+debug: $(BACKEND)/target/debug/libbackend.so
+	cp $(BACKEND)/target/debug/libbackend.so beavor/backend.so
 
-beavor/rust_backend/target/release/libbackend.so: beavor/rust_backend/Cargo.toml beavor/rust_backend/src/* beavor/rust_backend/.env
-	cd beavor/rust_backend/; cargo build --release
+$(BACKEND)/target/release/libbackend.so: $(BACKEND)/Cargo.toml $(BACKEND)/src/* $(BACKEND)/.env $(BACKEND)/resources/schema.db
+	cd $(BACKEND)/; cargo build --release
 
-beavor/rust_backend/target/debug/libbackend.so: beavor/rust_backend/Cargo.toml beavor/rust_backend/src/* beavor/rust_backend/.env
-	cd beavor/rust_backend/; cargo build
+$(BACKEND)/target/debug/libbackend.so: $(BACKEND)/Cargo.toml $(BACKEND)/src/* $(BACKEND)/.env $(BACKEND)/resources/schema.db
+	cd $(BACKEND)/; cargo build
+
+$(BACKEND)/resources/schema.db: $(BACKEND)/resources/schema.sql
+	cd $(BACKEND)/resources; sqlite3 schema.db < schema.sql
 
 clean:
 	@rm __pycache__ -rf
 	@rm beavor/__pycache__ -rf
 	@rm beavor/backend.so
-	@cd beavor/rust_backend; cargo clean
+	@cd $(BACKEND); cargo clean
