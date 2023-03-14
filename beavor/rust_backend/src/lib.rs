@@ -275,8 +275,8 @@ impl DatabaseManager{
         Ok(Self{
             pool: rt.block_on(
                       SqlitePoolOptions::new()
-                      .after_connect(|&mut conn, _meta| Box::pin( async {
-                          conn.execute("PRAGMA FOREIGN_KEYS=ON").await?;
+                      .after_connect(|conn, _meta| Box::pin( async {
+                          conn.execute("PRAGMA foreign_keys=ON").await?;
                         Ok(())
                       }))
                       .connect(database_path.as_str())
@@ -310,22 +310,19 @@ impl DatabaseManager{
 
         // These must be stored so that they are not dropped in-between
         // the calls to query! and .execute
-        let due_date_str = task.due_date.to_string();
         let next_action_str = DueDate::Date(task.next_action_date).to_string();
         let date_added_str = DueDate::Date(task.date_added).to_string();
 
         self.rt.block_on(async{
             let new_rowid: i64 = sqlx::query!("
-                INSERT INTO worklist
+                INSERT INTO tasks
                     (
-                        Category,
-                        O,
-                        Task,
-                        Budget,
-                        Time,
-                        Used,
-                        NextAction,
-                        DueDate,
+                        Name,
+                        Finished,
+                        TimeBudgeted,
+                        TimeNeeded,
+                        TimeUsed,
+                        Available,
                         Notes,
                         DateAdded
                     )
@@ -338,19 +335,15 @@ impl DatabaseManager{
                         ?,
                         ?,
                         ?,
-                        ?,
-                        ?,
                         ?
                     )
             ",
-                task.category,
-                task.finished,
                 task.task_name,
+                task.finished,
                 task.time_needed, // When creating a new task, save the initial time_needed estimate as time_budgeted
                 task.time_needed,
                 task.time_used,
                 next_action_str,
-                due_date_str,
                 task.notes,
                 date_added_str,
             )
@@ -363,7 +356,7 @@ impl DatabaseManager{
             // return type of query! to write an impl From<T> for Task
             new_task = sqlx::query("
                 SELECT *, rowid
-                FROM worklist
+                FROM tasks
                 WHERE rowid == ?
             ")
                 .bind(new_rowid)
@@ -381,30 +374,25 @@ impl DatabaseManager{
         // These must be stored so that they are not dropped in-between
         // the calls to query! and .execute
         let next_action_str = DueDate::Date(task.next_action_date).to_string();
-        let due_date_str = task.due_date.to_string();
 
         self.rt.block_on(async{
             sqlx::query!("
-                UPDATE worklist
+                UPDATE tasks
                 SET
-                    Category =    ?,
-                    O =           ?,
-                    Task =        ?,
-                    Time =        ?,
-                    Used =        ?,
-                    NextAction =  ?,
-                    DueDate =     ?,
+                    Finished =           ?,
+                    Name =        ?,
+                    TimeNeeded =        ?,
+                    TimeUsed =        ?,
+                    Available =  ?,
                     Notes =       ?
                 WHERE
                     rowid == ?
             ",
-                task.category,
                 task.finished,
                 task.task_name,
                 task.time_needed,
                 task.time_used,
                 next_action_str,
-                due_date_str,
                 task.notes,
                 task.id,
             )
@@ -418,7 +406,7 @@ impl DatabaseManager{
         self.rt.block_on(async{
             sqlx::query!("
                 DELETE
-                FROM worklist
+                FROM tasks
                 WHERE rowid == ?
             ",
                 task.id
@@ -437,8 +425,8 @@ impl DatabaseManager{
             // return type of query! to write an impl From<T> for Task
             tasks = sqlx::query("
                 SELECT *, rowid
-                FROM worklist
-                WHERE O == 'O'
+                FROM tasks
+                WHERE Finished == 0
             ")
                 .fetch_all(&self.pool)
                 .await
@@ -457,15 +445,15 @@ impl DatabaseManager{
 
         self.rt.block_on(async{
             categories = sqlx::query!("
-                SELECT DISTINCT Category
-                FROM worklist
-                ORDER BY Category
+                SELECT Name
+                FROM categories
+                ORDER BY Name
             ")
                 .fetch_all(&self.pool)
                 .await
                 .expect("Should be able to get categories")
                 .into_iter()
-                .map(|r| r.Category.expect("Each category should be a string"))
+                .map(|r| r.Name.expect("Each category should be a string"))
                 .collect()
 
         });
