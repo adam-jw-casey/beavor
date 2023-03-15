@@ -46,8 +46,88 @@ pub fn today_date() -> NaiveDate{
     Local::now().naive_local().date()
 }
 
-pub fn work_days_between(d1: NaiveDate, d2: NaiveDate) -> i32{
-    todo!();
+#[pyclass]
+#[derive(Clone)]
+pub enum PyAvailabilityType{
+    Any,
+    Date,
+    DeliverableID
+}
+
+#[pyclass]
+#[derive(Clone)]
+pub struct PyAvailability{
+    availability_type: PyAvailabilityType,
+    date: Option<NaiveDate>,
+    deliverable_id: Option<i64>,
+}
+
+#[derive(Clone)]
+pub enum Availability{
+    Any,
+    Date(NaiveDate),
+    DeliverableID(i64),
+}
+
+impl TryFrom<String> for Availability{
+    type Error = ParseDateError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Ok(match value.as_str(){
+            "Any" => Availability::Any,
+            other => {
+                if let Ok(deliverable_id) = other.parse::<i64>(){
+                    Availability::DeliverableID(deliverable_id)
+                }else{
+                    Availability::Date(parse_date(other)?)
+                }
+            }
+        })
+    }
+}
+
+impl From<&Availability> for String{
+    fn from(value: &Availability) -> Self {
+        match value{
+            Availability::Any => "Any".into(),
+            Availability::Date(date) => format_date(*date),
+            Availability::DeliverableID(deliverable_id) => deliverable_id.to_string(),
+        }
+    }
+}
+
+impl From<&Availability> for PyAvailability{
+    fn from(value: &Availability) -> Self {
+        match value{
+            Availability::Any => PyAvailability{
+                availability_type: PyAvailabilityType::Any,
+                date: None,
+                deliverable_id: None,
+            },
+            Availability::Date(date) => PyAvailability{
+                availability_type: PyAvailabilityType::Date,
+                date: Some(*date),
+                deliverable_id: None,
+            },
+            Availability::DeliverableID(id) => PyAvailability{
+                availability_type: PyAvailabilityType::DeliverableID,
+                date: None,
+                deliverable_id: Some(*id),
+            },
+        }
+    }
+}
+
+impl From<&PyAvailability> for Availability{
+    fn from(value: &PyAvailability) -> Self {
+        match value.availability_type{
+            PyAvailabilityType::Any => Availability::Any,
+            PyAvailabilityType::Date => Availability::Date(
+                value.date.expect("If type is date, date should be Some")),
+            PyAvailabilityType::DeliverableID => Availability::DeliverableID(
+                value.deliverable_id.expect("If type is deliverable_id, it should be Some")),
+        }
+    }
 }
 
 #[pyclass]
@@ -110,7 +190,7 @@ impl From<&PyDueDate> for DueDate{
     fn from(pyvalue: &PyDueDate) -> Self {
         match pyvalue.date_type{
             PyDueDateType::None => DueDate::None,
-            PyDueDateType::Date => DueDate::Date(pyvalue.date.expect("If PyDueDateType is Date then date will no be None")),
+            PyDueDateType::Date => DueDate::Date(pyvalue.date.expect("If PyDueDateType is Date then date will be Some")),
             PyDueDateType::ASAP => DueDate::ASAP,
         }
     }

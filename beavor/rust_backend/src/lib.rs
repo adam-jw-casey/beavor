@@ -28,35 +28,31 @@ use std::str::FromStr;
 
 mod date;
 use date::{
-    DueDate,
     PyDueDate,
     PyDueDateType,
     ParseDateError,
+    Availability,
     today_date,
     parse_date,
     format_date,
     today_str,
 };
 
-mod task;
-use task::Task;
+mod model;
+use model::Task;
 
 impl TryFrom<SqliteRow> for Task{
     type Error = ParseDateError;
 
     fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
         Ok(Task{
-            category:                     row.get::<String, &str>("Category"),
             finished:                     row.get::<String, &str>("O"),
             task_name:                    row.get::<String, &str>("Task"),
-            _time_budgeted:               row.get::<i32,    &str>("Budget"),
             time_needed:                  row.get::<i32,    &str>("Time"),
             time_used:                    row.get::<i32,    &str>("Used"),
-            next_action_date: parse_date(&row.get::<String, &str>("NextAction"))?,
-            due_date:                     row.get::<String, &str>("DueDate").try_into()?,
+            available:                    row.get::<String, &str>("Available").try_into()?,
             notes:                        row.get::<String, &str>("Notes"),
-            id:                           row.get::<Option<i32>, &str>("rowid"),
-            date_added:       parse_date(&row.get::<String, &str>("DateAdded"))?,
+            id:                           row.get::<Option<i64>, &str>("rowid"),
         })
     }
 }
@@ -127,10 +123,8 @@ impl DatabaseManager{
     fn create_task(&self, task: Task) -> Task{
         let mut new_task = self.default_task();
 
-        // These must be stored so that they are not dropped in-between
-        // the calls to query! and .execute
-        let next_action_str = DueDate::Date(task.next_action_date).to_string();
-        let date_added_str = DueDate::Date(task.date_added).to_string();
+        let available_string: String = (&task.available).into();
+        let today_string = today_str();
 
         self.rt.block_on(async{
             let new_rowid: i64 = sqlx::query!("
@@ -162,9 +156,9 @@ impl DatabaseManager{
                 task.time_needed, // When creating a new task, save the initial time_needed estimate as time_budgeted
                 task.time_needed,
                 task.time_used,
-                next_action_str,
+                available_string,
                 task.notes,
-                date_added_str,
+                today_string,
             )
                 .execute(&self.pool)
                 .await
@@ -192,7 +186,7 @@ impl DatabaseManager{
     fn update_task(&self, task: Task){
         // These must be stored so that they are not dropped in-between
         // the calls to query! and .execute
-        let next_action_str = DueDate::Date(task.next_action_date).to_string();
+        let available_string: String = (&task.available).into();
 
         self.rt.block_on(async{
             sqlx::query!("
@@ -211,7 +205,7 @@ impl DatabaseManager{
                 task.task_name,
                 task.time_needed,
                 task.time_used,
-                next_action_str,
+                available_string,
                 task.notes,
                 task.id,
             )
@@ -282,17 +276,13 @@ impl DatabaseManager{
 
     fn default_task(&self) -> Task{
         Task{
-            category:         "Work".into(),
-            finished:         "O".into(),
             task_name:        "".into(),
-            _time_budgeted:   0,
+            finished:         "O".into(),
             time_needed:      0,
             time_used:        0,
-            next_action_date: today_date(),
-            due_date:         DueDate::Date(today_date()),
+            available:        Availability::Any,
             notes:            "".into(),
             id:               None,
-            date_added:       today_date(),
         }
     }
 }
