@@ -32,6 +32,8 @@ use date::{
     PyDueDateType,
     ParseDateError,
     Availability,
+    PyAvailability,
+    PyAvailabilityType,
     today_date,
     parse_date,
     format_date,
@@ -39,7 +41,13 @@ use date::{
 };
 
 mod model;
-use model::Task;
+use model::{
+    Task,
+    Deliverable,
+    Project,
+    Category,
+    External,
+};
 
 impl TryFrom<SqliteRow> for Task{
     type Error = ParseDateError;
@@ -295,8 +303,14 @@ fn backend(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(today_date, m)?)?;
     m.add_function(wrap_pyfunction!(today_str, m)?)?;
     m.add_class::<Task>().unwrap();
+    m.add_class::<Deliverable>().unwrap();
+    m.add_class::<Project>().unwrap();
+    m.add_class::<Category>().unwrap();
+    m.add_class::<External>().unwrap();
     m.add_class::<PyDueDate>().unwrap();
     m.add_class::<PyDueDateType>().unwrap();
     m.add_class::<DatabaseManager>().unwrap();
+    m.add_class::<PyAvailability>().unwrap();
+    m.add_class::<PyAvailabilityType>().unwrap();
     Ok(())
 }

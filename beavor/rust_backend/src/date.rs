@@ -164,7 +164,7 @@ impl PyDueDate{
 
     #[classmethod]
     fn parse(_cls: &PyType, s: String) -> PyResult<Self>{
-        Ok(DueDate::try_from(s)?.into())
+        Ok((&DueDate::try_from(s)?).into())
     }
 }
 
@@ -176,11 +176,11 @@ pub enum DueDate{
     ASAP,
 }
 
-impl From<DueDate> for PyDueDate{
-    fn from(rust_due_date: DueDate) -> Self {
+impl From<&DueDate> for PyDueDate{
+    fn from(rust_due_date: &DueDate) -> Self {
         match rust_due_date{
             DueDate::None => PyDueDate{date_type: PyDueDateType::None, date: None},
-            DueDate::Date(date) => PyDueDate{date_type: PyDueDateType::Date, date: Some(date)},
+            DueDate::Date(date) => PyDueDate{date_type: PyDueDateType::Date, date: Some(*date)},
             DueDate::ASAP => PyDueDate{date_type: PyDueDateType::ASAP, date: None},
         }
     }
