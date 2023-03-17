@@ -119,8 +119,6 @@ impl DatabaseManager{
                 .await
                 .expect("Should be able to connect to database");
 
-            // This doesn't use query! because when creating a database, it doesn't make sense to
-            // check against an existing database
             sqlx::query_file!("resources/schema.sql")
                 .execute(&mut conn)
                 .await
