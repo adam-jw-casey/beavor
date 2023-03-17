@@ -14,18 +14,18 @@ use crate::date::{
 #[pyclass]
 pub struct Task{
     #[pyo3(get, set)]
-    pub task_name:        String,
+    pub name:          String,
     #[pyo3(get, set)]
-    pub finished:         String,
+    pub finished:      String,
     #[pyo3(get, set)]
-    pub time_needed:      i32,
+    pub time_needed:   i32,
     #[pyo3(get, set)]
-    pub time_used:        i32,
-    pub available:        Availability,
+    pub time_used:     i32,
+    pub available:     Availability,
     #[pyo3(get, set)]
-    pub notes:            String,
+    pub notes:         String,
     #[pyo3(get)]
-    pub id:               Option<i64>,
+    pub id:            Option<i64>,
 }
 
 #[pymethods]

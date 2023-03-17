@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS tasks(
 	TimeBudgeted  	  INTEGER,
 	TimeNeeded    	  INTEGER,
 	TimeUsed      	  INTEGER,
-	Available     	  TEXT, -- Either a date, Any, or Deliverable
+	Available     	  TEXT,
 	DueDeliverable	  INTEGER,
 	PrereqDeliverable INTEGER,
 	Notes		  TEXT,
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS deliverables(
 	DeliverableID INTEGER NOT NULL PRIMARY KEY,
 	Name	      TEXT,
 	Project       INTEGER,
-	DueDate	      TEXT, --an ISO date, None, or ASAP
+	DueDate	      TEXT,
 	Notes	      TEXT,
 	FOREIGN KEY (Project) REFERENCES projects (ProjectID)
 	);
