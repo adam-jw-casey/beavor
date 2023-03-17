@@ -55,7 +55,7 @@ impl TryFrom<SqliteRow> for Task{
     fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
         Ok(Task{
             finished:                     row.get::<String, &str>("O"),
-            task_name:                    row.get::<String, &str>("Task"),
+            name:                         row.get::<String, &str>("Task"),
             time_needed:                  row.get::<i32,    &str>("Time"),
             time_used:                    row.get::<i32,    &str>("Used"),
             available:                    row.get::<String, &str>("Available").try_into()?,
@@ -159,7 +159,7 @@ impl DatabaseManager{
                         ?
                     )
             ",
-                task.task_name,
+                task.name,
                 task.finished,
                 task.time_needed, // When creating a new task, save the initial time_needed estimate as time_budgeted
                 task.time_needed,
@@ -210,7 +210,7 @@ impl DatabaseManager{
                     rowid == ?
             ",
                 task.finished,
-                task.task_name,
+                task.name,
                 task.time_needed,
                 task.time_used,
                 available_string,
@@ -284,7 +284,7 @@ impl DatabaseManager{
 
     fn default_task(&self) -> Task{
         Task{
-            task_name:        "".into(),
+            name:             "".into(),
             finished:         "O".into(),
             time_needed:      0,
             time_used:        0,
