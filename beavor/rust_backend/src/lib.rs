@@ -54,13 +54,13 @@ impl TryFrom<SqliteRow> for Task{
 
     fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
         Ok(Task{
-            finished:                     row.get::<String, &str>("O"),
-            name:                         row.get::<String, &str>("Task"),
-            time_needed:                  row.get::<i32,    &str>("Time"),
-            time_used:                    row.get::<i32,    &str>("Used"),
-            available:                    row.get::<String, &str>("Available").try_into()?,
-            notes:                        row.get::<String, &str>("Notes"),
-            id:                           row.get::<Option<i64>, &str>("rowid"),
+            finished:      row.get::<String, &str>("O"),
+            name:          row.get::<String, &str>("Task"),
+            time_needed:   row.get::<i32,    &str>("Time"),
+            time_used:     row.get::<i32,    &str>("Used"),
+            available:     row.get::<String, &str>("Available").try_into()?,
+            notes:         row.get::<String, &str>("Notes"),
+            id:            row.get::<Option<i64>, &str>("rowid"),
         })
     }
 }
