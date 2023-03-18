@@ -126,6 +126,110 @@ impl DatabaseManager{
         });
     }
 
+    fn create_task_on_deliverable(&self, deliverable: Deliverable) -> Task{
+        todo!();
+    }
+
+    fn delete_task(&self, task: Task){
+        self.rt.block_on(async{
+            sqlx::query!("
+                DELETE
+                FROM tasks
+                WHERE rowid == ?
+            ",
+                task.id
+            )
+                .execute(&self.pool)
+                .await
+                .expect("Should be able do delete task");
+        });
+    }
+
+    fn update_task(&self, task: Task){
+        // These must be stored so that they are not dropped in-between
+        // the calls to query! and .execute
+        let available_string: String = (&task.available).into();
+
+        self.rt.block_on(async{
+            sqlx::query!("
+                UPDATE tasks
+                SET
+                    Finished =    ?,
+                    Name =        ?,
+                    TimeNeeded =  ?,
+                    TimeUsed =    ?,
+                    Available =   ?,
+                    Notes =       ?
+                WHERE
+                    rowid ==      ?
+            ",
+                task.finished,
+                task.name,
+                task.time_needed,
+                task.time_used,
+                available_string,
+                task.notes,
+                task.id,
+            )
+                .execute(&self.pool)
+                .await
+                .expect("Should be able to update task");
+        })
+    }
+
+
+    fn create_external_on_deliverable(&self, deliverable: Deliverable) -> Task{
+        todo!();
+    }
+
+    fn delete_external(&self, external: External){
+        todo!();
+    }
+
+    fn update_external(&self, external: External){
+        todo!();
+    }
+
+    fn create_deliverable_in_project(&self, project: &Project) -> Deliverable{
+        todo!();
+    }
+
+    fn delete_deliverable(&self, deliverable: Deliverable){
+        todo!();
+    }
+
+    fn update_deliveral(&self, deliverable: Deliverable){
+        todo!();
+    }
+
+    fn create_project_in_category(&self, category: &Category) -> Project{
+        todo!();
+    }
+
+    fn delete_project(&self, project: Project){
+        todo!();
+    }
+
+    fn update_project(&self, project: Project){
+        todo!();
+    }
+
+    fn create_category(&self, name: String) -> Category{
+        todo!();
+    }
+
+    fn delete_category(&self, category: Category){
+        todo!();
+    }
+
+    fn update_category(&self, category: Category){
+        todo!();
+    }
+
+    fn get_all(&self) -> Vec<Category>{
+        todo!();
+    }
+
     fn create_task(&self, task: Task) -> Task{
         let mut new_task = self.default_task();
 
@@ -189,59 +293,12 @@ impl DatabaseManager{
         new_task
     }
 
-    fn update_task(&self, task: Task){
-        // These must be stored so that they are not dropped in-between
-        // the calls to query! and .execute
-        let available_string: String = (&task.available).into();
-
-        self.rt.block_on(async{
-            sqlx::query!("
-                UPDATE tasks
-                SET
-                    Finished =    ?,
-                    Name =        ?,
-                    TimeNeeded =  ?,
-                    TimeUsed =    ?,
-                    Available =   ?,
-                    Notes =       ?
-                WHERE
-                    rowid ==      ?
-            ",
-                task.finished,
-                task.name,
-                task.time_needed,
-                task.time_used,
-                available_string,
-                task.notes,
-                task.id,
-            )
-                .execute(&self.pool)
-                .await
-                .expect("Should be able to update task");
-        })
-    }
-
-    fn delete_task(&self, task: Task){
-        self.rt.block_on(async{
-            sqlx::query!("
-                DELETE
-                FROM tasks
-                WHERE rowid == ?
-            ",
-                task.id
-            )
-                .execute(&self.pool)
-                .await
-                .expect("Should be able do delete task");
-        });
-    }
-
     fn get_open_tasks(&self) -> Vec<Task>{
         let mut tasks: Vec<Task> = Vec::new();
 
         self.rt.block_on(async{
-            // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
-            // return type of query! to write an impl From<T> for Task
+            // TODO this doesn't use query! because I'm too lazy to figure out how to
+            // annotate the return type of query! to write an impl From<T> for Task
             tasks = sqlx::query("
                 SELECT *, rowid
                 FROM tasks
