@@ -39,29 +39,42 @@ impl Task{
     fn set_available(&mut self, availability: PyAvailability){
         self.available = (&availability).into();
     }
+
+    #[staticmethod]
+    pub fn default() -> Task{
+        Task{
+            name:             "".into(),
+            finished:         "O".into(),
+            time_needed:      0,
+            time_used:        0,
+            available:        Availability::Any,
+            notes:            "".into(),
+            id:               None,
+        }
+    }
 }
 
 #[pyclass]
 #[derive(Clone)]
 pub struct External{
     #[pyo3(get, set)]
-    name: String,
+    pub name: String,
     #[pyo3(get, set)]
-    link: String, // this should maybe be a more specific type, like a URL or somesuch
+    pub link: String, // this should maybe be a more specific type, like a URL or somesuch
 }
 
 #[pyclass]
 #[derive(Clone)]
 pub struct Deliverable{
     #[pyo3(get, set)]
-    name:      String,
-    due:       DueDate,
+    pub name:      String,
+    pub due:       DueDate,
     #[pyo3(get, set)]
-    notes:     String,
+    pub notes:     String,
     #[pyo3(get, set)]
-    tasks:     Vec<Task>,
+    pub tasks:     Vec<Task>,
     #[pyo3(get, set)]
-    externals: Vec<External>,
+    pub externals: Vec<External>,
 }
 
 #[pymethods]
@@ -81,16 +94,16 @@ impl Deliverable{
 #[derive(Clone)]
 pub struct Project{
     #[pyo3(get, set)]
-    name: String,
+    pub name: String,
     #[pyo3(get, set)]
-    deliverables: Vec<Deliverable>,
+    pub deliverables: Vec<Deliverable>,
 }
 
 #[pyclass]
 #[derive(Clone)]
 pub struct Category{
     #[pyo3(get, set)]
-    name:     String,
+    pub name:     String,
     #[pyo3(get, set)]
-    projects: Vec<Project>,
+    pub projects: Vec<Project>,
 }

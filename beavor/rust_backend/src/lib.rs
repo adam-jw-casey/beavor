@@ -231,7 +231,7 @@ impl DatabaseManager{
     }
 
     fn create_task(&self, task: Task) -> Task{
-        let mut new_task = self.default_task();
+        let mut new_task = Task::default();
 
         let available_string: String = (&task.available).into();
         let today_string = today_str();
@@ -314,39 +314,6 @@ impl DatabaseManager{
         });
 
         tasks
-    }
-
-    fn get_categories(&self) -> Vec<String>{
-        let mut categories: Vec<String> = Vec::new();
-
-        self.rt.block_on(async{
-            categories = sqlx::query!("
-                SELECT Name
-                FROM categories
-                ORDER BY Name
-            ")
-                .fetch_all(&self.pool)
-                .await
-                .expect("Should be able to get categories")
-                .into_iter()
-                .map(|r| r.Name.expect("Each category should be a string"))
-                .collect()
-
-        });
-
-        categories
-    }
-
-    fn default_task(&self) -> Task{
-        Task{
-            name:             "".into(),
-            finished:         "O".into(),
-            time_needed:      0,
-            time_used:        0,
-            available:        Availability::Any,
-            notes:            "".into(),
-            id:               None,
-        }
     }
 }
 
