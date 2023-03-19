@@ -108,7 +108,7 @@ impl DatabaseManager{
     }
 
     fn create_task_on_deliverable(&self, deliverable: Deliverable) -> Task{
-        let mut new_task = Task::default();
+        let mut new_task = Task::new(&deliverable);
 
         let available_string: String = (&new_task.available).into();
         let status_string: String = (&new_task.status).into();
@@ -199,14 +199,14 @@ impl DatabaseManager{
             sqlx::query!("
                 UPDATE tasks
                 SET
-                    Name        = ?,
-                    Status      = ?,
-                    TimeNeeded  = ?,
-                    TimeUsed    = ?,
-                    Available   = ?,
-                    Notes       = ?
+                    Name       = ?,
+                    Status     = ?,
+                    TimeNeeded = ?,
+                    TimeUsed   = ?,
+                    Available  = ?,
+                    Notes      = ?
                 WHERE
-                    rowid ==      ?
+                    TaskID    == ?
             ",
                 task.name,
                 status_string,

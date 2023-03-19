@@ -58,6 +58,7 @@ pub struct Task{
     pub available:     Availability,
     #[pyo3(get, set)]
     pub notes:         String,
+    pub needed_for:    i64,
     #[pyo3(get)]
     pub id:            Option<i64>,
 }
@@ -75,7 +76,7 @@ impl Task{
     }
 
     #[staticmethod]
-    pub fn default() -> Task{
+    pub fn new(deliverable: &Deliverable) -> Task{
         Task{
             name:             "".into(),
             status:           TaskStatus::Open,
@@ -83,6 +84,7 @@ impl Task{
             time_used:        0,
             available:        Availability::Any,
             notes:            "".into(),
+            needed_for:       deliverable.id.expect("Should have id"),
             id:               None,
         }
     }

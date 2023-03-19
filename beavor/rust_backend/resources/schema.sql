@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS tasks(
 	TimeUsed      	  INTEGER NOT NULL,
 	Available     	  TEXT    NOT NULL,
 	DueDeliverable	  INTEGER NOT NULL,
-	PrereqDeliverable INTEGER NOT NULL,
+	PrereqDeliverable INTEGER,
 	Notes		  TEXT    NOT NULL,
 	DateAdded     	  TEXT    NOT NULL,
 	FOREIGN KEY (DueDeliverable)    REFERENCES deliverables (DeliverableID) ON DELETE CASCADE,
