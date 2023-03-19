@@ -12,11 +12,38 @@ use crate::date::{
 
 #[derive(Clone)]
 #[pyclass]
+enum TaskStatus{
+    Open,
+    Complete,
+    Cancelled,
+}
+
+#[derive(Debug)]
+struct ParseTaskStatusError;
+
+impl TryFrom<&String> for TaskStatus{
+    type Error = ParseTaskStatusError;
+
+    fn try_from(value: &String) -> Result<Self, Self::Error> {
+        todo!()
+    }
+}
+
+impl TryFrom<TaskStatus> for String{
+    type Error = ParseTaskStatusError;
+
+    fn try_from(value: TaskStatus) -> Result<Self, Self::Error> {
+        todo!()
+    }
+}
+
+#[derive(Clone)]
+#[pyclass]
 pub struct Task{
     #[pyo3(get, set)]
     pub name:          String,
     #[pyo3(get, set)]
-    pub finished:      String,
+    pub status:        TaskStatus,
     #[pyo3(get, set)]
     pub time_needed:   i32,
     #[pyo3(get, set)]
@@ -44,7 +71,7 @@ impl Task{
     pub fn default() -> Task{
         Task{
             name:             "".into(),
-            finished:         "O".into(),
+            status:         "O".into(),
             time_needed:      0,
             time_used:        0,
             available:        Availability::Any,
@@ -61,6 +88,7 @@ pub struct External{
     pub name: String,
     #[pyo3(get, set)]
     pub link: String, // this should maybe be a more specific type, like a URL or somesuch
+    pub id:   Option<i64>,
 }
 
 #[pyclass]
@@ -75,6 +103,7 @@ pub struct Deliverable{
     pub tasks:     Vec<Task>,
     #[pyo3(get, set)]
     pub externals: Vec<External>,
+    pub id:        Option<i64>,
 }
 
 #[pymethods]
@@ -97,6 +126,7 @@ pub struct Project{
     pub name: String,
     #[pyo3(get, set)]
     pub deliverables: Vec<Deliverable>,
+    pub id:           Option<i64>,
 }
 
 #[pyclass]
@@ -106,4 +136,5 @@ pub struct Category{
     pub name:     String,
     #[pyo3(get, set)]
     pub projects: Vec<Project>,
+    pub id:       Option<i64>,
 }

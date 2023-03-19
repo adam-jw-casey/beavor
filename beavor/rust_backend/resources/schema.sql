@@ -3,7 +3,7 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS tasks(
 	TaskID		  INTEGER NOT NULL PRIMARY KEY,
 	Name		  TEXT 	  NOT NULL,
-	Finished      	  BOOLEAN NOT NULL CHECK (Finished IN (0,1)),
+	Status      	  TEXT	  NOT NULL,
 	TimeBudgeted  	  INTEGER NOT NULL,
 	TimeNeeded    	  INTEGER NOT NULL,
 	TimeUsed      	  INTEGER NOT NULL,
@@ -38,8 +38,8 @@ CREATE TABLE IF NOT EXISTS externals(
 	ExternalID      INTEGER NOT NULL PRIMARY KEY,
 	Name		TEXT    NOT NULL,
 	Link	      	TEXT    NOT NULL,
-	DeliverableID	INTEGER NOT NULL,
-	FOREIGN KEY (DeliverableID) REFERENCES deliverables (DeliverableID)
+	Deliverable	INTEGER NOT NULL,
+	FOREIGN KEY (Deliverable) REFERENCES deliverables (DeliverableID)
 	);
 
 CREATE TABLE IF NOT EXISTS categories(

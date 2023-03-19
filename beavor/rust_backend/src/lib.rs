@@ -31,7 +31,6 @@ use date::{
     PyDueDate,
     PyDueDateType,
     ParseDateError,
-    Availability,
     PyAvailability,
     PyAvailabilityType,
     today_date,
@@ -48,22 +47,6 @@ use model::{
     Category,
     External,
 };
-
-impl TryFrom<SqliteRow> for Task{
-    type Error = ParseDateError;
-
-    fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
-        Ok(Task{
-            finished:      row.get::<String, &str>("O"),
-            name:          row.get::<String, &str>("Task"),
-            time_needed:   row.get::<i32,    &str>("Time"),
-            time_used:     row.get::<i32,    &str>("Used"),
-            available:     row.get::<String, &str>("Available").try_into()?,
-            notes:         row.get::<String, &str>("Notes"),
-            id:            row.get::<Option<i64>, &str>("rowid"),
-        })
-    }
-}
 
 #[pyfunction]
 fn green_red_scale(low: f32, high: f32, val: f32) -> String {
@@ -126,8 +109,69 @@ impl DatabaseManager{
         });
     }
 
+    // TODO update this to use new schema properly
     fn create_task_on_deliverable(&self, deliverable: Deliverable) -> Task{
         todo!();
+        let mut new_task = Task::default();
+
+        let available_string: String = (&task.available).into();
+        let today_string = today_str();
+
+        self.rt.block_on(async{
+            let new_rowid: i64 = sqlx::query!("
+                INSERT INTO tasks
+                    (
+                        Name,
+                        Finished,
+                        TimeBudgeted,
+                        TimeNeeded,
+                        TimeUsed,
+                        Available,
+                        Notes,
+                        DateAdded
+                    )
+                VALUES
+                    (
+                        ?,
+                        ?,
+                        ?,
+                        ?,
+                        ?,
+                        ?,
+                        ?,
+                        ?
+                    )
+            ",
+                task.name,
+                task.finished,
+                task.time_needed, // When creating a new task, save the initial time_needed estimate as time_budgeted
+                task.time_needed,
+                task.time_used,
+                available_string,
+                task.notes,
+                today_string,
+            )
+                .execute(&self.pool)
+                .await
+                .expect("Should be able to insert Task into database")
+                .last_insert_rowid();
+
+            // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
+            // return type of query! to write an impl From<T> for Task
+            new_task = sqlx::query("
+                SELECT *, rowid
+                FROM tasks
+                WHERE rowid == ?
+            ")
+                .bind(new_rowid)
+                .fetch_one(&self.pool)
+                .await
+                .expect("Should have inserted and retrieved a task")
+                .try_into()
+                .expect("Database should contain valid Tasks only");
+        });
+
+        new_task
     }
 
     fn delete_task(&self, task: Task){
@@ -145,6 +189,7 @@ impl DatabaseManager{
         });
     }
 
+    // TODO update this to use new schema properly
     fn update_task(&self, task: Task){
         // These must be stored so that they are not dropped in-between
         // the calls to query! and .execute
@@ -227,93 +272,135 @@ impl DatabaseManager{
     }
 
     fn get_all(&self) -> Vec<Category>{
-        todo!();
+        self.get_categories()
     }
+}
 
-    fn create_task(&self, task: Task) -> Task{
-        let mut new_task = Task::default();
-
-        let available_string: String = (&task.available).into();
-        let today_string = today_str();
+impl DatabaseManager{
+    fn get_categories(&self) -> Vec<Category>{
+        let mut categories: Vec<Category> = Vec::new();
 
         self.rt.block_on(async{
-            let new_rowid: i64 = sqlx::query!("
-                INSERT INTO tasks
-                    (
-                        Name,
-                        Finished,
-                        TimeBudgeted,
-                        TimeNeeded,
-                        TimeUsed,
-                        Available,
-                        Notes,
-                        DateAdded
-                    )
-                VALUES
-                    (
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?
-                    )
-            ",
-                task.name,
-                task.finished,
-                task.time_needed, // When creating a new task, save the initial time_needed estimate as time_budgeted
-                task.time_needed,
-                task.time_used,
-                available_string,
-                task.notes,
-                today_string,
-            )
-                .execute(&self.pool)
-                .await
-                .expect("Should be able to insert Task into database")
-                .last_insert_rowid();
-
-            // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
-            // return type of query! to write an impl From<T> for Task
-            new_task = sqlx::query("
-                SELECT *, rowid
-                FROM tasks
-                WHERE rowid == ?
-            ")
-                .bind(new_rowid)
-                .fetch_one(&self.pool)
-                .await
-                .expect("Should have inserted and retrieved a task")
-                .try_into()
-                .expect("Database should contain valid Tasks only");
-        });
-
-        new_task
-    }
-
-    fn get_open_tasks(&self) -> Vec<Task>{
-        let mut tasks: Vec<Task> = Vec::new();
-
-        self.rt.block_on(async{
-            // TODO this doesn't use query! because I'm too lazy to figure out how to
-            // annotate the return type of query! to write an impl From<T> for Task
-            tasks = sqlx::query("
-                SELECT *, rowid
-                FROM tasks
-                WHERE Finished == 0
+            categories = sqlx::query!("
+                SELECT *
+                FROM categories
             ")
                 .fetch_all(&self.pool)
                 .await
-                .expect("Should be able to get tasks")
-                .into_iter()
-                .map(|r: SqliteRow| Task::try_from(r)
-                     .expect("Database should hold valid Tasks")
-                ).collect()
+                .unwrap()
+                .iter()
+                .map(|cs| Category{
+                    name: cs.Name,
+                    projects: self.get_projects_by_category_id(&cs.CategoryID),
+                    id: Some(cs.CategoryID),
+                })
+                .collect();
+        });
+
+        categories
+    }
+
+    fn get_projects_by_category_id(&self, id: &i64) -> Vec<Project>{
+        let mut projects: Vec<Project> = Vec::new();
+
+        self.rt.block_on(async{
+            projects = sqlx::query!("
+                SELECT *
+                FROM projects
+                WHERE Category == ?
+            ", id)
+                .fetch_all(&self.pool)
+                .await
+                .unwrap()
+                .iter()
+                .map(|ps| Project{
+                    name: ps.Name,
+                    deliverables: self.get_deliverables_by_project_id(&ps.ProjectID),
+                    id: Some(ps.ProjectID),
+                })
+                .collect();
+        });
+
+        projects
+    }
+
+    fn get_deliverables_by_project_id(&self, id: &i64) -> Vec<Deliverable>{
+        let mut deliverables: Vec<Deliverable> = Vec::new();
+
+        self.rt.block_on(async{
+            deliverables = sqlx::query!("
+                SELECT *
+                FROM deliverables
+                WHERE Project == ?
+            ", id)
+                .fetch_all(&self.pool)
+                .await
+                .unwrap()
+                .iter()
+                .map(|ds| Deliverable{
+                    name: ds.Name,
+                    due: ds.DueDate.try_into().expect("Should be well-formatted"),
+                    notes: ds.Notes,
+                    tasks: self.get_tasks_by_deliverable_id(&ds.DeliverableID),
+                    externals: self.get_externals_by_deliverable_id(&ds.DeliverableID),
+                    id: Some(ds.DeliverableID),
+                })
+                .collect();
+        });
+
+        deliverables
+    }
+
+    fn get_tasks_by_deliverable_id(&self, id: &i64) -> Vec<Task>{
+        let mut tasks: Vec<Task> = Vec::new();
+
+        self.rt.block_on(async{
+            tasks = sqlx::query!("
+                SELECT *
+                FROM tasks
+                WHERE DueDeliverable == ?
+            ", id)
+                .fetch_all(&self.pool)
+                .await
+                .unwrap()
+                .iter()
+                .map(|ts| Task{
+                    name: ts.Name,
+                    status: (&ts.Status).try_into().expect("Should be formatted correctly"),
+                    time_needed: ts.TimeNeeded as i32,
+                    time_used: ts.TimeUsed as i32,
+                    available: ts.Available.try_into().expect("Should be formatted correctly"),
+                    notes: ts.Notes,
+                    id: Some(ts.TaskID),
+                })
+                .collect();
         });
 
         tasks
+    }
+
+    fn get_externals_by_deliverable_id(&self, id: &i64) -> Vec<External>{
+        let mut externals: Vec<External> = Vec::new();
+
+        self.rt.block_on(async{
+            externals = sqlx::query!("
+                SELECT *
+                FROM externals
+                WHERE Deliverable == ?
+            ", id)
+                .fetch_all(&self.pool)
+                .await
+                .unwrap()
+                .iter()
+                .map(|es| External{
+                    name: es.Name,
+                    link: es.Link,
+                    id: Some(es.ExternalID),
+                })
+                .collect();
+        });
+
+        externals
     }
 }
 
