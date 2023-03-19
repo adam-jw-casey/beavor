@@ -15,13 +15,11 @@ use tokio::runtime::Runtime;
 use sqlx::sqlite::{
     SqlitePool,
     SqlitePoolOptions,
-    SqliteRow,
     SqliteConnectOptions,
 };
 use sqlx::{
     Executor,
     ConnectOptions,
-    Row,
 };
 
 use std::str::FromStr;
@@ -197,22 +195,23 @@ impl DatabaseManager{
         // These must be stored so that they are not dropped in-between
         // the calls to query! and .execute
         let available_string: String = (&task.available).into();
+        let status_string: String = (&task.status).into();
 
         self.rt.block_on(async{
             sqlx::query!("
                 UPDATE tasks
                 SET
-                    Status =    ?,
-                    Name =        ?,
-                    TimeNeeded =  ?,
-                    TimeUsed =    ?,
-                    Available =   ?,
-                    Notes =       ?
+                    Name        = ?,
+                    Status      = ?,
+                    TimeNeeded  = ?,
+                    TimeUsed    = ?,
+                    Available   = ?,
+                    Notes       = ?
                 WHERE
                     rowid ==      ?
             ",
-                task.finished,
                 task.name,
+                status_string,
                 task.time_needed,
                 task.time_used,
                 available_string,
