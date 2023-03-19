@@ -111,10 +111,10 @@ impl DatabaseManager{
 
     // TODO update this to use new schema properly
     fn create_task_on_deliverable(&self, deliverable: Deliverable) -> Task{
-        todo!();
         let mut new_task = Task::default();
 
-        let available_string: String = (&task.available).into();
+        let available_string: String = (&new_task.available).into();
+        let status_string: String = (&new_task.status).into();
         let today_string = today_str();
 
         self.rt.block_on(async{
@@ -122,7 +122,7 @@ impl DatabaseManager{
                 INSERT INTO tasks
                     (
                         Name,
-                        Finished,
+                        Status,
                         TimeBudgeted,
                         TimeNeeded,
                         TimeUsed,
@@ -142,13 +142,13 @@ impl DatabaseManager{
                         ?
                     )
             ",
-                task.name,
-                task.finished,
-                task.time_needed, // When creating a new task, save the initial time_needed estimate as time_budgeted
-                task.time_needed,
-                task.time_used,
+                new_task.name,
+                status_string,
+                new_task.time_needed, // When creating a new task, save the initial time_needed estimate as time_budgeted
+                new_task.time_needed,
+                new_task.time_used,
                 available_string,
-                task.notes,
+                new_task.notes,
                 today_string,
             )
                 .execute(&self.pool)
@@ -156,19 +156,24 @@ impl DatabaseManager{
                 .expect("Should be able to insert Task into database")
                 .last_insert_rowid();
 
-            // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
-            // return type of query! to write an impl From<T> for Task
-            new_task = sqlx::query("
-                SELECT *, rowid
+            let ts = sqlx::query!("
+                SELECT *
                 FROM tasks
-                WHERE rowid == ?
-            ")
-                .bind(new_rowid)
+                WHERE TaskID == ?
+            ", new_rowid)
                 .fetch_one(&self.pool)
                 .await
-                .expect("Should have inserted and retrieved a task")
-                .try_into()
-                .expect("Database should contain valid Tasks only");
+                .expect("Should have inserted and retrieved a task");
+
+            new_task = Task{
+                name: ts.Name,
+                status: (&ts.Status).try_into().expect("Should be formatted correctly"),
+                time_needed: ts.TimeNeeded as i32,
+                time_used: ts.TimeUsed as i32,
+                available: ts.Available.try_into().expect("Should be formatted correctly"),
+                notes: ts.Notes,
+                id: Some(ts.TaskID),
+            }
         });
 
         new_task
@@ -189,6 +194,7 @@ impl DatabaseManager{
 
     // TODO update this to use new schema properly
     fn update_task(&self, task: Task){
+        todo!();
         // These must be stored so that they are not dropped in-between
         // the calls to query! and .execute
         let available_string: String = (&task.available).into();
