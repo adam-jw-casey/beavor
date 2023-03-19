@@ -15,7 +15,7 @@ use crate::date::{
 enum TaskStatus{
     Open,
     Complete,
-    Cancelled,
+    Archived,
 }
 
 #[derive(Debug)]
@@ -25,13 +25,22 @@ impl TryFrom<&String> for TaskStatus{
     type Error = ParseTaskStatusError;
 
     fn try_from(value: &String) -> Result<Self, Self::Error> {
-        todo!()
+        match value.as_str(){
+            "Open"     => Ok(TaskStatus::Open),
+            "Complete" => Ok(TaskStatus::Complete),
+            "Archived" => Ok(TaskStatus::Archived),
+            _ => Err(ParseTaskStatusError)
+        }
     }
 }
 
 impl From<&TaskStatus> for String{
     fn from(value: &TaskStatus) -> Self {
-        todo!()
+        match value{
+            TaskStatus::Open => "Open",
+            TaskStatus::Complete => "Complete",
+            TaskStatus::Archived => "Archived",
+        }.to_string()
     }
 }
 
