@@ -167,7 +167,7 @@ impl DatabaseManager{
                 status: (&ts.Status).try_into().expect("Should be formatted correctly"),
                 time_needed: ts.TimeNeeded as i32,
                 time_used: ts.TimeUsed as i32,
-                available: ts.Available.try_into().expect("Should be formatted correctly"),
+                available: (&ts.Available).try_into().expect("Should be formatted correctly"),
                 notes: ts.Notes,
                 id: Some(ts.TaskID),
             }
@@ -331,7 +331,7 @@ impl DatabaseManager{
                 .unwrap()
                 .iter()
                 .map(|cs| Category{
-                    name: cs.Name,
+                    name: cs.Name.clone(),
                     projects: self.get_projects_by_category_id(&cs.CategoryID),
                     id: Some(cs.CategoryID),
                 })
@@ -355,7 +355,7 @@ impl DatabaseManager{
                 .unwrap()
                 .iter()
                 .map(|ps| Project{
-                    name: ps.Name,
+                    name: ps.Name.clone(),
                     deliverables: self.get_deliverables_by_project_id(&ps.ProjectID),
                     id: Some(ps.ProjectID),
                 })
@@ -379,9 +379,9 @@ impl DatabaseManager{
                 .unwrap()
                 .iter()
                 .map(|ds| Deliverable{
-                    name: ds.Name,
-                    due: ds.DueDate.try_into().expect("Should be well-formatted"),
-                    notes: ds.Notes,
+                    name: ds.Name.clone(),
+                    due: (&ds.DueDate).try_into().expect("Should be well-formatted"),
+                    notes: ds.Notes.clone(),
                     tasks: self.get_tasks_by_deliverable_id(&ds.DeliverableID),
                     externals: self.get_externals_by_deliverable_id(&ds.DeliverableID),
                     id: Some(ds.DeliverableID),
@@ -406,12 +406,12 @@ impl DatabaseManager{
                 .unwrap()
                 .iter()
                 .map(|ts| Task{
-                    name: ts.Name,
+                    name: ts.Name.clone(),
                     status: (&ts.Status).try_into().expect("Should be formatted correctly"),
                     time_needed: ts.TimeNeeded as i32,
                     time_used: ts.TimeUsed as i32,
-                    available: ts.Available.try_into().expect("Should be formatted correctly"),
-                    notes: ts.Notes,
+                    available: (&ts.Available).try_into().expect("Should be formatted correctly"),
+                    notes: ts.Notes.clone(),
                     id: Some(ts.TaskID),
                 })
                 .collect();
@@ -434,8 +434,8 @@ impl DatabaseManager{
                 .unwrap()
                 .iter()
                 .map(|es| External{
-                    name: es.Name,
-                    link: es.Link,
+                    name: es.Name.clone(),
+                    link: es.Link.clone(),
                     id: Some(es.ExternalID),
                 })
                 .collect();

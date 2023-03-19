@@ -12,14 +12,14 @@ use crate::date::{
 
 #[derive(Clone)]
 #[pyclass]
-enum TaskStatus{
+pub enum TaskStatus{
     Open,
     Complete,
     Archived,
 }
 
 #[derive(Debug)]
-struct ParseTaskStatusError;
+pub struct ParseTaskStatusError;
 
 impl TryFrom<&String> for TaskStatus{
     type Error = ParseTaskStatusError;
