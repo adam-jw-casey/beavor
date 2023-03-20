@@ -75,7 +75,7 @@ impl DatabaseManager{
     }
 
     fn create_task_on_deliverable(&self, deliverable: Deliverable) -> Task{
-        let default_task = Task::new();
+        let default_task = Task::default();
 
         let available_string: String = (&default_task.available).into();
         let status_string: String = (&default_task.status).into();
@@ -126,7 +126,7 @@ impl DatabaseManager{
             sqlx::query_as::<_, Task>("
                 SELECT *
                 FROM tasks
-                WHERE TaskID == ?
+                WHERE id == ?
             ")
                 .bind(new_rowid)
                 .fetch_one(&self.pool)
@@ -165,7 +165,7 @@ impl DatabaseManager{
                     Available  = ?,
                     Notes      = ?
                 WHERE
-                    TaskID    == ?
+                    id    == ?
             ",
                 task.name,
                 status_string,
@@ -205,7 +205,7 @@ impl DatabaseManager{
             sqlx::query_as::<_, External>("
                 SELECT *
                 FROM externals
-                WHERE ExternalID == ?
+                WHERE id == ?
             ")
                 .bind(new_rowid)
                 .fetch_one(&self.pool)
@@ -219,7 +219,7 @@ impl DatabaseManager{
             sqlx::query!("
                 DELETE
                 FROM externals
-                WHERE ExternalID == ?
+                WHERE id == ?
             ", external.id)
                 .execute(&self.pool)
                 .await
@@ -259,7 +259,7 @@ impl DatabaseManager{
             let deliverable_struct = sqlx::query!("
                 SELECT *
                 FROM deliverables
-                WHERE DeliverableID == ?
+                WHERE id == ?
             ", new_rowid)
                 .fetch_one(&self.pool)
                 .await
@@ -271,7 +271,7 @@ impl DatabaseManager{
                 tasks:     Vec::new(),
                 externals: Vec::new(),
                 notes:   deliverable_struct.Notes,
-                id: Some(deliverable_struct.DeliverableID),
+                id: Some(deliverable_struct.id),
             }
         })
     }
@@ -283,7 +283,7 @@ impl DatabaseManager{
             sqlx::query!("
                 DELETE
                 FROM deliverables
-                WHERE DeliverableID == ?
+                WHERE id == ?
             ", deliverable.id)
                 .execute(&self.pool)
                 .await
@@ -306,7 +306,7 @@ impl DatabaseManager{
             sqlx::query!("
                 DELETE
                 FROM projects
-                WHERE ProjectID == ?
+                WHERE id == ?
             ", project.id)
                 .execute(&self.pool)
                 .await
@@ -336,7 +336,7 @@ impl DatabaseManager{
             let cat_struct = sqlx::query!("
                 SELECT *
                 FROM Categories
-                WHERE CategoryID == ?
+                WHERE id == ?
             ", new_rowid)
                 .fetch_one(&self.pool)
                 .await
@@ -345,7 +345,7 @@ impl DatabaseManager{
             Category{
                 name:     cat_struct.Name,
                 projects: Vec::new(),
-                id:       Some(cat_struct.CategoryID),
+                id:       Some(cat_struct.id),
             }
         })
     }
@@ -357,7 +357,7 @@ impl DatabaseManager{
             sqlx::query!("
                 DELETE
                 FROM categories
-                WHERE CategoryID == ?
+                WHERE id == ?
             ",category.id)
                 .execute(&self.pool)
                 .await
@@ -387,8 +387,8 @@ impl DatabaseManager{
                 .iter()
                 .map(|cs| Category{
                     name: cs.Name.clone(),
-                    projects: self.get_projects_by_category_id(&cs.CategoryID),
-                    id: Some(cs.CategoryID),
+                    projects: self.get_projects_by_category_id(&cs.id),
+                    id: Some(cs.id),
                 })
                 .collect()
         })
@@ -407,8 +407,8 @@ impl DatabaseManager{
                 .iter()
                 .map(|ps| Project{
                     name: ps.Name.clone(),
-                    deliverables: self.get_deliverables_by_project_id(&ps.ProjectID),
-                    id: Some(ps.ProjectID),
+                    deliverables: self.get_deliverables_by_project_id(&ps.id),
+                    id: Some(ps.id),
                 })
                 .collect()
         })
@@ -429,9 +429,9 @@ impl DatabaseManager{
                     name: ds.Name.clone(),
                     due: (&ds.DueDate).try_into().expect("Should be well-formatted"),
                     notes: ds.Notes.clone(),
-                    tasks: self.get_tasks_by_deliverable_id(&ds.DeliverableID),
-                    externals: self.get_externals_by_deliverable_id(&ds.DeliverableID),
-                    id: Some(ds.DeliverableID),
+                    tasks: self.get_tasks_by_deliverable_id(&ds.id),
+                    externals: self.get_externals_by_deliverable_id(&ds.id),
+                    id: Some(ds.id),
                 })
                 .collect()
         })
@@ -477,7 +477,7 @@ impl FromRow<'_, SqliteRow> for External{
         Ok(External{
             name:    row.try_get("Name")?,
             link:    row.try_get("Link")?,
-            id: Some(row.try_get("ExternalID")?),
+            id: Some(row.try_get("id")?),
         })
     }
 }
@@ -491,7 +491,7 @@ impl FromRow<'_, SqliteRow> for Task{
             time_used:   row.try_get("TimeUsed")?,
             available: (&row.try_get::<String, &str>("Available")?).try_into().unwrap(),
             notes:       row.try_get("Notes")?,
-            id:     Some(row.try_get("TaskID")?),
+            id:     Some(row.try_get("id")?),
         })
     }
 }
