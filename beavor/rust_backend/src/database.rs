@@ -274,7 +274,26 @@ impl DatabaseManager{
     }
 
     fn create_project_in_category(&self, category: &Category) -> Project{
-        todo!();
+        self.rt.block_on(async{
+            let new_rowid = sqlx::query!("
+                INSERT INTO projects
+                    (
+                        Name,
+                        Category
+                    )
+                    VALUES
+                    (
+                        '',
+                        ?
+                    )
+            ", category.id)
+                .execute(&self.pool)
+                .await
+                .expect("Should be able to insert project into database")
+                .last_insert_rowid();
+
+            self.get_project_by_id(new_rowid).await
+        })
     }
 
     fn delete_project(&self, project: Project){
