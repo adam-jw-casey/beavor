@@ -75,7 +75,7 @@ impl DatabaseManager{
     }
 
     fn create_task_on_deliverable(&self, deliverable: Deliverable) -> Task{
-        let default_task = Task::new(&deliverable);
+        let default_task = Task::new();
 
         let available_string: String = (&default_task.available).into();
         let status_string: String = (&default_task.status).into();
@@ -91,11 +91,13 @@ impl DatabaseManager{
                         TimeNeeded,
                         TimeUsed,
                         Available,
+                        DueDeliverable,
                         Notes,
                         DateAdded
                     )
                 VALUES
                     (
+                        ?,
                         ?,
                         ?,
                         ?,
@@ -112,6 +114,7 @@ impl DatabaseManager{
                 default_task.time_needed,
                 default_task.time_used,
                 available_string,
+                deliverable.id,
                 default_task.notes,
                 today_string,
             )
@@ -178,8 +181,37 @@ impl DatabaseManager{
         })
     }
 
-    fn create_external_on_deliverable(&self, deliverable: Deliverable) -> Task{
-        todo!();
+    fn create_external_on_deliverable(&self, deliverable: Deliverable) -> External{
+        self.rt.block_on(async{
+            let new_rowid: i64 = sqlx::query!("
+                INSERT INTO externals
+                    (
+                        Name,
+                        Link,
+                        Deliverable
+                    )
+                VALUES
+                    (
+                        '',
+                        '',
+                        ?
+                    )
+            ", deliverable.id)
+                .execute(&self.pool)
+                .await
+                .expect("Should be able to insert new external into database")
+                .last_insert_rowid();
+
+            sqlx::query_as::<_, External>("
+                SELECT *
+                FROM externals
+                WHERE ExternalID == ?
+            ")
+                .bind(new_rowid)
+                .fetch_one(&self.pool)
+                .await
+                .expect("Should have inserted and retrieved an external")
+        })
     }
 
     fn delete_external(&self, external: External){
