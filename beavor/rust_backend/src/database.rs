@@ -232,7 +232,48 @@ impl DatabaseManager{
     }
 
     fn create_deliverable_in_project(&self, project: &Project) -> Deliverable{
-        todo!();
+        self.rt.block_on(async{
+            let new_rowid: i64 = sqlx::query!("
+                INSERT INTO deliverables
+                    (
+                        Name,
+                        Project,
+                        DueDate,
+                        Finished,
+                        Notes
+                    )
+                VALUES
+                    (
+                        '',
+                        ?,
+                        'None',
+                        0,
+                        ''
+                    )
+            ", project.id)
+                .execute(&self.pool)
+                .await
+                .expect("Should be able to insert new external into database")
+                .last_insert_rowid();
+
+            let deliverable_struct = sqlx::query!("
+                SELECT *
+                FROM deliverables
+                WHERE DeliverableID == ?
+            ", new_rowid)
+                .fetch_one(&self.pool)
+                .await
+                .expect("Should have inserted and retrieved a deliverable");
+
+            Deliverable{
+                name:    deliverable_struct.Name,
+                due:   (&deliverable_struct.DueDate).try_into().expect("Should be formatted correctly"),
+                tasks:     Vec::new(),
+                externals: Vec::new(),
+                notes:   deliverable_struct.Notes,
+                id: Some(deliverable_struct.DeliverableID),
+            }
+        })
     }
 
     fn delete_deliverable(&self, deliverable: Deliverable){
@@ -302,9 +343,9 @@ impl DatabaseManager{
                 .expect("Should have inserted and retrieved a category");
 
             Category{
-                name: cat_struct.Name,
+                name:     cat_struct.Name,
                 projects: Vec::new(),
-                id: Some(cat_struct.CategoryID),
+                id:       Some(cat_struct.CategoryID),
             }
         })
     }
