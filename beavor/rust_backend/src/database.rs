@@ -284,7 +284,25 @@ impl DatabaseManager{
     }
 
     fn update_deliverable(&self, deliverable: Deliverable){
-        todo!();
+        let due_string: String = (&deliverable.due).into();
+        self.rt.block_on(async{
+            sqlx::query!("
+                UPDATE deliverables
+                SET
+                    Name    = ?,
+                    DueDate = ?,
+                    Notes   = ?
+                WHERE id == ?
+            ",
+                deliverable.name,
+                due_string,
+                deliverable.notes,
+                deliverable.id
+            )
+                .execute(&self.pool)
+                .await
+                .expect("Should be able to update deliverable");
+        });
     }
 
     fn create_project_in_category(&self, category: &Category) -> Project{
