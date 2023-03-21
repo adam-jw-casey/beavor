@@ -20,7 +20,6 @@ from beavor.backend import green_red_scale, DatabaseManager, Task, PyDueDate, to
 #Nice-to-haves
 
 # todo would be neat to have it build a daily schedule for me
-# todo would be cool to support multi-step / project-type tasks
 # todo integration to put tasks into Google/Outlook calendar would be cool or just have a way of marking a task as scheduled
 # todo integration to get availability from Google/Outlook calendar to adjust daily workloads based on scheduled meetings
 # todo Dark mode toggle (use .configure(bg='black') maybe? Or another better colour. Have to do it individually by pane though, self.root.configure() only does some of the background. Also probably have to change text colour too.)
@@ -157,7 +156,17 @@ class CompletingComboBox(ttk.Combobox):
             self.icursor(tk.END)
 
 class EditingPane(tk.Frame):
-    def __init__(self, parent, getSelectedTask, save, notify, get_categories, newTask, deleteTask, getDefaultTask):
+    def __init__(
+            self,
+			parent,
+			getSelectedTask,
+			save,
+			notify,
+			get_categories,
+			newTask,
+			deleteTask,
+			getDefaultTask):
+
         def canBeInt(d, i, P, s, S, v, V, W) ->  bool:
             try:
                 int(S)
@@ -187,7 +196,13 @@ class EditingPane(tk.Frame):
         self.entryButtonFrame.grid(row=1, column=0)
 
         # Timer and its button
-        self.timer = Timer(self.entryButtonFrame, getSelectedTask, self.save, lambda time: self._overwriteEntryBox(self.usedBox, time), notify)
+        self.timer = Timer(
+                self.entryButtonFrame,
+			    getSelectedTask,
+			    self.save,
+			    lambda time: self._overwriteEntryBox(self.usedBox,
+			    time),
+			    notify)
         self.timer.grid(row=0, column=1)
 
         #Setup the lower half of the window
@@ -369,7 +384,6 @@ class Calendar(tk.LabelFrame):
       thisWeek = []
       for dayNum in range(5):
         thisDay: dict[str, Any] = {}
-        # todo *Sometimes* this significantly slows boot time. Could maybe cut down on labels by having dates all in a row for each week, but lining up with loads could be tricky. First row changes colour, so could do each date row below the first as a multi-column label.
         #Alternate date labels and workloads
         thisDay["DateLabel"] = tk.Label(self, font=parentFont)
         thisDay["DateLabel"].grid(row=2*week + 1, column=dayNum, padx=4, pady=4)
@@ -378,7 +392,7 @@ class Calendar(tk.LabelFrame):
         thisWeek.append(thisDay)
       self.calendar.append(thisWeek)
 
-  # todo this function isn't great but it seems to work
+  # TODO need to redo this
   def updateCalendar(self, openTasks) -> None:
     today = today_date()
     thisMonday = today - datetime.timedelta(days=today.weekday())
@@ -547,11 +561,30 @@ class WorklistWindow():
       self.root.winfo_toplevel().title("WORKLIST Beta")
 
       # Frame to hold the tasklist display and associated frames and widgets
-      self.taskListFrame = tk.LabelFrame(self.root, text="Tasks", padx=4, pady=4)
-      self.taskListFrame.grid(row=0, column=0, pady=4, padx=4, sticky=tk.N+tk.S+tk.E+tk.W)
+      self.taskListFrame = tk.LabelFrame(
+              self.root,
+			  text="Tasks",
+			  padx=4,
+			  pady=4)
+
+      self.taskListFrame.grid(
+              row=0,
+			  column=0,
+			  pady=4,
+			  padx=4,
+			  sticky=tk.N+tk.S+tk.E+tk.W)
 
       # Editing interface
-      self.editingPane = EditingPane(self.root, self.getSelectedTask, self.save, self.notify, self.db.get_categories, self.newTask, self.deleteTask, self.db.default_task)
+      self.editingPane = EditingPane(
+              self.root,
+			  self.getSelectedTask,
+			  self.save,
+			  self.notify,
+			  self.db.get_categories,
+			  self.newTask,
+			  self.deleteTask,
+			  self.db.default_task)
+
       self.editingPane.grid(row=0, column=1, padx=4, pady=4)
 
       self.scroller = TaskScroller(self.taskListFrame, self.select)
