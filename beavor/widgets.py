@@ -447,14 +447,14 @@ class ScrollFrame(tk.Frame):
             elif event.num == 5:
                 self.canvas.yview_scroll( 1, "units" )
 
-    def onEnter(self, _):                                                       # bind wheel events when the cursor enters the control
+    def onEnter(self, _):                                                           # bind wheel events when the cursor enters the control
         if platform.system() == 'Linux':
             self.canvas.bind_all("<Button-4>", self.onMouseWheel)
             self.canvas.bind_all("<Button-5>", self.onMouseWheel)
         else:
             self.canvas.bind_all("<MouseWheel>", self.onMouseWheel)
 
-    def onLeave(self, _):                                                       # unbind wheel events when the cursorl leaves the control
+    def onLeave(self, _):                                                           # unbind wheel events when the cursorl leaves the control
         if platform.system() == 'Linux':
             self.canvas.unbind_all("<Button-4>")
             self.canvas.unbind_all("<Button-5>")
@@ -550,17 +550,12 @@ class WorklistWindow():
       self.taskListFrame = tk.LabelFrame(self.root, text="Tasks", padx=4, pady=4)
       self.taskListFrame.grid(row=0, column=0, pady=4, padx=4, sticky=tk.N+tk.S+tk.E+tk.W)
 
-      self.db.get_open_tasks()
-
       # Editing interface
       self.editingPane = EditingPane(self.root, self.getSelectedTask, self.save, self.notify, self.db.get_categories, self.newTask, self.deleteTask, self.db.default_task)
       self.editingPane.grid(row=0, column=1, padx=4, pady=4)
 
       self.scroller = TaskScroller(self.taskListFrame, self.select)
       self.scroller.pack(side=tk.TOP, fill="both", expand=True)
-
-      self.loadedTasks: List[Task] = []
-      self.select(None)
 
       # Calendar
       self.calendar = Calendar(self.root, self.font)
@@ -598,8 +593,8 @@ class WorklistWindow():
       self.notify("New task created")
 
     def refreshAll(self) -> None:
-      self.calendar.updateCalendar(self.db.get_open_tasks())
       self.refreshTasks()
+      self.calendar.updateCalendar(self.db.get_open_tasks())
 
     def notify(self, msg: str) -> None:
       self.messageLabel.config(text=msg)
