@@ -13,15 +13,15 @@ release: $(BACKEND)/target/release/libbackend.so
 debug: $(BACKEND)/target/debug/libbackend.so
 	cp $< $(LIB_TARGET)
 
-$(BACKEND)/target/release/libbackend.so: $(BACKEND)/Cargo.toml $(BACKEND)/src/* $(BACKEND)/.env $(BACKEND)/resources/schema.db
+$(BACKEND)/target/release/libbackend.so: $(BACKEND)/Cargo.toml $(BACKEND)/src/* $(BACKEND)/.env $(BACKEND)/resources/dummy.db
 	cd $(BACKEND)/; cargo build --release
 	touch $@
 
-$(BACKEND)/target/debug/libbackend.so: $(BACKEND)/Cargo.toml $(BACKEND)/src/* $(BACKEND)/.env $(BACKEND)/resources/schema.db
+$(BACKEND)/target/debug/libbackend.so: $(BACKEND)/Cargo.toml $(BACKEND)/src/* $(BACKEND)/.env $(BACKEND)/resources/dummy.db
 	cd $(BACKEND)/; cargo build
 	touch $@
 
-$(BACKEND)/resources/schema.db: $(BACKEND)/resources/schema.sql
+$(BACKEND)/resources/dummy.db: $(BACKEND)/resources/schema.sql
 	cd $(@D); rm -f $(@F); sqlite3 $(@F) < schema.sql
 
 clean:
