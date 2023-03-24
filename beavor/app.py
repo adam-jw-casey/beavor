@@ -1,8 +1,8 @@
 import sys
 import tkinter as tk
 
-from beavor.widgets import CategoryScroller
-from beavor.backend import DatabaseManager
+from .widgets import CategoryScroller
+from .backend import DatabaseManager, Category
 
 class WorklistWindow():
     def __init__(self, databasePath: str):
@@ -32,6 +32,6 @@ class WorklistWindow():
         self.sidebar.grid_rowconfigure(0, weight=1)
         self.sidebar.grid(row=0, column=0, sticky = tk.N+tk.S)
 
-        self.category_scroller = CategoryScroller(self.sidebar, lambda s: print(s))
+        self.category_scroller = CategoryScroller(self.sidebar, lambda s: print(s.name))
         self.category_scroller.grid(row=0, column=0, sticky = tk.N + tk.S)
         self.category_scroller.showCategories(self.db.get_all())

@@ -6,8 +6,8 @@ import tkinter.ttk as ttk
 import datetime
 from typing import List, Any, Optional
 
-from beavor.backend import green_red_scale, Task, Category, PyDueDate, today_date, format_date, parse_date
-from beavor.ScrollFrame import ScrollFrame
+from .backend import green_red_scale, Task, Category, Project, PyDueDate, today_date, format_date, parse_date
+from .ScrollFrame import ScrollFrame
 
 class Timer(tk.Frame):
 
@@ -87,28 +87,65 @@ class CategoryScroller(ScrollFrame):
 
    
 class CategoryRow(tk.Frame):
-    def __init__(self, parent: tk.Frame, category: Category, callback):
+    def __init__(self, parent: tk.Frame, category: Category, select_project):
+        def on_project_click(proj: Project):
+            select_project(proj)
+            self.unhighlight_all()
+
+            next(filter(lambda pr: pr.project == proj, self.project_rows)).highlight()
+
         super().__init__(parent)
+
         self.category_name = category.name
-        self.nameLabel = tk.Label(self, text='▶ '+ self.category_name)
-        self.nameLabel.grid(row=0, column=0, sticky = tk.W)
+        self.nameLabel = tk.Label(self, text='▸ '+ self.category_name)
+        self.nameLabel.grid(sticky=tk.W)
+        self.nameLabel.bind("<1>", lambda _: self.on_click())
 
-        self.visible = [self, self.nameLabel]
+        self.expanded = False
 
-        self.callback = callback
-        for w in self.visible:
-            w.bind("<1>", lambda _: self.on_click())
+        self.project_rows: list[ProjectRow] = []
+        for (i, proj) in enumerate(category.projects):
+            pr = ProjectRow(self, proj, on_project_click)
+            pr.grid(row=i+1, sticky=tk.W)
+            self.project_rows.append(pr)
+
+        self.collapse()
 
     def expand(self):
         self.nameLabel.configure(text= '▾ ' + self.category_name)
+        for pr in self.project_rows:
+            pr.grid()
+
+        self.expanded = True
 
     def collapse(self):
         self.nameLabel.configure(text= '▸ ' + self.category_name)
+        for pr in self.project_rows:
+            pr.grid_forget()
+
+        self.expanded = False
 
     def on_click(self):
-        self.highlight()
-        self.expand()
-        self.callback()
+        if self.expanded:
+            self.collapse()
+        else:
+            self.expand()
+
+    def unhighlight_all(self):
+        for pr in self.project_rows:
+            pr.unhighlight()
+
+class ProjectRow(tk.LabelFrame):
+    def __init__(self, parent: tk.Frame, project: Project, callback):
+        super().__init__(parent)
+
+        self.project = project
+
+        self.nameLabel = tk.Label(self, text=project.name)
+        self.nameLabel.pack(fill='x', side=tk.LEFT)
+        self.nameLabel.bind("<1>", lambda _: callback(self.project))
+
+        self.visible = [self, self.nameLabel]
 
     def highlight(self) -> None:
         for w in self.visible:
