@@ -11,15 +11,17 @@ class WorklistWindow():
         self.db = DatabaseManager(databasePath)
 
         self.root = tk.Tk()
+        self.root.option_add("*background", "white")
+        self.root.configure(bg="white")
 
         # OS-dependent settings
         if self.os == "linux":
           self.root.attributes('-zoomed', True)
-          self.font = ("Liberation Mono", 10)
+          self.root.option_add("*Font", "TkFixedFont 12")
         else:
           #win32
           self.root.state("zoomed")
-          self.font = ("Courier", 10)
+          self.root.option_add("*Font", "Courier 10")
 
         # Add window icon
         self.root.winfo_toplevel().title("Beavor")
