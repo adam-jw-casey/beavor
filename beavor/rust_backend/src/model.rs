@@ -2,6 +2,9 @@ use pyo3::prelude::{
     pyclass,
     pymethods
 };
+use pyo3::exceptions::PyNotImplementedError;
+use pyo3::basic::CompareOp;
+use pyo3::PyResult;
 
 use crate::date::{
     Availability,
@@ -134,6 +137,17 @@ pub struct Project{
     #[pyo3(get, set)]
     pub deliverables: Vec<Deliverable>,
     pub id:           Option<i64>,
+}
+
+#[pymethods]
+impl Project{
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
+        match op{
+            CompareOp::Eq => Ok(self.id == other.id),
+            CompareOp::Ne => Ok(self.id != other.id),
+            _ => Err(PyNotImplementedError::new_err(format!("{:#?} is not implemented for Project", op))),
+        }
+    }
 }
 
 #[pyclass]

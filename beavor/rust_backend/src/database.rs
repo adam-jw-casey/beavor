@@ -315,7 +315,7 @@ impl DatabaseManager{
                     )
                     VALUES
                     (
-                        '',
+                        'Project' || (SELECT last_insert_rowid()),
                         ?
                     )
             ", category.id)
