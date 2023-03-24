@@ -77,10 +77,14 @@ class CategoryScroller(ScrollFrame):
         for _ in range(len(self.categoryRows)):
             self.categoryRows.pop().destroy()
             
-        for (i, category) in enumerate(categories):
-            categoryRow = CategoryRow(self.viewPort, category, lambda c=category: self.onRowClick(c))
-            categoryRow.grid(row=i, column=0, sticky= tk.W+tk.E)
-            self.categoryRows.append(categoryRow)
+        for category in categories:
+            self.add_category(category)
+
+    def add_category(self, category):
+        categoryRow = CategoryRow(self.viewPort, category, lambda c=category.name: self.onRowClick(c))
+        categoryRow.pack(fill='x', side='bottom')
+        self.categoryRows.append(categoryRow)
+
    
 class CategoryRow(tk.Frame):
     def __init__(self, parent: tk.Frame, category: Category, callback):
