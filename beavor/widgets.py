@@ -120,6 +120,7 @@ class CategoryRow(tk.Frame):
     def collapse(self):
         self.nameLabel.configure(text= '▸ ' + self.category_name)
         for pr in self.project_rows:
+            pr.unhighlight()
             pr.grid_forget()
 
         self.expanded = False
