@@ -10,7 +10,6 @@ class ProjectWindow(ScrollFrame):
         super().__init__(parent, "No project selected")
         self.deliverable_rows: list[DeliverableRow] = []
         self.select_project(None)
-        self.grid_columnconfigure(0, weight=1)
 
     def select_project(self, proj: Optional[Project]):
         self.selected_project = proj
@@ -33,6 +32,5 @@ class ProjectWindow(ScrollFrame):
 class DeliverableRow(tk.LabelFrame):
     def __init__(self, parent, deliverable: Deliverable):
         super().__init__(parent, text=deliverable.name)
-        #self.notes_label=tk.Label(self, text=deliverable.notes)
-        self.notes_label=tk.Label(self, text="lorem ipsum dolore")
+        self.notes_label=tk.Label(self, text=deliverable.notes)
         self.notes_label.grid()

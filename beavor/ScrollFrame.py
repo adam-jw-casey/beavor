@@ -15,6 +15,8 @@ class ScrollFrame(tk.LabelFrame):
         self.canvas_window = self.canvas.create_window((4,4), window=self.viewPort, anchor="nw", tags="self.viewPort")
 
         self.viewPort.bind("<Configure>", self.onFrameConfigure) #bind an event whenever the size of the viewPort frame changes.
+        self.viewPort.grid_columnconfigure(0, weight=1)
+
         self.canvas.bind("<Configure>", self.onCanvasConfigure) #bind an event whenever the size of the canvas frame changes.
 
         self.bind('<Enter>', self.onEnter) # bind wheel events when the cursor enters the control
