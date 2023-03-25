@@ -9,7 +9,7 @@ class CategoryScroller(ScrollFrame):
         super().__init__(parent, "Projects")
         self.categoryRows: list[CategoryRow] = []
         self.onRowClick = onRowClick
-        self.viewPort.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
     
     def showCategories(self, categories: List[Category]):
         for _ in range(len(self.categoryRows)):
@@ -20,7 +20,7 @@ class CategoryScroller(ScrollFrame):
 
     def add_category_row(self, category):
         categoryRow = CategoryRow(self.viewPort, category, lambda c=category.name: self.onRowClick(c))
-        categoryRow.pack(fill='x', side='bottom')
+        categoryRow.grid(sticky=tk.W + tk.E)
         self.categoryRows.append(categoryRow)
 
 class CategoryRow(tk.Frame):
@@ -35,17 +35,22 @@ class CategoryRow(tk.Frame):
 
         self.category_name = category.name
         self.nameLabel = tk.Label(self, text=('▸ ' if len(category.projects) > 0 else '   ') + self.category_name)
-        self.nameLabel.grid(sticky=tk.W)
+        self.nameLabel.grid(sticky=tk.W + tk.E)
         self.nameLabel.bind("<1>", lambda _: self.on_click())
 
         self.expanded = False
 
+        self.on_project_click = on_project_click
+
         self.project_rows: list[ProjectRow] = []
-        for (i, proj) in enumerate(category.projects):
-            pr = ProjectRow(self, proj, on_project_click)
-            pr.grid(row=i+1, sticky=tk.W)
-            pr.grid_forget()
+        for proj in category.projects:
+            self.add_project_row(proj)
+
+    def add_project_row(self, proj: Project):
+            pr = ProjectRow(self, proj, self.on_project_click)
             self.project_rows.append(pr)
+            pr.grid(row=len(self.project_rows), sticky=tk.W)
+            pr.grid_forget()
 
     def expand(self):
         self.nameLabel.configure(text= '▾ ' + self.category_name)
@@ -82,7 +87,7 @@ class ProjectRow(tk.Frame):
         self.project = project
 
         self.nameLabel = tk.Label(self, text="-- " + project.name)
-        self.nameLabel.pack(anchor=tk.W)
+        self.nameLabel.grid(sticky=tk.W)
         self.nameLabel.bind("<1>", lambda _: callback(self.project))
 
         self.visible = [self, self.nameLabel]
