@@ -7,7 +7,7 @@ from .backend import Category, Project
 class CategoryScroller(ScrollFrame):
     def __init__(self, parent, onRowClick):
         super().__init__(parent, "Projects")
-        self.categoryRows = []
+        self.categoryRows: list[CategoryRow] = []
         self.onRowClick = onRowClick
         self.viewPort.grid_columnconfigure(0, weight=1)
     
