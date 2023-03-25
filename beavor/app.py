@@ -3,7 +3,8 @@ import tkinter as tk
 
 from typing import Optional
 
-from .widgets import CategoryScroller, ProjectWindow
+from .main_window import ProjectWindow
+from .sidebar import CategoryScroller
 from .backend import DatabaseManager, Project
 
 class WorklistWindow():
