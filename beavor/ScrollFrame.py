@@ -1,9 +1,9 @@
 import tkinter as tk
 import platform
 
-class ScrollFrame(tk.Frame):
-    def __init__(self, parent: tk.Frame | tk.LabelFrame):
-        super().__init__(parent) # create a frame (self)
+class ScrollFrame(tk.LabelFrame):
+    def __init__(self, parent: tk.Frame | tk.LabelFrame, text: str):
+        super().__init__(parent, text=text) # create a frame (self)
 
         self.canvas = tk.Canvas(self, borderwidth=0) #place canvas on self
         self.viewPort = tk.Frame(self.canvas) #place a frame on the canvas, this frame will hold the child widgets
