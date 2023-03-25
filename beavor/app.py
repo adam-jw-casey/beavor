@@ -1,8 +1,10 @@
 import sys
 import tkinter as tk
 
-from .widgets import CategoryScroller
-from .backend import DatabaseManager, Category
+from typing import Optional
+
+from .widgets import CategoryScroller, ProjectWindow
+from .backend import DatabaseManager, Project
 
 class WorklistWindow():
     def __init__(self, databasePath: str):
@@ -32,10 +34,16 @@ class WorklistWindow():
 
         # Make main window that shows the selected project
         self.root.grid_columnconfigure(1, weight=1)
-        self.main_window = tk.LabelFrame(self.root, text="No project selected")
+        self.main_window = ProjectWindow(self.root)
         self.main_window.grid(row=0, column=1, sticky=tk.N+tk.S+tk.E+tk.W)
 
         # Make sidebar that displays categories and projects
-        self.sidebar = CategoryScroller(self.root, lambda s: self.main_window.configure(text=s.name))
+        self.sidebar = CategoryScroller(self.root, self.select_project)
         self.sidebar.grid(row=0, column=0, sticky = tk.N+tk.S)
         self.sidebar.showCategories(self.db.get_all())
+
+    ##########
+    # Events #
+    ##########
+    def select_project(self, proj: Optional[Project]):
+        self.main_window.select_project(proj)
