@@ -1,4 +1,6 @@
 import tkinter as tk
+from tktooltip import ToolTip
+
 from typing import List
 
 from .ScrollFrame import ScrollFrame
@@ -30,6 +32,14 @@ class CategoryRow(tk.Frame):
 
             next(filter(lambda pr: pr.project == proj, self.project_rows)).highlight()
 
+        def get_tooltip() -> str:
+            if len(self.project_rows) == 0:
+                return "No projects in this category"
+            elif self.expanded:
+                return "Click to hide projects"
+            else:
+                return "Click to show projects"
+
         super().__init__(parent)
         self.grid_columnconfigure(0, weight=1)
 
@@ -38,6 +48,7 @@ class CategoryRow(tk.Frame):
         self.nameLabel = tk.Label(self, text=('▸ ' if len(category.projects) > 0 else '   ') + self.category_name, anchor=tk.W)
         self.nameLabel.grid(row=0, column=0, sticky=tk.W+tk.E)
         self.nameLabel.bind("<1>", lambda _: self.on_click())
+        ToolTip(self.nameLabel, msg=get_tooltip, delay=0.3)
 
         self.expanded = False
 
