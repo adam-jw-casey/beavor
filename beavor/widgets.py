@@ -2,10 +2,8 @@
 
 import tkinter as tk
 import datetime
-from typing import Optional
 
-from .backend import Project, Deliverable
-from .ScrollFrame import ScrollFrame
+from typing import Callable
 
 class Timer(tk.Frame):
 
@@ -63,3 +61,37 @@ class Timer(tk.Frame):
 
     class EmptyTaskError(Exception):
       pass
+
+class ContextMenuSpawner:
+    """
+    Spawns tk.Menus with a given configuration on right click on parent
+
+    This CANNOT inherit from tk.Menu, even thought it feels like it should,
+    because it needs to be able to spawn multiple menus
+
+    This also cannot be inherited by a widget because it need to hold
+    what the menu should look like
+    """
+
+    def __init__(self, parents: list[tk.Widget], menu_builder: Callable[[], tk.Menu]):
+
+        self.parents = parents
+        self.menu_builder = menu_builder
+
+        for parent in parents:
+            parent.bind("<3>", lambda evt: parent.after(1, lambda: self.make_context_menu(evt)))
+
+    def make_context_menu(self, evt):
+        self.ctx_menu = self.menu_builder()
+        self.ctx_menu.post(evt.x_root, evt.y_root)
+
+        self.funcid1 = self.parents[0].winfo_toplevel().bind("<1>", lambda _: self.destroy_context_menu(), "+")
+        self.funcid2 = self.parents[0].winfo_toplevel().bind("<2>", lambda _: self.destroy_context_menu(), "+")
+        self.funcid3 = self.parents[0].winfo_toplevel().bind("<3>", lambda _: self.destroy_context_menu(), "+")
+
+    def destroy_context_menu(self):
+
+        self.parents[0].winfo_toplevel().unbind("<1>", self.funcid1)
+        self.parents[0].winfo_toplevel().unbind("<2>", self.funcid2)
+        self.parents[0].winfo_toplevel().unbind("<3>", self.funcid3)
+        self.ctx_menu.destroy()
