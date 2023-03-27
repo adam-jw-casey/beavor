@@ -59,7 +59,7 @@ class CategoryRow(tk.Frame):
             self.add_project_row(proj)
 
     def add_project_row(self, proj: Project):
-            pr = ProjectRow(self, proj, self.on_project_click, prefix="\t💡 " )
+            pr = ProjectRow(self, proj, self.on_project_click, prefix="     💡 " )
             self.project_rows.append(pr)
             pr.grid(row=len(self.project_rows), column=0, sticky=tk.W+tk.E)
             pr.grid_forget()
