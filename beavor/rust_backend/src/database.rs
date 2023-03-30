@@ -35,12 +35,14 @@ use futures::future;
 
 use sscanf::sscanf;
 
+use itertools::Itertools;
+
 // Helper function
 fn lowest_positive_int_not_in_interator<I>(iter: I) -> u32
 where I: IntoIterator<Item = u32>,
 {
     let mut n = 1;
-    for i in iter{
+    for i in iter.into_iter().sorted(){
         if i != n{
             return i
         }
