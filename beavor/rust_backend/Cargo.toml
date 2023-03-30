@@ -15,3 +15,4 @@ tokio = "1.26"
 futures = "0.3.27"
 sqlx = {version = "0.6.2", features = ["runtime-tokio-native-tls", "sqlite"]}
 chrono = "0.4.23"
+sscanf = "0.4.0"

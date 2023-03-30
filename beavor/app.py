@@ -39,12 +39,20 @@ class WorklistWindow():
         self.main_window.grid(row=0, column=1, sticky=tk.N+tk.S+tk.E+tk.W)
 
         # Make sidebar that displays categories and projects
-        self.sidebar = CategoryScroller(self.root, self.select_project)
+        self.sidebar = CategoryScroller(self.root, self.select_project, self.create_category)
         self.sidebar.grid(row=0, column=0, sticky = tk.N+tk.S+tk.E+tk.W)
         self.sidebar.showCategories(self.db.get_all())
 
     ##########
     # Events #
     ##########
+
     def select_project(self, proj: Optional[Project]):
+        """
+        Update any widget that needs to respond to the selected category changing
+        """
         self.main_window.select_project(proj)
+
+    def create_category(self):
+        self.db.create_default_category()
+        self.sidebar.showCategories(self.db.get_all())
