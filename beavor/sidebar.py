@@ -5,10 +5,10 @@ from typing import List
 
 from .ScrollFrame import ScrollFrame
 from .backend import Category, Project
-from .widgets import ContextMenuSpawner
+from .widgets import ContextMenuSpawner, EditableLabel
 
 class CategoryScroller(ScrollFrame):
-    def __init__(self, parent, onRowClick, create_category):
+    def __init__(self, parent, onRowClick, create_category, rename_category):
         def context_menu_builder() -> tk.Menu:
             ctx = tk.Menu(self, tearoff=0)
             ctx.add_command(label="New category", command=create_category)
@@ -21,20 +21,20 @@ class CategoryScroller(ScrollFrame):
 
         self.ctx = ContextMenuSpawner([self, self.canvas], context_menu_builder)
 
+        self.rename_category = rename_category
+
     def showCategories(self, categories: List[Category]):
+
         for _ in range(len(self.categoryRows)):
             self.categoryRows.pop().destroy()
             
         for category in categories:
-            self.add_category_row(category)
-
-    def add_category_row(self, category):
-        categoryRow = CategoryRow(self.viewPort, category, lambda c=category.name: self.onRowClick(c))
-        categoryRow.grid(sticky=tk.W + tk.E)
-        self.categoryRows.append(categoryRow)
+            categoryRow = CategoryRow(self.viewPort, category, lambda c=category.name: self.onRowClick(c), lambda new_name, cat=category: self.rename_category(cat, new_name))
+            categoryRow.grid(sticky=tk.W + tk.E)
+            self.categoryRows.append(categoryRow)
 
 class CategoryRow(tk.Frame):
-    def __init__(self, parent: tk.Frame, category: Category, select_project):
+    def __init__(self, parent: tk.Frame, category: Category, select_project, update_category_name):
         def on_project_click(proj: Project):
             select_project(proj)
             self.unhighlight_all()
@@ -50,15 +50,18 @@ class CategoryRow(tk.Frame):
                 return "Click to show projects"
 
         super().__init__(parent)
-        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=1)
 
         self.category_name = category.name
         self.select_none = lambda: select_project(None)
 
-        self.nameLabel = tk.Label(self, text='📁 ' + ('▸ ' if len(category.projects) > 0 else '   ') + self.category_name, anchor=tk.W)
-        self.nameLabel.grid(row=0, column=0, sticky=tk.W+tk.E)
-        self.nameLabel.bind("<1>", lambda _: self.on_click())
-        ToolTip(self.nameLabel, msg=get_tooltip, delay=0.3)
+        self.icon = tk.Label(self, text=('▸ ' if len(category.projects) > 0 else '   ') + '📁')
+        self.icon.grid(row=0, column=0, sticky=tk.W)
+        self.icon.bind("<Button-1>", lambda _: self.on_click())
+        ToolTip(self.icon, msg=get_tooltip, delay=0.3)
+
+        self.nameLabel = EditableLabel(self, text=self.category_name, edit_text=update_category_name)
+        self.nameLabel.grid(row=0, column=1, sticky=tk.W+tk.E)
 
         self.expanded = False
 
@@ -71,18 +74,18 @@ class CategoryRow(tk.Frame):
     def add_project_row(self, proj: Project):
             pr = ProjectRow(self, proj, self.on_project_click, prefix="     💡 " )
             self.project_rows.append(pr)
-            pr.grid(row=len(self.project_rows), column=0, sticky=tk.W+tk.E)
+            pr.grid(row=len(self.project_rows), column=0, sticky=tk.W+tk.E, columnspan=2)
             pr.grid_forget()
 
     def expand(self):
-        self.nameLabel.configure(text= '📁 ▾ ' + self.category_name)
+        self.icon.configure(text= '▾ 📁')
         for pr in self.project_rows:
-            pr.grid(sticky=tk.W+tk.E)
+            pr.grid(sticky=tk.W+tk.E, columnspan=2)
 
         self.expanded = True
 
     def collapse(self):
-        self.nameLabel.configure(text= '📁 ▸ ' + self.category_name)
+        self.icon.configure(text= '▸ 📁')
         for pr in self.project_rows:
             pr.unhighlight()
             pr.grid_forget()
