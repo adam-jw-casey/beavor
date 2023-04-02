@@ -11,7 +11,7 @@ class CategoryScroller(ScrollFrame):
     def __init__(self, parent, select_project, create_category, rename_category, delete_category, add_project_in_category):
         def context_menu_builder() -> tk.Menu:
             ctx = tk.Menu(self, tearoff=0)
-            ctx.add_command(label="New category", command=create_category)
+            ctx.add_command(label="➕ New category", command=create_category)
 
             return ctx
 
@@ -67,8 +67,8 @@ class CategoryRow(tk.Frame):
 
         def context_menu_builder() -> tk.Menu:
             ctx = tk.Menu(self, tearoff=0)
-            ctx.add_command(label="Add project to category", command=self.on_add_project)
-            ctx.add_command(label="Delete Category", command=delete_category)
+            ctx.add_command(label="➕ Add project to category", command=self.on_add_project)
+            ctx.add_command(label="🗑️ Delete Category", command=delete_category)
 
             return ctx
 
@@ -101,7 +101,7 @@ class CategoryRow(tk.Frame):
             self.add_project_row(proj)
 
     def add_project_row(self, proj: Project):
-            pr = ProjectRow(self, proj, self.on_project_click, prefix="     💡 " )
+            pr = ProjectRow(self, proj, self.on_project_click, prefix="     ➡️ " )
             self.project_rows.append(pr)
             pr.grid(row=len(self.project_rows), column=0, sticky=tk.W+tk.E, columnspan=2)
             pr.grid_forget()
