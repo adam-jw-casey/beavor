@@ -41,7 +41,7 @@ use itertools::Itertools;
 fn lowest_positive_int_not_in_interator<I>(iter: I) -> u32
 where I: IntoIterator<Item = u32>,
 {
-    let mut n = 1;
+    let mut n = 0;
     for i in iter.into_iter().sorted(){
         if i != n{
             return n
@@ -327,6 +327,22 @@ impl DatabaseManager{
 
     fn create_project_in_category(&self, category: &Category) -> Project{
         self.rt.block_on(async{
+            let new_project_name = format!("Project{}", lowest_positive_int_not_in_interator(
+                sqlx::query!("
+                    SELECT Name
+                    FROM Projects
+                    WHERE
+                        Name LIKE 'Project%'
+                    AND Category == ?
+                ", category.id)
+                    .fetch_all(&self.pool)
+                    .await
+                    .unwrap()
+                    .iter()
+                    .filter_map(|cs| sscanf!(cs.Name, "Project{u32}").ok())
+            ));
+            println!("New project: {new_project_name}");
+
             let new_rowid = sqlx::query!("
                 INSERT INTO projects
                     (
@@ -335,10 +351,12 @@ impl DatabaseManager{
                     )
                     VALUES
                     (
-                        'Project' || (SELECT last_insert_rowid()),
+                        ?,
                         ?
                     )
-            ", category.id)
+            ",
+                new_project_name,
+                category.id)
                 .execute(&self.pool)
                 .await
                 .expect("Should be able to insert project into database")

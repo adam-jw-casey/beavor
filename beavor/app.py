@@ -39,7 +39,7 @@ class WorklistWindow():
         self.main_window.grid(row=0, column=1, sticky=tk.N+tk.S+tk.E+tk.W)
 
         # Make sidebar that displays categories and projects
-        self.sidebar = CategoryScroller(self.root, self.select_project, self.create_category, self.rename_category, self.delete_category)
+        self.sidebar = CategoryScroller(self.root, self.select_project, self.create_category, self.rename_category, self.delete_category, self.add_project_in_category)
         self.sidebar.grid(row=0, column=0, sticky = tk.N+tk.S+tk.E+tk.W)
         self.sidebar.showCategories(self.db.get_all())
 
@@ -64,3 +64,6 @@ class WorklistWindow():
     def rename_category(self, category: Category, new_name: str):
         category.name = new_name
         self.db.update_category(category)
+
+    def add_project_in_category(self, category: Category):
+        return self.db.create_project_in_category(category)

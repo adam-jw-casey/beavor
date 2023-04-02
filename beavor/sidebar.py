@@ -8,7 +8,7 @@ from .backend import Category, Project
 from .widgets import ContextMenuSpawner, EditableLabel
 
 class CategoryScroller(ScrollFrame):
-    def __init__(self, parent, onRowClick, create_category, rename_category, delete_category):
+    def __init__(self, parent, select_project, create_category, rename_category, delete_category, add_project_in_category):
         def context_menu_builder() -> tk.Menu:
             ctx = tk.Menu(self, tearoff=0)
             ctx.add_command(label="New category", command=create_category)
@@ -19,9 +19,10 @@ class CategoryScroller(ScrollFrame):
         self.categoryRows: list[CategoryRow] = []
         self.ctx = ContextMenuSpawner([self, self.canvas], context_menu_builder)
 
-        self.onRowClick = onRowClick
+        self.select_project = select_project
         self.rename_category = rename_category
         self.delete_category = delete_category
+        self.add_project_in_category = add_project_in_category
 
     def showCategories(self, categories: List[Category]):
 
@@ -32,15 +33,24 @@ class CategoryScroller(ScrollFrame):
             categoryRow = CategoryRow(
                 self.viewPort,
                 category,
-                lambda c=category.name: self.onRowClick(c),
+                lambda p: self.on_project_select(p),
                 lambda new_name, cat=category: self.rename_category(cat, new_name),
-                lambda c=category: self.delete_category(c)
+                lambda c=category: self.delete_category(c), # TODO this needs some sort of user confirmation
+                lambda c=category: self.add_project_in_category(c)
             )
             categoryRow.grid(sticky=tk.W + tk.E)
             self.categoryRows.append(categoryRow)
 
+    def on_project_select(self, project: Project):
+        self.unhighlight_all()
+        self.select_project(project)
+
+    def unhighlight_all(self):
+        for cr in self.categoryRows:
+            cr.unhighlight_all()
+
 class CategoryRow(tk.Frame):
-    def __init__(self, parent: tk.Frame, category: Category, select_project, update_category_name, delete_category):
+    def __init__(self, parent: tk.Frame, category: Category, select_project, update_category_name, delete_category, add_project):
         def on_project_click(proj: Project):
             select_project(proj)
             self.unhighlight_all()
@@ -57,6 +67,7 @@ class CategoryRow(tk.Frame):
 
         def context_menu_builder() -> tk.Menu:
             ctx = tk.Menu(self, tearoff=0)
+            ctx.add_command(label="Add project to category", command=self.on_add_project)
             ctx.add_command(label="Delete Category", command=delete_category)
 
             return ctx
@@ -67,7 +78,13 @@ class CategoryRow(tk.Frame):
         self.category_name = category.name
         self.select_none = lambda: select_project(None)
 
-        self.icon = tk.Label(self, text=('▸ ' if len(category.projects) > 0 else '   ') + '📁')
+        self.icon = tk.Label(self)
+        self.expanded = False
+        if len(category.projects) == 0:
+            self.set_no_children()
+        else:
+            self.set_has_children()
+
         self.icon.grid(row=0, column=0, sticky=tk.W)
         self.icon.bind("<Button-1>", lambda _: self.on_click())
         ToolTip(self.icon, msg=get_tooltip, delay=0.3)
@@ -76,9 +93,8 @@ class CategoryRow(tk.Frame):
         self.nameLabel.grid(row=0, column=1, sticky=tk.W+tk.E)
         self.ctx = ContextMenuSpawner([self.nameLabel], context_menu_builder)
 
-        self.expanded = False
-
         self.on_project_click = on_project_click
+        self.add_project = add_project
 
         self.project_rows: list[ProjectRow] = []
         for proj in category.projects:
@@ -89,6 +105,22 @@ class CategoryRow(tk.Frame):
             self.project_rows.append(pr)
             pr.grid(row=len(self.project_rows), column=0, sticky=tk.W+tk.E, columnspan=2)
             pr.grid_forget()
+
+    def on_add_project(self):
+        self.add_project_row(self.add_project())
+        self.set_has_children()
+
+        # Refresh shown projects
+        if self.expanded:
+            self.collapse()
+            self.expand()
+
+    def set_has_children(self):
+        if not self.expanded:
+            self.icon.config(text='▸ 📁')
+
+    def set_no_children(self):
+        self.icon.config(text='   📁')
 
     def expand(self):
         self.icon.configure(text= '▾ 📁')
