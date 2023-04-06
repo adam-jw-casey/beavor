@@ -5,10 +5,10 @@ from typing import List
 
 from .ScrollFrame import ScrollFrame
 from .backend import Category, Project
-from .widgets import ContextMenuSpawner, EditableLabel
+from .widgets import ContextMenuSpawner, EditableLabel, LabeledWidget
 
 class CategoryScroller(ScrollFrame):
-    def __init__(self, parent, select_project, create_category, rename_category, delete_category, add_project_in_category):
+    def __init__(self, parent, select_project, create_category, rename_category, delete_category, add_project_in_category, update_project_name):
         def context_menu_builder() -> tk.Menu:
             ctx = tk.Menu(self, tearoff=0)
             ctx.add_command(label="➕ New category", command=create_category)
@@ -23,6 +23,7 @@ class CategoryScroller(ScrollFrame):
         self.rename_category = rename_category
         self.delete_category = delete_category
         self.add_project_in_category = add_project_in_category
+        self.update_project_name = update_project_name
 
     def showCategories(self, categories: List[Category]):
 
@@ -33,10 +34,11 @@ class CategoryScroller(ScrollFrame):
             categoryRow = CategoryRow(
                 self.viewPort,
                 category,
-                lambda p: self.on_project_select(p),
+                self.on_project_select,
                 lambda new_name, cat=category: self.rename_category(cat, new_name),
                 lambda c=category: self.delete_category(c), # TODO this needs some sort of user confirmation
-                lambda c=category: self.add_project_in_category(c)
+                lambda c=category: self.add_project_in_category(c),
+                self.update_project_name
             )
             categoryRow.grid(sticky=tk.W + tk.E)
             self.categoryRows.append(categoryRow)
@@ -50,7 +52,7 @@ class CategoryScroller(ScrollFrame):
             cr.unhighlight_all()
 
 class CategoryRow(tk.Frame):
-    def __init__(self, parent: tk.Frame, category: Category, select_project, update_category_name, delete_category, add_project):
+    def __init__(self, parent: tk.Frame, category: Category, select_project, update_category_name, delete_category, add_project, update_project_name):
         def on_project_click(proj: Project):
             select_project(proj)
             self.unhighlight_all()
@@ -95,16 +97,23 @@ class CategoryRow(tk.Frame):
 
         self.on_project_click = on_project_click
         self.add_project = add_project
+        self.update_project_name = update_project_name
 
         self.project_rows: list[ProjectRow] = []
         for proj in category.projects:
             self.add_project_row(proj)
 
     def add_project_row(self, proj: Project):
-            pr = ProjectRow(self, proj, self.on_project_click, prefix="     ➡️ " )
-            self.project_rows.append(pr)
-            pr.grid(row=len(self.project_rows), column=0, sticky=tk.W+tk.E, columnspan=2)
-            pr.grid_forget()
+        pr = ProjectRow(
+            self,
+            proj,
+            lambda p=proj: self.on_project_click(p),
+            lambda new_name, p=proj: self.update_project_name(p, new_name),
+            prefix="     ➡️ "
+        )
+        self.project_rows.append(pr)
+        pr.grid(row=len(self.project_rows), column=0, sticky=tk.W+tk.E, columnspan=2)
+        pr.grid_forget()
 
     def on_add_project(self):
         self.add_project_row(self.add_project())
@@ -152,28 +161,43 @@ class CategoryRow(tk.Frame):
         for pr in self.project_rows:
             pr.unhighlight()
 
-class ProjectRow(tk.Label):
-    def __init__(self, parent: tk.Frame, project: Project, callback, prefix: str):
+class ProjectRow(LabeledWidget):
+    def __init__(self, parent: tk.Frame, project: Project, select_project, update_project_name, prefix: str):
+        def child_constructor(parent: tk.Frame):
+            return EditableLabel(parent, text=project.name, edit_text=update_project_name)
+
         self.project = project
 
-        super().__init__(parent, text=prefix+ project.name, anchor=tk.W)
-        self.bind("<1>", lambda _: callback(self.project))
-        self.bind("<Enter>", lambda _: self.on_mouseover())
-        self.bind("<Leave>", lambda _: self.on_mouseleave())
+        super().__init__(parent, prefix, child_constructor)
+
+        self.visible = [self, self.label, self.w, self.w.label]
+
+        self.bind_visible("<1>", lambda _: select_project())
+        self.bind_visible("<Enter>", lambda _: self.on_mouseover())
+        self.bind_visible("<Leave>", lambda _: self.on_mouseleave())
 
         self.highlighted = False
 
+        self.w: EditableLabel
+
+    def bind_visible(self, *args):
+        for w in self.visible:
+            w.bind(*args)
+
     def highlight(self) -> None:
-        self.config(bg="lightblue")
+        for w in self.visible:
+            w.config(bg="lightblue")
         self.highlighted = True
 
     def unhighlight(self) -> None:
-        self.config(bg="white")
+        for w in self.visible:
+            w.config(bg="white")
         self.highlighted = False
 
     def on_mouseover(self):
         if not self.highlighted:
-            self.config(bg="lightgrey")
+            for w in self.visible:
+                w.config(bg="lightgrey")
 
     def on_mouseleave(self):
         if not self.highlighted:
