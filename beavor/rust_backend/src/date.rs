@@ -162,6 +162,19 @@ impl PyDueDate{
         match op{
             CompareOp::Eq => Ok(*self == *other),
             CompareOp::Ne => Ok(*self != *other),
+            CompareOp::Lt => Ok({
+                match self.date_type{
+                    PyDueDateType::None => true,
+                    PyDueDateType::ASAP => false,
+                    PyDueDateType::Date => match self.date{
+                        Some(date) => match other.date{
+                            Some(other_date) => date < other_date,
+                            None => Self::__richcmp__(other, self, op).expect("This recursive call will work because no banches return err")
+                        },
+                        None => panic!("If the PyDueDate is well constructed, this will never happen!")
+                    }
+                }
+            }),
             _ => Err(PyNotImplementedError::new_err(format!("{:#?} is not implemented for PyDueDate", op))),
         }
     }

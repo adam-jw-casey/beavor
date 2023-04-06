@@ -21,7 +21,7 @@ class ProjectWindow(ScrollFrame):
         if proj is None:
             return
 
-        for deliverable in proj.deliverables:
+        for deliverable in sorted(proj.deliverables, key=lambda d: d.due):
             self.add_deliverable_row(deliverable)
 
     def add_deliverable_row(self, deliverable: Deliverable):
