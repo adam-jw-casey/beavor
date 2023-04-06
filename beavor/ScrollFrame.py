@@ -7,7 +7,7 @@ class ScrollFrame(tk.LabelFrame):
 
         self.canvas = tk.Canvas(self, borderwidth=0) #place canvas on self
         self.viewPort = tk.Frame(self.canvas) #place a frame on the canvas, this frame will hold the child widgets
-        self.vsb = tk.Scrollbar(self, orient="vertical", command=self.canvas.yview) #place a scrollbar on self
+        self.vsb = tk.Scrollbar(self, orient="vertical", command=lambda *args: self.canvas.yview(*args) if self.canvas.winfo_height() < self.canvas.bbox("all")[3] else None) #place a scrollbar on self
         self.canvas.configure(yscrollcommand=self.vsb.set) #attach scrollbar action to scroll of canvas
 
         self.vsb.pack(side="right", fill="y") #pack scrollbar to right of self
