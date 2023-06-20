@@ -4,4 +4,6 @@
 *.so
 __pycache__/
 .git
+.pipreqsinstalled
+.pydepsupdated
 beavor/rust_backend/Cargo.lock

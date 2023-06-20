@@ -1,9 +1,10 @@
 #!/usr/bin/python3.11
 
 import sys, os
-from beavor.widgets import WorklistWindow
+from beavor.app import WorklistWindow
 from beavor.backend import DatabaseManager
 
+# todo this should be in the config file
 DEFAULT_DATABASE_PATH = "worklist.db"
 
 def main():
