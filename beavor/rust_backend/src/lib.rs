@@ -37,6 +37,11 @@ use std::str::FromStr;
 use std::convert::From;
 use core::fmt::Display;
 
+use std::cmp::{
+    max,
+    Ordering
+};
+
 #[pyfunction]
 // Tested and this is ~3x faster than the exact same implementation in Python,
 // even with the API calls
@@ -92,7 +97,7 @@ fn work_days_between(d1: NaiveDate, d2: NaiveDate) -> i32{
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Clone, PartialEq)]
 enum PyDueDateType{
-    None,
+    NONE,
     Date,
     ASAP,
 }
@@ -126,18 +131,46 @@ impl PyDueDate{
     }
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 #[allow(clippy::upper_case_acronyms)]
 enum DueDate{
-    None,
+    NONE,
     Date(NaiveDate),
     ASAP,
+}
+
+impl PartialOrd for DueDate {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for DueDate {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match self {
+            DueDate::NONE => match other{
+                DueDate::NONE    => Ordering::Equal,
+                DueDate::Date(_) => Ordering::Greater,
+                DueDate::ASAP    => Ordering::Less,
+            },
+            DueDate::ASAP => match other{
+                DueDate::NONE    => other.cmp(self).reverse(),
+                DueDate::Date(_) => Ordering::Less,
+                DueDate::ASAP    => Ordering::Equal,
+            },
+            DueDate::Date(self_date) => match other{
+                DueDate::NONE             => other.cmp(self).reverse(),
+                DueDate::Date(other_date) => self_date.cmp(other_date),
+                DueDate::ASAP             => other.cmp(self).reverse(),
+            },
+        }
+    }
 }
 
 impl From<DueDate> for PyDueDate{
     fn from(rust_due_date: DueDate) -> Self {
         match rust_due_date{
-            DueDate::None => PyDueDate{date_type: PyDueDateType::None, date: None},
+            DueDate::NONE => PyDueDate{date_type: PyDueDateType::NONE, date: None},
             DueDate::Date(date) => PyDueDate{date_type: PyDueDateType::Date, date: Some(date)},
             DueDate::ASAP => PyDueDate{date_type: PyDueDateType::ASAP, date: None},
         }
@@ -147,7 +180,7 @@ impl From<DueDate> for PyDueDate{
 impl From<&PyDueDate> for DueDate{
     fn from(pyvalue: &PyDueDate) -> Self {
         match pyvalue.date_type{
-            PyDueDateType::None => DueDate::None,
+            PyDueDateType::NONE => DueDate::NONE,
             PyDueDateType::Date => DueDate::Date(pyvalue.date.expect("If PyDueDateType is Date then date will no be None")),
             PyDueDateType::ASAP => DueDate::ASAP,
         }
@@ -168,7 +201,7 @@ impl FromStr for DueDate{
 
     fn from_str(date_string: &str) -> Result<Self, Self::Err> {
         Ok(match date_string{
-            "None" => DueDate::None,
+            "None" => DueDate::NONE,
             "ASAP" => DueDate::ASAP,
             date_string => DueDate::Date(parse_date(date_string)?),
         })
@@ -186,7 +219,7 @@ impl TryFrom<String> for DueDate{
 impl From<&DueDate> for String{
     fn from(value: &DueDate) -> Self {
         match value{
-            DueDate::None => "None".into(),
+            DueDate::NONE => "None".into(),
             DueDate::ASAP => "ASAP".into(),
             DueDate::Date(date) => format_date_borrowed(date),
         }
@@ -235,6 +268,30 @@ impl Task{
     #[setter]
     fn set_due_date(&mut self, due_date: PyDueDate){
         self.due_date = (&due_date).into()
+    }
+
+    // Return the number of minutes per day you would have to work
+    // on this task to complete it by its deadline
+    fn workload_on_day(&self, date: NaiveDate) -> i32{
+        if date > self.next_action_date && DueDate::Date(date) < self.due_date{
+            match self.due_date{
+                DueDate::NONE => 0,
+                DueDate::ASAP => {
+                    if date == today_date(){
+                        self.time_needed -  self.time_used
+                    }else{
+                        0
+                    }
+                },
+                DueDate::Date(due_date) => {
+                    (self.time_needed -  self.time_used) // Remaining time
+                    / // Divided by
+                    (max(today_date(), due_date) - max(today_date(), self.next_action_date)).num_days() as i32 // Days remaining
+                }
+            }
+        }else{
+            0
+        }
     }
 }
 
@@ -431,6 +488,7 @@ impl DatabaseManager{
                 SELECT *, rowid
                 FROM worklist
                 WHERE O == 'O'
+                ORDER BY DueDate
             ")
                 .fetch_all(&self.pool)
                 .await
