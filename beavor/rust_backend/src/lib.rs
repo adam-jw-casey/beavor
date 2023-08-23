@@ -168,7 +168,7 @@ impl Ord for DueDate {
             DueDate::NONE => match other{
                 DueDate::NONE    => Ordering::Equal,
                 DueDate::Date(_) => Ordering::Greater,
-                DueDate::ASAP    => Ordering::Less,
+                DueDate::ASAP    => Ordering::Greater,
             },
             DueDate::ASAP => match other{
                 DueDate::NONE    => other.cmp(self).reverse(),
@@ -255,7 +255,7 @@ struct Task{
     #[pyo3(get, set)]
     category:         String,
     #[pyo3(get, set)]
-    finished:         String,
+    finished:         String, // TODO It's inexcusable that this is a string and not an Enum
     #[pyo3(get, set)]
     task_name:        String,
     #[pyo3(get)]
@@ -265,14 +265,14 @@ struct Task{
     #[pyo3(get, set)]
     time_used:        i32,
     #[pyo3(get, set)]
-    next_action_date: NaiveDate,
-    #[pyo3(get, set)]
     notes:            String,
     #[pyo3(get, set)]
     date_added:       NaiveDate,
+    #[pyo3(get, set)]
+    next_action_date: NaiveDate,
+    due_date:         DueDate,
     #[pyo3(get)]
     id:               Option<i32>,
-    due_date:         DueDate,
 }
 
 #[pymethods]
@@ -289,25 +289,30 @@ impl Task{
 
     // Return the number of minutes per day you would have to work
     // on this task to complete it by its deadline
-    fn workload_on_day(&self, date: NaiveDate) -> i32{
-        if date > self.next_action_date && DueDate::Date(date) < self.due_date{
-            match self.due_date{
-                DueDate::NONE => 0,
-                DueDate::ASAP => {
-                    if date == today_date(){
-                        self.time_needed -  self.time_used
-                    }else{
-                        0
+    fn workload_on_day(&self, date: NaiveDate) -> u32{
+        match date.weekday(){
+            Weekday::Sun | Weekday::Sat=> 0,
+            _ => {
+                if date >= self.next_action_date && DueDate::Date(date) <= self.due_date{
+                    match self.due_date{
+                        DueDate::NONE => 0,
+                        DueDate::ASAP => {
+                            if date == today_date(){
+                                (self.time_needed -  self.time_used).try_into().expect("Value should be nonnegative")
+                            }else{
+                                0
+                            }
+                        },
+                        DueDate::Date(due_date) => {
+                            TryInto::<u32>::try_into(self.time_needed -  self.time_used).unwrap_or(0) // Remaining time
+                            / // Divided by
+                            TryInto::<u32>::try_into(work_days_from(max(today_date(), self.next_action_date), max(today_date(), due_date))).unwrap_or(1) // Days remaining
+                        }
                     }
-                },
-                DueDate::Date(due_date) => {
-                    (self.time_needed -  self.time_used) // Remaining time
-                    / // Divided by
-                    work_days_from(max(today_date(), due_date), max(today_date(), self.next_action_date)) // Days remaining
+                }else{
+                    0
                 }
             }
-        }else{
-            0
         }
     }
 }
@@ -577,6 +582,76 @@ fn backend(_py: Python, m: &PyModule) -> PyResult<()> {
 mod tests{
 
     use super::*;
+
+    #[test]
+    fn test_cmp_due_date(){
+        assert!(DueDate::NONE == DueDate::NONE);
+        assert!(DueDate::NONE > DueDate::ASAP);
+        assert!(DueDate::NONE > DueDate::Date(NaiveDate::from_ymd(1971,01,01)));
+
+        assert!(DueDate::ASAP < DueDate::NONE);
+        assert!(DueDate::ASAP == DueDate::ASAP);
+        assert!(DueDate::ASAP < DueDate::Date(NaiveDate::from_ymd(1971,01,01)));
+
+        assert!(DueDate::Date(NaiveDate::from_ymd(1971,01,01)) < DueDate::NONE);
+        assert!(DueDate::Date(NaiveDate::from_ymd(1971,01,01)) > DueDate::ASAP);
+        assert!(DueDate::Date(NaiveDate::from_ymd(1971,01,01)) == DueDate::Date(NaiveDate::from_ymd(1971,01,01)));
+        assert!(DueDate::Date(NaiveDate::from_ymd(1971,01,01)) < DueDate::Date(NaiveDate::from_ymd(1971,01,02)));
+        assert!(DueDate::Date(NaiveDate::from_ymd(1971,01,01)) > DueDate::Date(NaiveDate::from_ymd(1970,12,31)));
+    }
+
+    #[test]
+    fn test_workload_on_day(){
+        let task = Task{
+            category: "".to_string(),
+            finished: "X".to_string(),
+            task_name: "Test".to_string(),
+            _time_budgeted: 600,
+            time_needed: 600,
+            time_used: 0,
+            notes: "".to_string(),
+            date_added: today_date(),
+            next_action_date: NaiveDate::from_ymd(3000, 01, 01),
+            due_date: DueDate::Date(NaiveDate::from_ymd(3000, 01, 08)),
+            id: None,
+        };
+
+        // A date before the task starts
+        assert_eq!(
+            task.workload_on_day(NaiveDate::from_ymd(2999,12,31)),
+            0
+        );
+
+        // A date after the task ends
+        assert_eq!(
+            task.workload_on_day(NaiveDate::from_ymd(3000,01,09)),
+            0
+        );
+
+        // A weekend during the task
+        assert_eq!(
+            task.workload_on_day(NaiveDate::from_ymd(3000,01,04)),
+            0
+        );
+
+        // First day of the task
+        assert_eq!(
+            task.workload_on_day(NaiveDate::from_ymd(3000,01,01)),
+            100
+        );
+
+        // Last day of the task
+        assert_eq!(
+            task.workload_on_day(NaiveDate::from_ymd(3000,01,08)),
+            100
+        );
+
+        // Weekday in middle of task
+        assert_eq!(
+            task.workload_on_day(NaiveDate::from_ymd(3000,01,06)),
+            100
+        );
+    }
 
     #[test]
     fn test_work_days_from() {
