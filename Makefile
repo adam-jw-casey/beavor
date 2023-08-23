@@ -1,5 +1,10 @@
 BACKEND = beavor/rust_backend
-LIB_TARGET = beavor/backend.so
+ifeq ($(OS),Windows_NT)
+	LIB_TARGET = beavor/backend.pyd
+else
+	LIB_TARGET = beavor/backend.so
+endif
+
 
 default: debug
 
