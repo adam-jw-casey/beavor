@@ -299,7 +299,6 @@ impl Task{
                         if (DueDate::Date(today_date()) > self.due_date && date == today_date()) || date == self.next_action_date{
                             (self.time_needed -  self.time_used).try_into().expect("Value should be nonnegative")
                         }else{
-                            println!("ASAP not today or first available day");
                             0
                         }
                     },
@@ -309,7 +308,6 @@ impl Task{
                             / // Divided by
                             TryInto::<u32>::try_into(work_days_from(max(today_date(), self.next_action_date), max(today_date(), due_date))).unwrap_or(1) // Days remaining
                         }else{
-                            println!("Not in date range");
                             0
                         }
                     }
