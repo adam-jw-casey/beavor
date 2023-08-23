@@ -8,7 +8,7 @@ import sys
 import platform
 from typing import List, Any, Optional
 
-from beavor.backend import green_red_scale, DatabaseManager, Task, PyDueDate, today_date, format_date, parse_date, PyDueDateType
+from beavor.backend import green_red_scale, DatabaseManager, Task, PyDueDate, today_date, format_date, parse_date
 
 ###########################################
 #Readability / coding style / maintainability
@@ -408,56 +408,61 @@ class Calendar(tk.LabelFrame):
         for task in openTasks
       )
 
-class ScrollFrame(tk.Frame):
-    def __init__(self, parent: tk.Frame | tk.LabelFrame):
-        super().__init__(parent) # create a frame (self)
+class ScrollFrame(tk.LabelFrame):
+    def __init__(self, parent: tk.Frame | tk.LabelFrame, text: str):
+        super().__init__(parent, text=text) # create a frame (self)
 
-        self.canvas = tk.Canvas(self, borderwidth=0)                                #place canvas on self
-        self.viewPort = tk.Frame(self.canvas)                                       #place a frame on the canvas, this frame will hold the child widgets
+        self.canvas = tk.Canvas(self, borderwidth=0) #place canvas on self
+        self.viewPort = tk.Frame(self.canvas) #place a frame on the canvas, this frame will hold the child widgets
         self.vsb = tk.Scrollbar(self, orient="vertical", command=self.canvas.yview) #place a scrollbar on self
-        self.canvas.configure(yscrollcommand=self.vsb.set)                          #attach scrollbar action to scroll of canvas
+        self.canvas.configure(yscrollcommand=self.vsb.set) #attach scrollbar action to scroll of canvas
 
-        self.vsb.pack(side="right", fill="y")                                       #pack scrollbar to right of self
-        self.canvas.pack(side="left", fill="both", expand=True)                     #pack canvas to left of self and expand to fil
-        self.canvas_window = self.canvas.create_window((4,4), window=self.viewPort, anchor="nw",            #add view port frame to canvas
-        tags="self.viewPort")
+        self.vsb.pack(side="right", fill="y") #pack scrollbar to right of self
+        self.canvas.pack(side="left", fill="both", expand=True) #pack canvas to left of self and expand to fill
+        self.canvas_window = self.canvas.create_window((4,4), window=self.viewPort, anchor="nw", tags="self.viewPort")
 
-        self.viewPort.bind("<Configure>", self.onFrameConfigure)                    #bind an event whenever the size of the viewPort frame changes.
-        self.canvas.bind("<Configure>", self.onCanvasConfigure)                     #bind an event whenever the size of the canvas frame changes.
+        self.viewPort.bind("<Configure>", self.onFrameConfigure) #bind an event whenever the size of the viewPort frame changes.
+        self.viewPort.grid_columnconfigure(0, weight=1)
 
-        self.viewPort.bind('<Enter>', self.onEnter)                                 # bind wheel events when the cursor enters the control
-        self.viewPort.bind('<Leave>', self.onLeave)                                 # unbind wheel events when the cursorl leaves the control
+        self.canvas.bind("<Configure>", self.onCanvasConfigure) #bind an event whenever the size of the canvas frame changes.
 
-        self.onFrameConfigure(None)                                                 #perform an initial stretch on render, otherwise the scroll region has a tiny border until the first resize
+        self.bind('<Enter>', self.onEnter) # bind wheel events when the cursor enters the control
+        self.bind('<Leave>', self.onLeave) # unbind wheel events when the cursor leaves the control
+
+        self.onFrameConfigure(None) #perform an initial stretch on render, otherwise the scroll region has a tiny border until the first resize
 
     def onFrameConfigure(self, _):
         '''Reset the scroll region to encompass the inner frame'''
-        self.canvas.configure(scrollregion=self.canvas.bbox("all"))                 #whenever the size of the frame changes, alter the scroll region respectively.
+        self.canvas.configure(scrollregion=self.canvas.bbox("all")) #whenever the size of the frame changes, alter the scroll region respectively.
 
     def onCanvasConfigure(self, event: tk.Event):
         '''Reset the canvas window to encompass inner frame when required'''
         canvas_width = event.width
-        self.canvas.itemconfig(self.canvas_window, width = canvas_width)            #whenever the size of the canvas changes alter the window region respectively.
+        self.canvas.itemconfig(self.canvas_window, width = canvas_width) #whenever the size of the canvas changes alter the window region respectively.
 
-    def onMouseWheel(self, event: tk.Event):                                        # cross platform scroll wheel event
-        if platform.system() == 'Windows':
-            self.canvas.yview_scroll(int(-1* (event.delta/120)), "units")
-        elif platform.system() == 'Darwin':
-            self.canvas.yview_scroll(int(-1 * event.delta), "units")
-        else:
-            if event.num == 4:
-                self.canvas.yview_scroll( -1, "units" )
-            elif event.num == 5:
-                self.canvas.yview_scroll( 1, "units" )
+    def onMouseWheel(self, event: tk.Event):  # cross platform scroll wheel event
+        canvas_height = self.canvas.winfo_height()
+        rows_height = self.canvas.bbox("all")[3]
 
-    def onEnter(self, _):                                                       # bind wheel events when the cursor enters the control
+        if rows_height > canvas_height:
+            if platform.system() == 'Windows':
+                self.canvas.yview_scroll(int(-1* (event.delta/120)), "units")
+            elif platform.system() == 'Darwin':
+                self.canvas.yview_scroll(int(-1 * event.delta), "units")
+            else:
+                if event.num == 4:
+                    self.canvas.yview_scroll( -1, "units" )
+                elif event.num == 5:
+                    self.canvas.yview_scroll( 1, "units" )
+
+    def onEnter(self, _): # bind wheel events when the cursor enters the control
         if platform.system() == 'Linux':
             self.canvas.bind_all("<Button-4>", self.onMouseWheel)
             self.canvas.bind_all("<Button-5>", self.onMouseWheel)
         else:
             self.canvas.bind_all("<MouseWheel>", self.onMouseWheel)
 
-    def onLeave(self, _):                                                       # unbind wheel events when the cursorl leaves the control
+    def onLeave(self, _): # unbind wheel events when the cursor leaves the control
         if platform.system() == 'Linux':
             self.canvas.unbind_all("<Button-4>")
             self.canvas.unbind_all("<Button-5>")
@@ -466,13 +471,9 @@ class ScrollFrame(tk.Frame):
 
 class TaskScroller(ScrollFrame):
     def __init__(self, parent: tk.Frame | tk.LabelFrame, onRowClick):
-        super().__init__(parent)
+        super().__init__(parent, "Tasks")
         self.taskRows = []
         self.onRowClick = onRowClick
-
-        self.recordLabel = tk.Label(parent, text="")
-        self.recordLabel.pack(side=tk.RIGHT)
-        self.recordLabel.pack(side=tk.BOTTOM)
 
     def showTasks(self, tasks: list[Task]) -> None:
         for _ in range(len(self.taskRows)):
@@ -482,8 +483,6 @@ class TaskScroller(ScrollFrame):
             taskRow = TaskRow(self.viewPort, task, lambda t=task: self.onRowClick(t))
             taskRow.grid(row=i, column=0, sticky= tk.W+tk.E)
             self.taskRows.append(taskRow)
-
-        self.recordLabel.config(text=str(len(tasks)) + " tasks found")
 
     def highlightTask(self, task: Optional[Task]) -> None:
         for tr in self.taskRows:
@@ -550,8 +549,6 @@ class WorklistWindow():
       self.root.winfo_toplevel().title("WORKLIST Beta")
 
       # Frame to hold the tasklist display and associated frames and widgets
-      self.taskListFrame = tk.LabelFrame(self.root, text="Tasks", padx=4, pady=4)
-      self.taskListFrame.grid(row=0, column=0, pady=4, padx=4, sticky=tk.N+tk.S+tk.E+tk.W)
 
       self.db.get_open_tasks()
 
@@ -559,8 +556,8 @@ class WorklistWindow():
       self.editingPane = EditingPane(self.root, self.getSelectedTask, self.save, self.notify, self.db.get_categories, self.newTask, self.deleteTask, self.db.default_task)
       self.editingPane.grid(row=0, column=1, padx=4, pady=4)
 
-      self.scroller = TaskScroller(self.taskListFrame, self.select)
-      self.scroller.pack(side=tk.TOP, fill="both", expand=True)
+      self.scroller = TaskScroller(self.root, self.select)
+      self.scroller.grid(row=0, column=0, pady=4, padx=4, sticky=tk.N+tk.S+tk.E+tk.W)
 
       self.loadedTasks: List[Task] = []
       self.select(None)
