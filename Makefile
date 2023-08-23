@@ -5,7 +5,6 @@ else
 	LIB_TARGET = beavor/backend.so
 endif
 
-
 default: debug
 
 release: $(BACKEND)/target/release/libbackend.so
@@ -13,6 +12,9 @@ release: $(BACKEND)/target/release/libbackend.so
 
 debug: $(BACKEND)/target/debug/libbackend.so
 	cp $< $(LIB_TARGET)
+
+test:
+	cd $(BACKEND)/; cargo test
 
 $(BACKEND)/target/release/libbackend.so: $(BACKEND)/Cargo.toml $(BACKEND)/src/* $(BACKEND)/.env $(BACKEND)/resources/schema.db
 	cd $(BACKEND)/; cargo build --release
