@@ -293,24 +293,26 @@ impl Task{
         match date.weekday(){
             Weekday::Sun | Weekday::Sat=> 0,
             _ => {
-                if date >= self.next_action_date && DueDate::Date(date) <= self.due_date{
-                    match self.due_date{
-                        DueDate::NONE => 0,
-                        DueDate::ASAP => {
-                            if date == today_date(){
-                                (self.time_needed -  self.time_used).try_into().expect("Value should be nonnegative")
-                            }else{
-                                0
-                            }
-                        },
-                        DueDate::Date(due_date) => {
+                match self.due_date{
+                    DueDate::NONE => 0,
+                    DueDate::ASAP => {
+                        if (DueDate::Date(today_date()) > self.due_date && date == today_date()) || date == self.next_action_date{
+                            (self.time_needed -  self.time_used).try_into().expect("Value should be nonnegative")
+                        }else{
+                            println!("ASAP not today or first available day");
+                            0
+                        }
+                    },
+                    DueDate::Date(due_date) => {
+                    if date >= self.next_action_date && DueDate::Date(date) <= self.due_date{
                             TryInto::<u32>::try_into(self.time_needed -  self.time_used).unwrap_or(0) // Remaining time
                             / // Divided by
                             TryInto::<u32>::try_into(work_days_from(max(today_date(), self.next_action_date), max(today_date(), due_date))).unwrap_or(1) // Days remaining
+                        }else{
+                            println!("Not in date range");
+                            0
                         }
                     }
-                }else{
-                    0
                 }
             }
         }
@@ -579,6 +581,7 @@ fn backend(_py: Python, m: &PyModule) -> PyResult<()> {
 #[cfg(test)]
 #[allow(deprecated)]
 #[allow(clippy::zero_prefixed_literal)]
+#[allow(non_snake_case)]
 mod tests{
 
     use super::*;
@@ -599,10 +602,63 @@ mod tests{
         assert!(DueDate::Date(NaiveDate::from_ymd(1971,01,01)) < DueDate::Date(NaiveDate::from_ymd(1971,01,02)));
         assert!(DueDate::Date(NaiveDate::from_ymd(1971,01,01)) > DueDate::Date(NaiveDate::from_ymd(1970,12,31)));
     }
+    
+    #[test]
+    fn test_workload_on_day_with_ASAP(){
+        let due_date_task = Task{
+            category: "".to_string(),
+            finished: "X".to_string(),
+            task_name: "Test".to_string(),
+            _time_budgeted: 600,
+            time_needed: 600,
+            time_used: 0,
+            notes: "".to_string(),
+            date_added: today_date(),
+            next_action_date: NaiveDate::from_ymd(3000, 01, 01),
+            due_date: DueDate::ASAP,
+            id: None,
+        };
+
+        // A date before the due_date_task starts
+        assert_eq!(
+            due_date_task.workload_on_day(NaiveDate::from_ymd(2999,12,31)),
+            0
+        );
+
+        // A date after the due_date_task ends
+        assert_eq!(
+            due_date_task.workload_on_day(NaiveDate::from_ymd(3000,01,09)),
+            0
+        );
+
+        // A weekend during the due_date_task
+        assert_eq!(
+            due_date_task.workload_on_day(NaiveDate::from_ymd(3000,01,04)),
+            0
+        );
+
+        // First day of the due_date_task
+        assert_eq!(
+            due_date_task.workload_on_day(NaiveDate::from_ymd(3000,01,01)),
+            600
+        );
+
+        // Last day of the due_date_task
+        assert_eq!(
+            due_date_task.workload_on_day(NaiveDate::from_ymd(3000,01,08)),
+            0
+        );
+
+        // Weekday in middle of due_date_task
+        assert_eq!(
+            due_date_task.workload_on_day(NaiveDate::from_ymd(3000,01,06)),
+            0
+        );
+    }
 
     #[test]
-    fn test_workload_on_day(){
-        let task = Task{
+    fn test_workload_on_day_with_due_date(){
+        let due_date_task = Task{
             category: "".to_string(),
             finished: "X".to_string(),
             task_name: "Test".to_string(),
@@ -616,39 +672,39 @@ mod tests{
             id: None,
         };
 
-        // A date before the task starts
+        // A date before the due_date_task starts
         assert_eq!(
-            task.workload_on_day(NaiveDate::from_ymd(2999,12,31)),
+            due_date_task.workload_on_day(NaiveDate::from_ymd(2999,12,31)),
             0
         );
 
-        // A date after the task ends
+        // A date after the due_date_task ends
         assert_eq!(
-            task.workload_on_day(NaiveDate::from_ymd(3000,01,09)),
+            due_date_task.workload_on_day(NaiveDate::from_ymd(3000,01,09)),
             0
         );
 
-        // A weekend during the task
+        // A weekend during the due_date_task
         assert_eq!(
-            task.workload_on_day(NaiveDate::from_ymd(3000,01,04)),
+            due_date_task.workload_on_day(NaiveDate::from_ymd(3000,01,04)),
             0
         );
 
-        // First day of the task
+        // First day of the due_date_task
         assert_eq!(
-            task.workload_on_day(NaiveDate::from_ymd(3000,01,01)),
+            due_date_task.workload_on_day(NaiveDate::from_ymd(3000,01,01)),
             100
         );
 
-        // Last day of the task
+        // Last day of the due_date_task
         assert_eq!(
-            task.workload_on_day(NaiveDate::from_ymd(3000,01,08)),
+            due_date_task.workload_on_day(NaiveDate::from_ymd(3000,01,08)),
             100
         );
 
-        // Weekday in middle of task
+        // Weekday in middle of due_date_task
         assert_eq!(
-            task.workload_on_day(NaiveDate::from_ymd(3000,01,06)),
+            due_date_task.workload_on_day(NaiveDate::from_ymd(3000,01,06)),
             100
         );
     }
