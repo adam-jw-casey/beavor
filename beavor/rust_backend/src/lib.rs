@@ -710,6 +710,59 @@ mod tests{
     }
 
     #[test]
+    fn test_workload_on_day_with_NONE(){
+        let NONE_task = Task{
+            category: "".to_string(),
+            finished: "X".to_string(),
+            task_name: "Test".to_string(),
+            _time_budgeted: 600,
+            time_needed: 600,
+            time_used: 0,
+            notes: "".to_string(),
+            date_added: today_date(),
+            next_action_date: NaiveDate::from_ymd(3000, 01, 01),
+            due_date: DueDate::NONE,
+            id: None,
+        };
+
+        // A date before the NONE_task starts
+        assert_eq!(
+            NONE_task.workload_on_day(NaiveDate::from_ymd(2999,12,31)),
+            0
+        );
+
+        // A date after the NONE_task ends
+        assert_eq!(
+            NONE_task.workload_on_day(NaiveDate::from_ymd(3000,01,09)),
+            0
+        );
+
+        // A weekend during the NONE_task
+        assert_eq!(
+            NONE_task.workload_on_day(NaiveDate::from_ymd(3000,01,04)),
+            0
+        );
+
+        // First day of the NONE_task
+        assert_eq!(
+            NONE_task.workload_on_day(NaiveDate::from_ymd(3000,01,01)),
+            0
+        );
+
+        // Last day of the NONE_task
+        assert_eq!(
+            NONE_task.workload_on_day(NaiveDate::from_ymd(3000,01,08)),
+            0
+        );
+
+        // Weekday in middle of NONE_task
+        assert_eq!(
+            NONE_task.workload_on_day(NaiveDate::from_ymd(3000,01,06)),
+            0
+        );
+    }
+
+    #[test]
     fn test_work_days_from() {
         assert_eq!(
             work_days_from(
