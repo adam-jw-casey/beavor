@@ -498,13 +498,13 @@ class TaskRow(tk.LabelFrame):
         self.select = select
         self.id = task.id
 
-        self.taskName = tk.Label(self, text=task.task_name)
-        self.taskName.grid(row=0, column=0, sticky = tk.W)
+        self.nameLabel = tk.Label(self, text=task.task_name)
+        self.nameLabel.grid(row=0, column=0, sticky = tk.W + tk.E)
 
-        self.category = tk.Label(self, text=task.category, font=("helvetica", 8))
-        self.category.grid(row=1, column=0, sticky=tk.W)
+        self.categoryLabel = tk.Label(self, text=task.category, font=("helvetica", 8))
+        self.categoryLabel.grid(row=1, column=0, sticky=tk.W)
 
-        self.visible = [self, self.taskName, self.category]
+        self.visible = [self, self.nameLabel, self.categoryLabel]
         for o in self.visible:
             o.bind("<1>", lambda _: self.select())
 
