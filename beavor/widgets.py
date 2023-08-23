@@ -156,7 +156,7 @@ class CompletingComboBox(ttk.Combobox):
             self.select_range(cursorPos, tk.END)
             self.icursor(tk.END)
 
-class EditingPane(tk.Frame):
+class EditingPane(tk.LabelFrame):
     def __init__(self, parent, getSelectedTask, save, notify, get_categories, newTask, deleteTask, getDefaultTask):
         def canBeInt(d, i, P, s, S, v, V, W) ->  bool:
             try:
@@ -165,7 +165,7 @@ class EditingPane(tk.Frame):
             except ValueError:
                 return False
 
-        super().__init__(parent)
+        super().__init__(parent, text="Edit")
 
         self.save = lambda: save(self._createTaskFromInputs())
         self.get_categories = get_categories
