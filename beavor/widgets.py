@@ -398,7 +398,7 @@ class Calendar(tk.LabelFrame):
           thisDay["LoadLabel"]\
             .config(
                 text=str(round(hoursThisDay,1)),
-                bg=green_red_scale(0,(7 if thisDate != today else max(0, hoursLeftToday)), hoursThisDay))
+                bg=green_red_scale(0,(8 if thisDate != today else max(0, hoursLeftToday)), hoursThisDay))
         else:
           thisDay["LoadLabel"].config(text="", bg="#d9d9d9")
 
