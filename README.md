@@ -1,5 +1,7 @@
 # beavor
 
+![beavor homescreen](.resources/beavor_homescreen.png)
+
 ## Compilation
 
 Run `make` from the root to compile the Rust backend in debug mode.
