@@ -8,7 +8,7 @@ import sys
 import platform
 from typing import List, Any, Optional
 
-from beavor.backend import green_red_scale, DatabaseManager, Task, PyDueDate, today_date, format_date, parse_date
+from beavor.backend import green_red_scale, DatabaseManager, Task, PyDueDate, today_date, format_date, parse_date, PyDueDateType
 
 ###########################################
 #Readability / coding style / maintainability
@@ -379,7 +379,7 @@ class Calendar(tk.LabelFrame):
       self.calendar.append(thisWeek)
 
   # todo this function isn't great but it seems to work
-  def updateCalendar(self, openTasks) -> None:
+  def updateCalendar(self, openTasks: list[Task]) -> None:
     today = today_date()
     thisMonday = today - datetime.timedelta(days=today.weekday())
     hoursLeftToday = max(0, min(7, 16 - (datetime.datetime.now().hour + datetime.datetime.now().minute/60)))
@@ -394,16 +394,19 @@ class Calendar(tk.LabelFrame):
         else:
           thisDay["DateLabel"].config(bg="#d9d9d9")
         if thisDate >= today:
-          hoursThisDay = self.getDayTotalLoad(thisDate) / 60
-          thisDay["LoadLabel"].config(text=str(round(hoursThisDay,1)),
-                                      bg=green_red_scale(0,(7 if thisDate != today else max(0.1, hoursLeftToday)), hoursThisDay))
+          hoursThisDay = self.getDayTotalLoad(thisDate, openTasks) / 60
+          thisDay["LoadLabel"]\
+            .config(
+                text=str(round(hoursThisDay,1)),
+                bg=green_red_scale(0,(7 if thisDate != today else max(0, hoursLeftToday)), hoursThisDay))
         else:
           thisDay["LoadLabel"].config(text="", bg="#d9d9d9")
 
-  # TODO this is just a stub so the calendar doesn't crash
-  def getDayTotalLoad(self, date: datetime.date) -> float:
-      # this is just a placeholder to get it running
-      return 15.0
+  def getDayTotalLoad(self, date: datetime.date, openTasks: list[Task]) -> float:
+      return sum(
+        task.workload_on_day(date)
+        for task in openTasks
+      )
 
 class ScrollFrame(tk.Frame):
     def __init__(self, parent: tk.Frame | tk.LabelFrame):
