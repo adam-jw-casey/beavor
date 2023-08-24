@@ -28,6 +28,11 @@ use crate::{
     DueDate
 };
 
+use chrono::NaiveDate;
+
+use reqwest;
+use json;
+
 impl TryFrom<SqliteRow> for Task{
     type Error = ParseDateError;
 
@@ -258,7 +263,7 @@ impl DatabaseManager{
         categories
     }
 
-    fn default_task(&self) -> Task{
+    fn default_task(&self) -> Task{ // TODO why isn't this a default() method on Task itself?
         Task{
             category:         "Work".into(),
             finished:         "O".into(),
@@ -272,5 +277,73 @@ impl DatabaseManager{
             id:               None,
             date_added:       today_date(),
         }
+    }
+
+    fn try_update_holidays(&self) -> PyResult<String>{
+        // If database doesn't have the holidays for this year, get them
+        // and store them in the database
+        todo!()
+    }
+
+    fn add_vacation_day(&self, date: NaiveDate){
+        let date_string = date.to_string();
+        self.rt.block_on(async{
+            sqlx::query!("
+                INSERT INTO days_off
+                    (
+                        Day,
+                        Reason
+                    )
+                VALUES
+                    (
+                        ?,
+                        'vacation'
+                    )
+                ",
+                date_string
+            )
+                .execute(&self.pool)
+                .await
+                .expect("Should be able to add vacation day");
+        });
+    }
+
+    fn delete_vacation_day(&self, date: NaiveDate){
+        todo!()
+    }
+
+    fn get_vacation_days(&self) -> Vec<NaiveDate>{
+        let mut days: Vec<NaiveDate> = Vec::new();
+
+        self.rt.block_on(async{
+            days = sqlx::query!("
+                SELECT Day
+                FROM days_off
+                WHERE Reason == 'vacation'
+                ORDER BY Day
+            ")
+                .fetch_all(&self.pool)
+                .await
+                .expect("Should be able to get vacation days")
+                .into_iter()
+                .map(|record|
+                     record.Day.expect("Day is a field in days_off")
+                     .parse::<NaiveDate>().expect("days_off should contain valid dates")
+                )
+                .collect();
+        });
+
+        days
+    }
+
+    fn get_holidays(&self, date: NaiveDate) -> Vec<NaiveDate>{
+        todo!()
+    }
+
+    // Includes both stat holidays and vacation days
+    // Note that this technically could include a date twice if it was enterred as both a vacation
+    // day and a holiday
+    fn get_days_off(&self) -> Vec<NaiveDate> {
+        todo!()
     }
 }
