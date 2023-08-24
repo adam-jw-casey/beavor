@@ -6,6 +6,12 @@ use pyo3::prelude::{
     pyclass,
     pymethods,
     PyResult,
+    PyErr
+};
+
+use pyo3::exceptions::{
+    PyTypeError,
+    PyConnectionError
 };
 
 use pyo3::types::PyType;
@@ -28,7 +34,11 @@ use crate::{
     DueDate
 };
 
-use chrono::NaiveDate;
+use chrono::{
+    NaiveDate,
+    Datelike,
+    Local
+};
 
 use reqwest;
 use json;
@@ -257,7 +267,6 @@ impl DatabaseManager{
                 .into_iter()
                 .map(|r| r.Category.expect("Each category should be a string"))
                 .collect()
-
         });
 
         categories
@@ -279,10 +288,92 @@ impl DatabaseManager{
         }
     }
 
-    fn try_update_holidays(&self) -> PyResult<String>{
+    fn try_update_holidays(&self) -> PyResult<()>{
+        // If database already has holidays from the current year, exit
+        if self.get_holidays()
+                .iter()
+                .filter(|h| h.year() == Local::now().year())
+                .peekable()
+                .peek()
+                .is_some()
+        {
+            return Ok(())
+        }
+
+
         // If database doesn't have the holidays for this year, get them
         // and store them in the database
-        todo!()
+        let response: String = self.rt.block_on(async{
+            return Ok(
+                reqwest::get("https://canada-holidays.ca/api/v1/holidays")
+                    .await?
+                    .text()
+                    .await?
+            )
+        }).map_err(|e: reqwest::Error| PyErr::new::<PyConnectionError, _>(e.to_string()))?;
+
+        let holidays: Vec<NaiveDate> = json::parse(&response)
+            .iter()
+            .filter_map(|holiday| {
+                match &holiday["provinces"]
+                {
+                    json::JsonValue::Array(maybe_provinces) =>
+                    {
+                        match maybe_provinces
+                            .iter()
+                            .map(|maybe_province|
+                                match &maybe_province["id"]{
+                                    json::JsonValue::String(province) => Ok(province),
+                                    _ => Err(PyErr::new::<PyTypeError, _>("The 'id' field should be a string containing the two-letter province code.".to_string()))
+                                }
+                            )
+                            .collect::<Result<Vec<&String>, _>>()
+                        {
+                            Ok(provinces) => {
+                                if provinces.contains(&&"BC".to_string()){
+                                    Some(
+                                        match &holiday["observedDate"]{
+                                            json::JsonValue::String(date_string) => date_string.parse::<NaiveDate>().map_err(|e| PyErr::new::<PyTypeError, _>(e.to_string())),
+                                            _ => Err(PyErr::new::<PyTypeError, _>("The 'observedDate' field should be a string.".to_string()))
+                                        }
+                                    )
+                                }else{
+                                    None
+                                }
+                            },
+                            Err(error) => Some(Err(PyErr::new::<PyTypeError, _>(error.to_string())))
+                        }
+                    },
+                    _ => Some(Err(PyErr::new::<PyTypeError, _>("The 'provinces' field should be an array of provinces where the holiday applies.".to_string())))
+                }
+            })
+            .collect::<Result<Vec<NaiveDate>, _>>()?;
+
+        self.rt.block_on(async{
+            for d in holidays{
+                let date_string = d.to_string();
+
+                sqlx::query!("
+                    INSERT INTO days_off
+                        (
+                            Day,
+                            Reason
+                        )
+                    VALUES
+                        (
+                            ?,
+                            'stat_holiday'
+                        )
+                    ",
+                    date_string
+                )
+                    .execute(&self.pool)
+                    .await
+                    .expect("Should be able to add the stat holiday");
+            }
+        });
+
+        return Ok(());
     }
 
     fn add_vacation_day(&self, date: NaiveDate){
@@ -336,8 +427,28 @@ impl DatabaseManager{
         days
     }
 
-    fn get_holidays(&self, date: NaiveDate) -> Vec<NaiveDate>{
-        todo!()
+    fn get_holidays(&self) -> Vec<NaiveDate>{
+        let mut days: Vec<NaiveDate> = Vec::new();
+
+        self.rt.block_on(async{
+            days = sqlx::query!("
+                SELECT Day
+                FROM days_off
+                WHERE Reason == 'stat_holiday'
+                ORDER BY Day
+            ")
+                .fetch_all(&self.pool)
+                .await
+                .expect("Should be able to get stat holidays")
+                .into_iter()
+                .map(|record|
+                     record.Day.expect("Day is a field in days_off")
+                     .parse::<NaiveDate>().expect("days_off should contain valid dates")
+                )
+                .collect();
+        });
+
+        days
     }
 
     // Includes both stat holidays and vacation days
