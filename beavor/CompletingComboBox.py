@@ -1,8 +1,9 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 from typing import List
+from .SensibleReturnWidget import SensibleReturnWidget
 
-class CompletingComboBox(ttk.Combobox):
+class CompletingComboBox(ttk.Combobox, SensibleReturnWidget):
     def __init__(self, parent, getOptions):
         super().__init__(parent)
 

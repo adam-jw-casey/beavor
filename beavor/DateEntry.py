@@ -1,8 +1,10 @@
 import tkinter as tk
-from .backend import parse_date, today_date, format_date
 import datetime
 
-class DateEntry(tk.Entry):
+from .backend import parse_date, today_date, format_date
+from .SensibleReturnWidget import EntrySR
+
+class DateEntry(EntrySR):
   def __init__(self, parentFrame, notify):
     super().__init__(parentFrame)
     self.notify = notify

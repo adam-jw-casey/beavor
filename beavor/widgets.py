@@ -12,6 +12,7 @@ from .ScrollFrame import ScrollFrame
 from .Timer import Timer
 from .CompletingComboBox import CompletingComboBox
 from .DateEntry import DateEntry
+from .SensibleReturnWidget import EntrySR, LabelSR, TextSR
 
 ###########################################
 #Readability / coding style / maintainability
@@ -81,8 +82,10 @@ class WorklistWindow():
         self.calendar = Calendar(self.root, self.font)
         self.calendar.grid(row=0, column=2, pady=4, padx=4, sticky=tk.S+tk.E)
 
-        self.messageLabel = tk.Label(self.root, text="")
-        self.messageLabel.grid(column=1)
+        self.messageLabel = LabelSR(
+            self.root,
+            text=""
+        ).grid(column=1)
 
         self.root.grid_rowconfigure(0, weight=1)
 
@@ -198,40 +201,69 @@ class EditingPane(tk.LabelFrame):
         self.timer.grid(sticky=tk.S, row=0, column=1)
 
         #Setup the lower half of the window
-        self.categoryLabel = tk.Label(self.editing_box_frame, text= "Category")
-        self.categoryBox = CompletingComboBox(self.editing_box_frame, get_categories)
-        self.categoryLabel.grid(sticky=tk.W, row=0, column=0)
-        self.categoryBox.grid(sticky=tk.W+tk.E, row=0, column=1)
+        self.categoryLabel = LabelSR(
+            self.editing_box_frame,
+            text= "Category"
+        ).grid(sticky=tk.W, row=0, column=0)
+        self.categoryBox = CompletingComboBox(
+            self.editing_box_frame,
+            get_categories
+        ).grid(sticky=tk.W+tk.E, row=0, column=1)
 
-        self.taskNameLabel = tk.Label(self.editing_box_frame, text="Task Name")
-        self.taskNameBox = tk.Entry(self.editing_box_frame)
-        self.taskNameLabel.grid(sticky=tk.W, row=1, column=0)
-        self.taskNameBox.grid(sticky=tk.W+tk.E, row=1, column=1)
+        self.taskNameLabel = LabelSR(
+            self.editing_box_frame,
+            text="Task Name"
+        ).grid(sticky=tk.W, row=1, column=0)
+        self.taskNameBox = EntrySR(
+            self.editing_box_frame
+        ).grid(sticky=tk.W+tk.E, row=1, column=1)
 
-        self.timeLabel = tk.Label(self.editing_box_frame, text="Time Needed")
-        self.timeBox = tk.Entry(self.editing_box_frame, validate="key", validatecommand=int_validation)
-        self.timeLabel.grid(sticky=tk.W, row=2, column=0)
-        self.timeBox.grid(sticky=tk.W, row=2, column=1)
+        self.timeLabel = LabelSR(
+            self.editing_box_frame,
+            text="Time Needed"
+        ).grid(sticky=tk.W, row=2, column=0)
+        self.timeBox = EntrySR(
+            self.editing_box_frame,
+            validate="key",
+            validatecommand=int_validation
+        ).grid(sticky=tk.W, row=2, column=1)
 
-        self.usedLabel = tk.Label(self.editing_box_frame, text="Time Used")
-        self.usedBox = tk.Entry(self.editing_box_frame, validate="key", validatecommand=int_validation)
-        self.usedLabel.grid(sticky=tk.W, row=3, column=0)
-        self.usedBox.grid(sticky=tk.W, row=3, column=1)
+        self.usedLabel = LabelSR(
+            self.editing_box_frame,
+            text="Time Used"
+        ).grid(sticky=tk.W, row=3, column=0)
+        self.usedBox = EntrySR(
+            self.editing_box_frame,
+            validate="key",
+            validatecommand=int_validation
+        ).grid(sticky=tk.W, row=3, column=1)
 
-        self.nextActionLabel = tk.Label(self.editing_box_frame, text="Next Action")
-        self.nextActionBox = DateEntry(self.editing_box_frame, notify)
-        self.nextActionLabel.grid(sticky=tk.W, row=4, column=0)
-        self.nextActionBox.grid(sticky=tk.W, row=4, column=1)
+        self.nextActionLabel = LabelSR(
+            self.editing_box_frame,
+            text="Next Action"
+        ).grid(sticky=tk.W, row=4, column=0)
+        self.nextActionBox = DateEntry(
+            self.editing_box_frame,
+            notify
+        ).grid(sticky=tk.W, row=4, column=1)
 
-        self.dueDateLabel = tk.Label(self.editing_box_frame, text="Due Date")
-        self.dueDateBox = DateEntry(self.editing_box_frame, notify)
-        self.dueDateLabel.grid(sticky=tk.W, row=5, column=0)
-        self.dueDateBox.grid(sticky=tk.W, row=5, column=1)
+        self.dueDateLabel = LabelSR(
+            self.editing_box_frame,
+            text="Due Date"
+        ).grid(sticky=tk.W, row=5, column=0)
+        self.dueDateBox = DateEntry(
+            self.editing_box_frame,
+            notify
+        ).grid(sticky=tk.W, row=5, column=1)
 
-        self.notesLabel = tk.Label(self.editing_box_frame, text="Notes")
-        self.notesBox = tk.Text(self.editing_box_frame, wrap="word")
-        self.notesLabel.grid(sticky=tk.W, row=6, column=0)
-        self.notesBox.grid(sticky=tk.W+tk.E+tk.S+tk.N, row=6, column=1, pady=(0,4))
+        self.notesLabel = LabelSR(
+            self.editing_box_frame,
+            text="Notes"
+        ).grid(sticky=tk.W, row=6, column=0)
+        self.notesBox = TextSR(
+            self.editing_box_frame,
+            wrap="word"
+        ).grid(sticky=tk.W+tk.E+tk.S+tk.N, row=6, column=1, pady=(0,4))
         self.editing_box_frame.grid_rowconfigure(6, weight=1)
 
         self.editing_box_frame.grid_columnconfigure(1, weight=1)
@@ -373,7 +405,7 @@ class Calendar(tk.LabelFrame):
 
         #Add day of week names at top, but won't change so don't save
         for i, day in enumerate(["Mon", "Tue", "Wed", "Thu", "Fri"]):
-            tk.Label(self, font=parentFont + ("bold",), text=day).grid(row=0, column=i, padx=4, pady=4)
+            LabelSR(self, font=parentFont + ("bold",), text=day).grid(row=0, column=i, padx=4, pady=4)
 
         for week in range(self.numweeks):
             thisWeek = []
@@ -381,9 +413,9 @@ class Calendar(tk.LabelFrame):
                 thisDay: dict[str, Any] = {}
                 # todo *Sometimes* this significantly slows boot time. Could maybe cut down on labels by having dates all in a row for each week, but lining up with loads could be tricky. First row changes colour, so could do each date row below the first as a multi-column label.
                 #Alternate date labels and workloads
-                thisDay["DateLabel"] = tk.Label(self, font=parentFont)
+                thisDay["DateLabel"] = LabelSR(self, font=parentFont)
                 thisDay["DateLabel"].grid(row=2*week + 1, column=dayNum, padx=4, pady=4)
-                thisDay["LoadLabel"] = tk.Label(self, font=parentFont)
+                thisDay["LoadLabel"] = LabelSR(self, font=parentFont)
                 thisDay["LoadLabel"].grid(row=2*week + 2, column=dayNum, padx=4, pady=4)
                 thisWeek.append(thisDay)
             self.calendar.append(thisWeek)
@@ -455,10 +487,10 @@ class TaskRow(tk.LabelFrame):
         self.select = select
         self.id = task.id
 
-        self.nameLabel = tk.Label(self, text=task.task_name)
+        self.nameLabel = LabelSR(self, text=task.task_name)
         self.nameLabel.grid(row=0, column=0, sticky = tk.W + tk.E)
 
-        self.categoryLabel = tk.Label(self, text=task.category, font=("helvetica", 8))
+        self.categoryLabel = LabelSR(self, text=task.category, font=("helvetica", 8))
         self.categoryLabel.grid(row=1, column=0, sticky=tk.W)
 
         self.visible = [self, self.nameLabel, self.categoryLabel]
