@@ -77,6 +77,7 @@ struct Holidays{
 }
 
 #[derive(Serialize, Deserialize)]
+#[allow(non_snake_case)]
 struct Holiday{
     provinces: Vec<Province>,
     observedDate: String
@@ -379,7 +380,20 @@ impl DatabaseManager{
     }
 
     fn delete_vacation_day(&self, date: NaiveDate){
-        todo!()
+        let date_string = date.to_string();
+
+        self.rt.block_on(async{
+            sqlx::query!("
+                DELETE
+                FROM days_off
+                WHERE Day == ?
+            ",
+                date_string
+            )
+                .execute(&self.pool)
+                .await
+                .expect("Should be able do delete task");
+        });
     }
 
     fn get_vacation_days(&self) -> Vec<NaiveDate>{
@@ -422,10 +436,13 @@ impl DatabaseManager{
         })
     }
 
-    // Includes both stat holidays and vacation days
-    // Note that this technically could include a date twice if it was enterred as both a vacation
-    // day and a holiday
     fn get_days_off(&self) -> Vec<NaiveDate> {
-        todo!()
+        let mut days_off = Vec::new();
+
+        days_off.append(&mut self.get_holidays());
+        days_off.append(&mut self.get_vacation_days());
+
+        days_off
+
     }
 }
