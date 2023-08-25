@@ -122,8 +122,6 @@ impl DatabaseManager{
     }
 
     fn create_task(&self, task: Task) -> Task{
-        let mut new_task = self.default_task();
-
         // These must be stored so that they are not dropped in-between
         // the calls to query! and .execute
         let due_date_str = task.due_date.to_string();
@@ -177,7 +175,7 @@ impl DatabaseManager{
 
             // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
             // return type of query! to write an impl From<T> for Task
-            new_task = sqlx::query("
+            sqlx::query("
                 SELECT *, rowid
                 FROM worklist
                 WHERE rowid == ?
@@ -187,10 +185,8 @@ impl DatabaseManager{
                 .await
                 .expect("Should have inserted and retrieved a task")
                 .try_into()
-                .expect("Database should contain valid Tasks only");
-        });
-
-        new_task
+                .expect("Database should contain valid Tasks only")
+        })
     }
 
     fn update_task(&self, task: Task){
@@ -246,12 +242,10 @@ impl DatabaseManager{
     }
 
     fn get_open_tasks(&self) -> Vec<Task>{
-        let mut tasks: Vec<Task> = Vec::new();
-
-        self.rt.block_on(async{
+        let mut tasks: Vec<Task> = self.rt.block_on(async{
             // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
             // return type of query! to write an impl From<T> for Task
-            tasks = sqlx::query("
+            sqlx::query("
                 SELECT *, rowid
                 FROM worklist
                 WHERE O == 'O'
@@ -272,10 +266,8 @@ impl DatabaseManager{
     }
 
     fn get_categories(&self) -> Vec<String>{
-        let mut categories: Vec<String> = Vec::new();
-
         self.rt.block_on(async{
-            categories = sqlx::query!("
+            sqlx::query!("
                 SELECT DISTINCT Category
                 FROM worklist
                 ORDER BY Category
@@ -286,9 +278,7 @@ impl DatabaseManager{
                 .into_iter()
                 .map(|r| r.Category.expect("Each category should be a string"))
                 .collect()
-        });
-
-        categories
+        })
     }
 
     fn default_task(&self) -> Task{ // TODO why isn't this a default() method on Task itself?
@@ -393,10 +383,8 @@ impl DatabaseManager{
     }
 
     fn get_vacation_days(&self) -> Vec<NaiveDate>{
-        let mut days: Vec<NaiveDate> = Vec::new();
-
         self.rt.block_on(async{
-            days = sqlx::query!("
+            sqlx::query!("
                 SELECT Day
                 FROM days_off
                 WHERE Reason == 'vacation'
@@ -410,17 +398,13 @@ impl DatabaseManager{
                      record.Day.expect("Day is a field in days_off")
                      .parse::<NaiveDate>().expect("days_off should contain valid dates")
                 )
-                .collect();
-        });
-
-        days
+                .collect()
+        })
     }
 
     fn get_holidays(&self) -> Vec<NaiveDate>{
-        let mut days: Vec<NaiveDate> = Vec::new();
-
         self.rt.block_on(async{
-            days = sqlx::query!("
+            sqlx::query!("
                 SELECT Day
                 FROM days_off
                 WHERE Reason == 'stat_holiday'
@@ -434,10 +418,8 @@ impl DatabaseManager{
                      record.Day.expect("Day is a field in days_off")
                      .parse::<NaiveDate>().expect("days_off should contain valid dates")
                 )
-                .collect();
-        });
-
-        days
+                .collect()
+        })
     }
 
     // Includes both stat holidays and vacation days
