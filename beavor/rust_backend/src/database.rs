@@ -40,8 +40,10 @@ use chrono::{
     Local
 };
 
-use reqwest;
-use json;
+use serde::{
+    Serialize,
+    Deserialize,
+};
 
 impl TryFrom<SqliteRow> for Task{
     type Error = ParseDateError;
@@ -61,6 +63,23 @@ impl TryFrom<SqliteRow> for Task{
             date_added:       parse_date(&row.get::<String, &str>("DateAdded"))?,
         })
     }
+}
+
+#[derive(PartialEq)]
+#[derive(Serialize, Deserialize)]
+struct Province{
+    id: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct Holidays{
+    holidays: Vec<Holiday>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct Holiday{
+    provinces: Vec<Province>,
+    observedDate: String
 }
 
 #[pyclass]
@@ -304,53 +323,23 @@ impl DatabaseManager{
         // If database doesn't have the holidays for this year, get them
         // and store them in the database
         let response: String = self.rt.block_on(async{
-            return Ok(
-                reqwest::get("https://canada-holidays.ca/api/v1/holidays")
-                    .await?
-                    .text()
-                    .await?
-            )
+            reqwest::get("https://canada-holidays.ca/api/v1/holidays")
+                .await?
+                .text()
+                .await
         }).map_err(|e: reqwest::Error| PyErr::new::<PyConnectionError, _>(e.to_string()))?;
 
-        let holidays: Vec<NaiveDate> = json::parse(&response)
+        let holiday_dates: Vec<NaiveDate> = serde_json::from_str::<Holidays>(&response)
+            .map_err(|e| PyErr::new::<PyTypeError, _>(e.to_string()))?
+            .holidays
             .iter()
-            .filter_map(|holiday| {
-                match &holiday["provinces"]
-                {
-                    json::JsonValue::Array(maybe_provinces) =>
-                    {
-                        match maybe_provinces
-                            .iter()
-                            .map(|maybe_province|
-                                match &maybe_province["id"]{
-                                    json::JsonValue::String(province) => Ok(province),
-                                    _ => Err(PyErr::new::<PyTypeError, _>("The 'id' field should be a string containing the two-letter province code.".to_string()))
-                                }
-                            )
-                            .collect::<Result<Vec<&String>, _>>()
-                        {
-                            Ok(provinces) => {
-                                if provinces.contains(&&"BC".to_string()){
-                                    Some(
-                                        match &holiday["observedDate"]{
-                                            json::JsonValue::String(date_string) => date_string.parse::<NaiveDate>().map_err(|e| PyErr::new::<PyTypeError, _>(e.to_string())),
-                                            _ => Err(PyErr::new::<PyTypeError, _>("The 'observedDate' field should be a string.".to_string()))
-                                        }
-                                    )
-                                }else{
-                                    None
-                                }
-                            },
-                            Err(error) => Some(Err(PyErr::new::<PyTypeError, _>(error.to_string())))
-                        }
-                    },
-                    _ => Some(Err(PyErr::new::<PyTypeError, _>("The 'provinces' field should be an array of provinces where the holiday applies.".to_string())))
-                }
-            })
-            .collect::<Result<Vec<NaiveDate>, _>>()?;
+            .filter(|h| h.provinces.contains(&Province{id: "BC".to_string()}))
+            .map(|h| h.observedDate.parse::<NaiveDate>())
+            .collect::<Result<Vec<NaiveDate>, _>>()
+            .map_err(|e| PyErr::new::<PyTypeError, _>(e.to_string()))?;
 
         self.rt.block_on(async{
-            for d in holidays{
+            for d in holiday_dates{
                 let date_string = d.to_string();
 
                 sqlx::query!("
@@ -373,7 +362,7 @@ impl DatabaseManager{
             }
         });
 
-        return Ok(());
+        Ok(())
     }
 
     fn add_vacation_day(&self, date: NaiveDate){
