@@ -1,18 +1,24 @@
 import tkinter as tk
+from .SensibleReturnWidget import FrameSR, LabelSR, ButtonSR
 import datetime
 
-class Timer(tk.Frame):
+class Timer(FrameSR):
 
     def __init__(self, parent: tk.Frame | tk.LabelFrame, getSelectedTask, save, setUsedTime, notify):
         super().__init__(parent)
 
         self.notify = notify
 
-        self.timeLabel = tk.Label(self, text=str(datetime.timedelta()))
-        self.timeLabel.grid(row=0, column=1)
+        self.timeLabel = LabelSR(
+            self,
+            text=str(datetime.timedelta())
+        ).grid(row=0, column=1)
 
-        self.timeButton = tk.Button(self, text="Start", command=lambda: self.toggleTimer(getSelectedTask()))
-        self.timeButton.grid(row=0, column=0)
+        self.timeButton = ButtonSR(
+            self,
+            text="Start",
+            command=lambda: self.toggleTimer(getSelectedTask())
+        ).grid(row=0, column=0)
         self.timing = False
 
         self.save = save
