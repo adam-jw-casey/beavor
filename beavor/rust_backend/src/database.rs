@@ -232,6 +232,8 @@ impl DatabaseManager{
                 ).collect()
         });
 
+        tasks.sort_by(|a,b| a.due_date.cmp(&b.due_date));
+
         tasks
     }
 
