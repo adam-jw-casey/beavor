@@ -1,23 +1,32 @@
 import tkinter as tk
 import platform
 
-class ScrollFrame(tk.LabelFrame):
+from .SensibleReturnWidget import SensibleReturnWidget, CanvasSR, ScrollbarSR
+
+class ScrollFrame(tk.LabelFrame, SensibleReturnWidget):
     def __init__(self, parent: tk.Frame | tk.LabelFrame, text: str):
         super().__init__(parent, text=text) # create a frame (self)
 
-        self.canvas = tk.Canvas(self, borderwidth=0) #place canvas on self
-        self.scrollbar = tk.Scrollbar(self, orient="vertical", command=self.canvas.yview) #place a scrollbar on self
+        self.canvas = CanvasSR(
+            self,
+            borderwidth=0
+        ).grid(row=0,column=0, sticky=tk.N+tk.S+tk.E+tk.W) #pack canvas to left of self and expand to fill
+
+        self.scrollbar = ScrollbarSR(
+            self,
+            orient="vertical",
+            command=self.canvas.yview
+        ).grid(row=0, column=1, sticky=tk.N+tk.S) #pack scrollbar to right of self
+
         self.canvas.configure(yscrollcommand=self.scrollbar.set) #attach scrollbar action to scroll of canvas
 
         self.viewPort = tk.Frame(self.canvas) #place a frame on the canvas, this frame will hold the child widgets
-
-        self.scrollbar.grid(row=0, column=1, sticky=tk.N+tk.S) #pack scrollbar to right of self
-        self.canvas.grid(row=0,column=0, sticky=tk.N+tk.S+tk.E+tk.W) #pack canvas to left of self and expand to fill
-        self.canvas_window = self.canvas.create_window((4,4), window=self.viewPort, anchor="nw", tags="self.viewPort")
-        self.grid_rowconfigure(0, weight=1)
-
         self.viewPort.bind("<Configure>", self.onFrameConfigure) #bind an event whenever the size of the viewPort frame changes.
         self.viewPort.grid_columnconfigure(0, weight=1)
+
+        self.canvas_window = self.canvas.create_window((4,4), window=self.viewPort, anchor="nw", tags="self.viewPort")
+
+        self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
         self.canvas.bind("<Configure>", self.onCanvasConfigure) #bind an event whenever the size of the canvas frame changes.

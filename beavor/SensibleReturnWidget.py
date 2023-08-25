@@ -1,4 +1,4 @@
-from tkinter import Widget, Entry, Label, Text
+from tkinter import Widget, Entry, Label, Text, Frame, Button, Checkbutton, Canvas, Scrollbar
 
 class SensibleReturnWidget(Widget):
     def grid(self, *args, **kwargs):
@@ -12,4 +12,19 @@ class LabelSR(Label, SensibleReturnWidget):
     pass
 
 class TextSR(Text, SensibleReturnWidget):
+    pass
+
+class FrameSR(Frame, SensibleReturnWidget):
+    pass
+
+class ButtonSR(Button, SensibleReturnWidget):
+    pass
+
+class CheckbuttonSR(Checkbutton, SensibleReturnWidget):
+    pass
+
+class CanvasSR(Canvas, SensibleReturnWidget):
+    pass
+
+class ScrollbarSR(Scrollbar, SensibleReturnWidget):
     pass

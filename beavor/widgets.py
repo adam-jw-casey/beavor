@@ -12,7 +12,7 @@ from .ScrollFrame import ScrollFrame
 from .Timer import Timer
 from .CompletingComboBox import CompletingComboBox
 from .DateEntry import DateEntry
-from .SensibleReturnWidget import EntrySR, LabelSR, TextSR
+from .SensibleReturnWidget import SensibleReturnWidget, EntrySR, LabelSR, TextSR, FrameSR, CheckbuttonSR, ButtonSR
 
 ###########################################
 #Readability / coding style / maintainability
@@ -66,21 +66,33 @@ class WorklistWindow():
 
         self.db.get_open_tasks()
 
-        self.task_list_scroller = TaskScroller(self.root, self.select)
-        self.task_list_scroller.grid(row=0, column=0, pady=4, padx=4, sticky=tk.N+tk.S+tk.E+tk.W)
+        self.task_list_scroller = TaskScroller(
+            self.root,
+            self.select
+        ).grid(row=0, column=0, pady=4, padx=4, sticky=tk.N+tk.S+tk.E+tk.W)
         self.root.grid_columnconfigure(0, weight=1)
 
         # Editing interface
-        self.editingPane = EditingPane(self.root, self.getSelectedTask, self.save, self.notify, self.db.get_categories, self.newTask, self.deleteTask, self.db.default_task)
-        self.editingPane.grid(row=0, column=1, padx=4, pady=4, sticky=tk.N+tk.S+tk.E+tk.W)
+        self.editingPane = EditingPane(
+            self.root,
+            self.getSelectedTask,
+            self.save,
+            self.notify,
+            self.db.get_categories,
+            self.newTask,
+            self.deleteTask,
+            self.db.default_task
+        ).grid(row=0, column=1, padx=4, pady=4, sticky=tk.N+tk.S+tk.E+tk.W)
         self.root.grid_columnconfigure(1, weight=5)
 
         self.loadedTasks: List[Task] = []
         self.select(None)
 
         # Calendar
-        self.calendar = Calendar(self.root, self.font)
-        self.calendar.grid(row=0, column=2, pady=4, padx=4, sticky=tk.S+tk.E)
+        self.calendar = Calendar(
+            self.root,
+            self.font
+        ).grid(row=0, column=2, pady=4, padx=4, sticky=tk.S+tk.E)
 
         self.messageLabel = LabelSR(
             self.root,
@@ -164,7 +176,7 @@ class WorklistWindow():
         else:
             self.notify("Cancelled")
 
-class EditingPane(tk.LabelFrame):
+class EditingPane(tk.LabelFrame, SensibleReturnWidget):
     def __init__(self, parent, getSelectedTask, save, notify, get_categories, newTask, deleteTask, getDefaultTask):
         def canBeInt(d, i, P, s, S, v, V, W) ->  bool:
             try:
@@ -187,18 +199,25 @@ class EditingPane(tk.LabelFrame):
                 '%d', '%i', '%P', '%s', '%S', '%v', '%V', '%W')
 
         # Entry boxes and labels
-        self.editing_box_frame = tk.Frame(self)
-        self.editing_box_frame.grid(row=0, column=0, sticky=tk.S+tk.N+tk.E+tk.W)
+        self.editing_box_frame = FrameSR(
+            self
+        ).grid(row=0, column=0, sticky=tk.S+tk.N+tk.E+tk.W)
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
         # For save button, etc. below entry boxes
-        self.entryButtonFrame = tk.Frame(self)
-        self.entryButtonFrame.grid(row=1, column=0, sticky=tk.S+tk.E)
+        self.entryButtonFrame = FrameSR(
+            self
+        ).grid(row=1, column=0, sticky=tk.S)
 
         # Timer and its button
-        self.timer = Timer(self.entryButtonFrame, getSelectedTask, self.save, lambda time: self._overwriteEntryBox(self.usedBox, time), notify)
-        self.timer.grid(sticky=tk.S, row=0, column=1)
+        self.timer = Timer(
+            self.entryButtonFrame,
+            getSelectedTask,
+            self.save,
+            lambda time: self._overwriteEntryBox(self.usedBox, time),
+            notify
+       ).grid(sticky=tk.S, row=0, column=1)
 
         #Setup the lower half of the window
         self.categoryLabel = LabelSR(
@@ -269,25 +288,33 @@ class EditingPane(tk.LabelFrame):
         self.editing_box_frame.grid_columnconfigure(1, weight=1)
 
         self.doneIsChecked = tk.StringVar()
-        self.doneCheckBox = tk.Checkbutton(self.entryButtonFrame,
-                                           text="Done",
-                                           variable=self.doneIsChecked,
-                                           onvalue="X",
-                                           offvalue="O")
-        self.doneCheckBox.grid(row=0, column=0)
+        self.doneCheckBox = CheckbuttonSR(
+            self.entryButtonFrame,
+            text="Done",
+            variable=self.doneIsChecked,
+            onvalue="X",
+            offvalue="O"
+        ).grid(row=0, column=0)
         self.doneCheckBox.deselect()
 
         #Add buttons to interact
-        self.saveButton = tk.Button(self.entryButtonFrame, text="Save", command=self.save)
-        self.saveButton.grid(row=0, column=2)
+        self.saveButton = ButtonSR(
+            self.entryButtonFrame,
+            text="Save",
+            command=self.save
+        ).grid(row=0, column=2)
 
-        self.newTaskButton = tk.Button(self.entryButtonFrame, text="New", command=newTask)
-        self.newTaskButton.grid(row=0, column=3)
+        self.newTaskButton = ButtonSR(
+            self.entryButtonFrame,
+            text="New",
+            command=newTask
+        ).grid(row=0, column=3)
 
-        self.deleteButton = tk.Button(self.entryButtonFrame,
-                                      text="Delete",
-                                      command = lambda: deleteTask(self.selection))
-        self.deleteButton.grid(row=0, column=4)
+        self.deleteButton = ButtonSR(
+            self.entryButtonFrame,
+            text="Delete",
+            command = lambda: deleteTask(self.selection)
+        ).grid(row=0, column=4)
 
     def tryShow(self, task: Optional[Task]) -> bool:
         self.categoryBox.config(values=self.get_categories())
@@ -394,7 +421,7 @@ class EditingPane(tk.LabelFrame):
 # todo add buttons to scroll the calendar forward week-by-week
 # todo Days of the week shown should be user-configurable (M-F vs. student schedule lol, or freelance).
 # Set up the calendar display to show estimated workload each day for a several week forecast
-class Calendar(tk.LabelFrame):
+class Calendar(tk.LabelFrame, SensibleReturnWidget):
     def __init__(self, parentFrame, parentFont):
         super().__init__(parentFrame, text="Calendar", padx=4, pady=4)
 
@@ -405,7 +432,11 @@ class Calendar(tk.LabelFrame):
 
         #Add day of week names at top, but won't change so don't save
         for i, day in enumerate(["Mon", "Tue", "Wed", "Thu", "Fri"]):
-            LabelSR(self, font=parentFont + ("bold",), text=day).grid(row=0, column=i, padx=4, pady=4)
+            LabelSR(
+                self,
+                font=parentFont + ("bold",),
+                text=day
+            ).grid(row=0, column=i, padx=4, pady=4)
 
         for week in range(self.numweeks):
             thisWeek = []
@@ -413,10 +444,14 @@ class Calendar(tk.LabelFrame):
                 thisDay: dict[str, Any] = {}
                 # todo *Sometimes* this significantly slows boot time. Could maybe cut down on labels by having dates all in a row for each week, but lining up with loads could be tricky. First row changes colour, so could do each date row below the first as a multi-column label.
                 #Alternate date labels and workloads
-                thisDay["DateLabel"] = LabelSR(self, font=parentFont)
-                thisDay["DateLabel"].grid(row=2*week + 1, column=dayNum, padx=4, pady=4)
-                thisDay["LoadLabel"] = LabelSR(self, font=parentFont)
-                thisDay["LoadLabel"].grid(row=2*week + 2, column=dayNum, padx=4, pady=4)
+                thisDay["DateLabel"] = LabelSR(
+                    self,
+                    font=parentFont
+                ).grid(row=2*week + 1, column=dayNum, padx=4, pady=4)
+                thisDay["LoadLabel"] = LabelSR(
+                    self,
+                    font=parentFont
+                ).grid(row=2*week + 2, column=dayNum, padx=4, pady=4)
                 thisWeek.append(thisDay)
             self.calendar.append(thisWeek)
 
@@ -450,7 +485,7 @@ class Calendar(tk.LabelFrame):
             for task in openTasks
         )
 
-class TaskScroller(ScrollFrame):
+class TaskScroller(ScrollFrame, SensibleReturnWidget):
     def __init__(self, parent: tk.Frame | tk.LabelFrame, onRowClick):
         super().__init__(parent, "Tasks")
         self.taskRows: list[TaskRow] = []
@@ -460,8 +495,12 @@ class TaskScroller(ScrollFrame):
         self.show_available_only = tk.BooleanVar()
         self.show_available_only.set(True)
 
-        self.available_only_button = tk.Checkbutton(self, text="Show only available tasks", variable=self.show_available_only, command = lambda: self.showTasks(self.tasks))
-        self.available_only_button.grid(row=1, column=0, sticky=tk.E+tk.W)
+        self.available_only_button = CheckbuttonSR(
+            self,
+            text="Show only available tasks",
+            variable=self.show_available_only,
+            command = lambda: self.showTasks(self.tasks)
+        ).grid(row=1, column=0, sticky=tk.E+tk.W)
 
     def showTasks(self, tasks: list[Task]) -> None:
         self.tasks = tasks
@@ -470,8 +509,11 @@ class TaskScroller(ScrollFrame):
             self.taskRows.pop().destroy()
             
         for (i, task) in enumerate(filter(lambda t: (not self.show_available_only.get()) or t.next_action_date <= today_date(), tasks)):
-            taskRow = TaskRow(self.viewPort, task, lambda t=task: self.onRowClick(t))
-            taskRow.grid(row=i, column=0, sticky= tk.W+tk.E)
+            taskRow = TaskRow(
+                self.viewPort,
+                task,
+                lambda t=task: self.onRowClick(t)
+            ).grid(row=i, column=0, sticky= tk.W+tk.E)
             self.taskRows.append(taskRow)
 
     def highlightTask(self, task: Optional[Task]) -> None:
@@ -481,17 +523,23 @@ class TaskScroller(ScrollFrame):
             else:
                 tr.unhighlight()
 
-class TaskRow(tk.LabelFrame):
+class TaskRow(tk.LabelFrame, SensibleReturnWidget):
     def __init__(self, parentFrame: tk.Frame, task, select):
         super().__init__(parentFrame)
         self.select = select
         self.id = task.id
 
-        self.nameLabel = LabelSR(self, text=task.task_name)
-        self.nameLabel.grid(row=0, column=0, sticky = tk.W + tk.E)
+        self.nameLabel = LabelSR(
+            self,
+            text=task.task_name
+        ).grid(row=0, column=0, sticky = tk.W + tk.E)
 
-        self.categoryLabel = LabelSR(self, text=task.category, font=("helvetica", 8))
-        self.categoryLabel.grid(row=1, column=0, sticky=tk.W)
+        self.categoryLabel = LabelSR(
+            self,
+            text=task.category,
+            font=("helvetica",
+            8)
+        ).grid(row=1, column=0, sticky=tk.W)
 
         self.visible = [self, self.nameLabel, self.categoryLabel]
         for o in self.visible:
