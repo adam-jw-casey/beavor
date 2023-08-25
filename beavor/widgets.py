@@ -287,14 +287,23 @@ class Calendar(tk.LabelFrame):
 class TaskScroller(ScrollFrame):
     def __init__(self, parent: tk.Frame | tk.LabelFrame, onRowClick):
         super().__init__(parent, "Tasks")
-        self.taskRows = []
+        self.taskRows: list[TaskRow] = []
+        self.tasks: list[Task] = []
         self.onRowClick = onRowClick
 
+        self.show_available_only = tk.BooleanVar()
+        self.show_available_only.set(True)
+
+        self.available_only_button = tk.Checkbutton(self, text="Show only available tasks", variable=self.show_available_only, command = lambda: self.showTasks(self.tasks))
+        self.available_only_button.grid(row=1, column=0, sticky=tk.E+tk.W)
+
     def showTasks(self, tasks: list[Task]) -> None:
+        self.tasks = tasks
+
         for _ in range(len(self.taskRows)):
             self.taskRows.pop().destroy()
             
-        for (i, task) in enumerate(tasks):
+        for (i, task) in enumerate(filter(lambda t: (not self.show_available_only.get()) or t.next_action_date <= today_date(), tasks)):
             taskRow = TaskRow(self.viewPort, task, lambda t=task: self.onRowClick(t))
             taskRow.grid(row=i, column=0, sticky= tk.W+tk.E)
             self.taskRows.append(taskRow)
