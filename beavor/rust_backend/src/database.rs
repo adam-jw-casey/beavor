@@ -90,6 +90,7 @@ pub struct DatabaseManager{
 }
 
 // TODO should make all these pass the asyncness through to Python to deal with
+#[allow(non_snake_case)]
 #[pymethods]
 impl DatabaseManager{
     #[new]
