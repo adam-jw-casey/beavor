@@ -33,6 +33,8 @@ use utils::{
     parse_date,
 };
 
+mod calendar;
+
 #[pymodule]
 fn backend(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(format_date, m)?)?;
