@@ -390,7 +390,7 @@ class EditingPane(tk.LabelFrame, SensibleReturnWidget):
 
     def _clearEntryBoxes(self) -> None:
         self.doneIsChecked.set("O")
-        self.timer.setTime("0:00:00")
+        self.timer.setTime(datetime.timedelta(0))
         for w in [self.categoryBox, self.taskNameBox, self.timeBox, self.usedBox, self.dueDateBox, self.nextActionBox, self.notesBox]:
           self._overwriteEntryBox(w, "")
 
