@@ -486,7 +486,7 @@ class Calendar(tk.LabelFrame, SensibleReturnWidget):
         )
 
 class TaskScroller(ScrollFrame, SensibleReturnWidget):
-    def __init__(self, parent: tk.Frame | tk.LabelFrame, onRowClick):
+    def __init__(self, parent: tk.Frame | tk.LabelFrame | tk.Tk, onRowClick):
         super().__init__(parent, "Tasks")
         self.taskRows: list[TaskRow] = []
         self.tasks: list[Task] = []
