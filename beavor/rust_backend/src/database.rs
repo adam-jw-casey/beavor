@@ -444,6 +444,5 @@ impl DatabaseManager{
         days_off.append(&mut self.get_vacation_days());
 
         days_off
-
     }
 }
