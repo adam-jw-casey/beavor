@@ -30,7 +30,7 @@ from .EditingPane import EditingPane
 
 ###########################################
 
-class WorklistWindow():
+class MainWindow():
     def __init__(self, databasePath: str):
       self.os = sys.platform
 
