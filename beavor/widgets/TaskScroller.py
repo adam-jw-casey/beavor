@@ -33,7 +33,7 @@ class TaskScroller(ScrollFrame, SensibleReturnWidget):
                 self.viewPort,
                 task,
                 lambda t=task: self.onRowClick(t)
-            ).grid(row=i, column=0, sticky= tk.W+tk.E)
+            ).grid(row=i, column=0, sticky= tk.W+tk.E, padx=4)
             self.taskRows.append(taskRow)
 
     def highlightTask(self, task: Optional[Task]) -> None:
@@ -51,15 +51,19 @@ class TaskRow(tk.LabelFrame, SensibleReturnWidget):
 
         self.nameLabel = LabelSR(
             self,
-            text=task.task_name
-        ).grid(row=0, column=0, sticky = tk.W + tk.E)
+            text=task.task_name,
+            justify="left",
+            anchor=tk.W
+        ).pack(side=tk.TOP, fill=tk.X)
+        self.bind('<Configure>', lambda _: self.nameLabel.config(wraplength=self.nameLabel.winfo_width()))
 
         self.categoryLabel = LabelSR(
             self,
             text=task.category,
             font=("helvetica",
-            8)
-        ).grid(row=1, column=0, sticky=tk.W)
+            8),
+            anchor=tk.W
+        ).pack(side=tk.BOTTOM, fill=tk.X)
 
         self.visible = [self, self.nameLabel, self.categoryLabel]
         for o in self.visible:
