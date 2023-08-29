@@ -34,7 +34,8 @@ class EditingPane(tk.LabelFrame, SensibleReturnWidget):
 
         # Entry boxes and labels
         self.editing_box_frame = FrameSR(
-            self
+            self,
+            padx=8
         ).grid(row=0, column=0, sticky=tk.S+tk.N+tk.E+tk.W)
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
@@ -42,7 +43,7 @@ class EditingPane(tk.LabelFrame, SensibleReturnWidget):
         # For save button, etc. below entry boxes
         self.entryButtonFrame = FrameSR(
             self
-        ).grid(row=1, column=0, sticky=tk.S)
+        ).grid(row=1, column=0, sticky=tk.S, pady=4)
 
         # Timer and its button
         self.timer = Timer(
