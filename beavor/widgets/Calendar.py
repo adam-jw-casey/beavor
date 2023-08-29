@@ -54,10 +54,12 @@ class Calendar(tk.LabelFrame, SensibleReturnWidget):
                 thisDate = thisMonday + datetime.timedelta(days=day, weeks=week)
                 thisDay["Date"] = thisDate
                 thisDay["DateLabel"].config(text=thisDate.strftime("%b %d"))
+
                 if thisDate == today:
                     thisDay["DateLabel"].config(bg="lime")
                 else:
-                    thisDay["DateLabel"].config(bg="#d9d9d9")
+                    thisDay["DateLabel"].config(bg="SystemButtonFace")
+
                 if thisDate >= today:
                     hoursThisDay = self.getDayTotalLoad(thisDate, openTasks) / 60
                     thisDay["LoadLabel"]\
@@ -65,7 +67,7 @@ class Calendar(tk.LabelFrame, SensibleReturnWidget):
                           text=str(round(hoursThisDay,1)),
                           bg=green_red_scale(0,(8 if thisDate != today else max(0, hoursLeftToday)), hoursThisDay))
                 else:
-                    thisDay["LoadLabel"].config(text="", bg="#d9d9d9")
+                    thisDay["LoadLabel"].config(text="", bg="SystemButtonFace")
 
     def getDayTotalLoad(self, date: datetime.date, openTasks: list[Task]) -> float:
         return sum(
