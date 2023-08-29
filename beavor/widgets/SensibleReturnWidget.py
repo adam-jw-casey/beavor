@@ -5,6 +5,10 @@ class SensibleReturnWidget(Widget):
         super().grid(*args, **kwargs)
         return self
 
+    def pack(self, *args, **kwargs):
+        super().pack(*args, **kwargs)
+        return self
+
 class EntrySR(Entry, SensibleReturnWidget):
     pass
 
