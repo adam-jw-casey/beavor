@@ -1,7 +1,7 @@
 import tkinter as tk
 from typing import Optional
 
-from .backend import Task, today_date
+from ..backend import Task, today_date
 from .ScrollFrame import ScrollFrame
 from .SensibleReturnWidget import SensibleReturnWidget, CheckbuttonSR, LabelSR
 

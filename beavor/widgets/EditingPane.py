@@ -4,7 +4,7 @@ import tkinter.ttk as ttk
 import datetime
 from typing import Optional
 
-from .backend import parse_date, PyDueDate, Task
+from ..backend import parse_date, PyDueDate, Task
 from .Timer import Timer
 from .DateEntry import DateEntry
 from .CompletingComboBox import CompletingComboBox
