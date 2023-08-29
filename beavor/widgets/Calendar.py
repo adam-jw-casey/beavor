@@ -2,7 +2,7 @@ import tkinter as tk
 import datetime
 
 from .SensibleReturnWidget import SensibleReturnWidget, LabelSR
-from .backend import green_red_scale, today_date, Task
+from ..backend import green_red_scale, today_date, Task
 from typing import Any
 
 # todo put the next action / due date at a specific time?

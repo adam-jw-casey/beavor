@@ -6,10 +6,10 @@ import sys
 from typing import List, Optional
 
 from .backend import DatabaseManager, Task 
-from .SensibleReturnWidget import LabelSR
-from .Calendar import Calendar
-from .TaskScroller import TaskScroller
-from .EditingPane import EditingPane
+from .widgets.SensibleReturnWidget import LabelSR
+from .widgets.Calendar import Calendar
+from .widgets.TaskScroller import TaskScroller
+from .widgets.EditingPane import EditingPane
 
 ###########################################
 #Readability / coding style / maintainability

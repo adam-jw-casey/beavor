@@ -1,7 +1,7 @@
 import tkinter as tk
 import datetime
 
-from .backend import parse_date, today_date, format_date
+from ..backend import parse_date, today_date, format_date
 from .SensibleReturnWidget import EntrySR
 
 class DateEntry(EntrySR):
