@@ -2,8 +2,10 @@
 
 import tkinter as tk
 import tkinter.messagebox
+import tkinter.font
 import sys
 from typing import List, Optional
+import json
 
 from .backend import DatabaseManager, Task 
 from .widgets.SensibleReturnWidget import LabelSR
@@ -30,16 +32,37 @@ from .widgets.EditingPane import EditingPane
 
 ###########################################
 
+class Settings:
+    def __init__(self, file_path: str):
+        self.f = open(file_path, "r+")
+        self.load()
+
+    def load(self):
+        self.data = json.load(self.f )
+        return self.data
+
+    def write(self):
+        self.f.seek(0)
+        json.dump(self.data, self.f)
+        self.f.truncate()
+
+    @classmethod
+    def create_new(cls, settings_path: str):
+        with open(settings_path, "w+") as f:
+            json.dump({
+                "font_size" : 10,
+            }, f)
+
 class MainWindow():
-    def __init__(self, databasePath: str):
+    def __init__(self, database_path: str, settings_path: str):
       self.os = sys.platform
 
-      self.db = DatabaseManager(databasePath)
+      self.db = DatabaseManager(database_path)
 
       #Tkinter stuff
       self.root = tk.Tk()
 
-      self.setupWindow()
+      self.setupWindow(Settings(settings_path))
 
     def getSelectedTask(self):
         return self.selection
@@ -48,14 +71,16 @@ class MainWindow():
     # GUI setup functions
 
     # Setup up the gui and load tasks
-    def setupWindow(self) -> None:
+    def setupWindow(self, settings: Settings) -> None:
         if self.os == "linux":
             self.root.attributes('-zoomed', True)
-            self.font = ("Liberation Mono", 10)
+            self.font = ("Liberation Mono", settings.data["font_size"])
         else:
             #win32
             self.root.state("zoomed")
-            self.font = ("Courier", 10)
+            self.font = ("Courier", settings.data["font_size"])
+        tk.font.nametofont("TkDefaultFont").configure(size=settings.data["font_size"])
+        tk.font.nametofont("TkTextFont").configure(size=settings.data["font_size"])
 
         self.root.winfo_toplevel().title("WORKLIST Beta")
 
