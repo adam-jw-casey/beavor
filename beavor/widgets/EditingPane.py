@@ -58,66 +58,66 @@ class EditingPane(tk.LabelFrame, SensibleReturnWidget):
         self.categoryLabel = LabelSR(
             self.editing_box_frame,
             text= "Category"
-        ).grid(sticky=tk.W, row=0, column=0)
+        ).grid(sticky=tk.W, row=0, column=0, pady=1)
         self.categoryBox = CompletingComboBox(
             self.editing_box_frame,
             get_categories
-        ).grid(sticky=tk.W+tk.E, row=0, column=1)
+        ).grid(sticky=tk.W+tk.E, row=0, column=1, pady=1)
 
         self.taskNameLabel = LabelSR(
             self.editing_box_frame,
             text="Task Name"
-        ).grid(sticky=tk.W, row=1, column=0)
+        ).grid(sticky=tk.W, row=1, column=0, pady=1)
         self.taskNameBox = EntrySR(
             self.editing_box_frame
-        ).grid(sticky=tk.W+tk.E, row=1, column=1)
+        ).grid(sticky=tk.W+tk.E, row=1, column=1, pady=1)
 
         self.timeLabel = LabelSR(
             self.editing_box_frame,
             text="Time Needed"
-        ).grid(sticky=tk.W, row=2, column=0)
+        ).grid(sticky=tk.W, row=2, column=0, pady=1)
         self.timeBox = EntrySR(
             self.editing_box_frame,
             validate="key",
             validatecommand=int_validation
-        ).grid(sticky=tk.W, row=2, column=1)
+        ).grid(sticky=tk.W, row=2, column=1, pady=1)
 
         self.usedLabel = LabelSR(
             self.editing_box_frame,
             text="Time Used"
-        ).grid(sticky=tk.W, row=3, column=0)
+        ).grid(sticky=tk.W, row=3, column=0, pady=1)
         self.usedBox = EntrySR(
             self.editing_box_frame,
             validate="key",
             validatecommand=int_validation
-        ).grid(sticky=tk.W, row=3, column=1)
+        ).grid(sticky=tk.W, row=3, column=1, pady=1)
 
         self.nextActionLabel = LabelSR(
             self.editing_box_frame,
             text="Next Action"
-        ).grid(sticky=tk.W, row=4, column=0)
+        ).grid(sticky=tk.W, row=4, column=0, pady=1)
         self.nextActionBox = DateEntry(
             self.editing_box_frame,
             notify
-        ).grid(sticky=tk.W, row=4, column=1)
+        ).grid(sticky=tk.W, row=4, column=1, pady=1)
 
         self.dueDateLabel = LabelSR(
             self.editing_box_frame,
             text="Due Date"
-        ).grid(sticky=tk.W, row=5, column=0)
+        ).grid(sticky=tk.W, row=5, column=0, pady=1)
         self.dueDateBox = DateEntry(
             self.editing_box_frame,
             notify
-        ).grid(sticky=tk.W, row=5, column=1)
+        ).grid(sticky=tk.W, row=5, column=1, pady=1)
 
         self.notesLabel = LabelSR(
             self.editing_box_frame,
             text="Notes"
-        ).grid(sticky=tk.W, row=6, column=0)
+        ).grid(sticky=tk.W, row=6, column=0, pady=1)
         self.notesBox = TextSR(
             self.editing_box_frame,
             wrap="word"
-        ).grid(sticky=tk.W+tk.E+tk.S+tk.N, row=6, column=1, pady=(0,4))
+        ).grid(sticky=tk.W+tk.E+tk.S+tk.N, row=6, column=1, pady=(1,4))
         self.editing_box_frame.grid_rowconfigure(6, weight=1)
 
         self.editing_box_frame.grid_columnconfigure(1, weight=1)
