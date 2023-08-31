@@ -17,7 +17,6 @@ from .widgets.EditingPane import EditingPane
 #Readability / coding style / maintainability
 
 # todo should add tests to make development smoother and catch bugs earlier
-# todo go through and make sure exceptions are being handled in a reasonable place and manner
 
 ###########################################
 #Nice-to-haves
