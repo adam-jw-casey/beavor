@@ -55,7 +55,7 @@ class TaskRow(tk.LabelFrame, SensibleReturnWidget):
             justify="left",
             anchor=tk.W
         ).pack(side=tk.TOP, fill=tk.X)
-        self.bind('<Configure>', lambda _: self.nameLabel.config(wraplength=self.nameLabel.winfo_width()))
+        self.bind('<Configure>', lambda _: self.nameLabel.config(wraplength=self.winfo_width()))
 
         self.categoryLabel = LabelSR(
             self,
