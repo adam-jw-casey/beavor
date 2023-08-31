@@ -129,6 +129,7 @@ class MainWindow():
     ######################################################
     # GUI update functions
 
+    # TODO implement a better state-management system so that all necessary widgets are updated when the database is update
     def refreshTasks(self) -> None:
         #Remember which task was selected
         selected_rowid = self.selection.id if self.selection is not None else None
