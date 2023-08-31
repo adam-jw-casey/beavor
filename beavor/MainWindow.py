@@ -27,8 +27,6 @@ from .widgets.EditingPane import EditingPane
 # todo integration to put tasks into Google/Outlook calendar would be cool or just have a way of marking a task as scheduled
 # todo integration to get availability from Google/Outlook calendar to adjust daily workloads based on scheduled meetings
 # todo Dark mode toggle (use .configure(bg='black') maybe? Or another better colour. Have to do it individually by pane though, self.root.configure() only does some of the background. Also probably have to change text colour too.)
-# todo User-adjustable font/font size
-    # todo user-customizable settings (like font size, calendar colourscale) -> This could write to external file, read at startup?
 
 ###########################################
 
