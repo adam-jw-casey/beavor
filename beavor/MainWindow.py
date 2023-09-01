@@ -1,11 +1,14 @@
 #!/usr/bin/python3.11
 
+import sys
+
 import tkinter as tk
 import tkinter.messagebox
 import tkinter.font
-import sys
+
 from typing import List, Optional
 import json
+import datetime
 
 from .backend import DatabaseManager, Task 
 from .widgets.SensibleReturnWidget import LabelSR
@@ -109,6 +112,7 @@ class MainWindow():
         # Calendar
         self.calendar = Calendar(
             self.root,
+            on_click_date=self.filter_to_date
         ).grid(row=0, column=2, pady=4, padx=4, sticky=tk.S+tk.E)
 
         self.messageLabel = LabelSR(
@@ -193,3 +197,6 @@ class MainWindow():
             self.task_list_scroller.highlightTask(task)
         else:
             self.notify("Cancelled")
+
+    def filter_to_date(self, date: datetime.datetime) -> None:
+        raise NotImplementedError

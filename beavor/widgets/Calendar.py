@@ -9,12 +9,13 @@ from typing import Any
 # todo put the next action / due date at a specific time?
 # todo add buttons to scroll the calendar forward week-by-week
 # todo Days of the week shown should be user-configurable (M-F vs. student schedule lol, or freelance).
+
 # Set up the calendar display to show estimated workload each day for a several week forecast
 class Calendar(tk.LabelFrame, SensibleReturnWidget):
-    def __init__(self, parentFrame):
+    def __init__(self, parentFrame, on_click_date=lambda _: None, numweeks=4):
         super().__init__(parentFrame, text="Calendar", padx=4, pady=4)
 
-        self.numweeks = 4
+        self.numweeks = numweeks
 
         #Build the calendar out of labels
         self.calendar = []
@@ -35,9 +36,13 @@ class Calendar(tk.LabelFrame, SensibleReturnWidget):
                 thisDay["DateLabel"] = LabelSR(
                     self,
                 ).grid(row=2*week + 1, column=dayNum, padx=4, pady=4)
+                thisDay["DateLabel"].bind("<1>", lambda _: on_click_date(thisDay["Date"]))
+
                 thisDay["LoadLabel"] = LabelSR(
                     self,
                 ).grid(row=2*week + 2, column=dayNum, padx=4, pady=4)
+                thisDay["LoadLabel"].bind("<1>", lambda _: on_click_date(thisDay["Date"]))
+
                 thisWeek.append(thisDay)
             self.calendar.append(thisWeek)
 
