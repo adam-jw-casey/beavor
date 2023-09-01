@@ -31,7 +31,6 @@ class Calendar(tk.LabelFrame, SensibleReturnWidget):
             thisWeek = []
             for dayNum in range(5):
                 thisDay: dict[str, Any] = {}
-                # todo *Sometimes* this significantly slows boot time. Could maybe cut down on labels by having dates all in a row for each week, but lining up with loads could be tricky. First row changes colour, so could do each date row below the first as a multi-column label.
                 #Alternate date labels and workloads
                 thisDay["DateLabel"] = LabelSR(
                     self,
