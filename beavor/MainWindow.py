@@ -71,11 +71,10 @@ class MainWindow():
     def setupWindow(self, settings: Settings) -> None:
         if self.os == "linux":
             self.root.attributes('-zoomed', True)
-            self.font = ("Liberation Mono", settings.data["font_size"])
         else:
             #win32
             self.root.state("zoomed")
-            self.font = ("Courier", settings.data["font_size"])
+
         tk.font.nametofont("TkDefaultFont").configure(size=settings.data["font_size"])
         tk.font.nametofont("TkTextFont").configure(size=settings.data["font_size"])
 
