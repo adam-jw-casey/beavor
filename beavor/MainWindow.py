@@ -110,7 +110,6 @@ class MainWindow():
         # Calendar
         self.calendar = Calendar(
             self.root,
-            self.font
         ).grid(row=0, column=2, pady=4, padx=4, sticky=tk.S+tk.E)
 
         self.messageLabel = LabelSR(
