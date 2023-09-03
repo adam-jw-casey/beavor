@@ -1,5 +1,6 @@
 import tkinter as tk
 from typing import Optional
+from pipe import filter
 
 from ..backend import Task, today_date
 from .ScrollFrame import ScrollFrame
@@ -19,16 +20,28 @@ class TaskScroller(ScrollFrame, SensibleReturnWidget):
             self,
             text="Show only available tasks",
             variable=self.show_available_only,
-            command = lambda: self.showTasks(self.tasks)
+            command = lambda: 
+            self._show_tasks(
+                self.tasks
+                | filter(
+                    lambda t: (not self.show_available_only.get()) or t.next_action_date <= today_date()
+                )
+            )
         ).grid(row=1, column=0, sticky=tk.E+tk.W)
 
-    def showTasks(self, tasks: list[Task]) -> None:
+    def set_tasks(self, tasks: list[Task]) -> None:
         self.tasks = tasks
+        self._show_tasks(tasks)
 
+    def _show_tasks(self, tasks: list[Task]) -> None:
+        if self.displayed_tasks == tasks:
+            return
+
+        self.displayed_tasks = tasks
         for _ in range(len(self.taskRows)):
             self.taskRows.pop().destroy()
             
-        for (i, task) in enumerate(filter(lambda t: (not self.show_available_only.get()) or t.next_action_date <= today_date(), tasks)):
+        for (i, task) in enumerate(tasks):
             taskRow = TaskRow(
                 self.viewPort,
                 task,
