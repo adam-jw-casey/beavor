@@ -12,7 +12,7 @@ from .SensibleReturnWidget import SensibleReturnWidget, EntrySR, LabelSR, TextSR
 
 class EditingPane(tk.LabelFrame, SensibleReturnWidget):
     def __init__(self, parent, getSelectedTask, save, notify, get_categories, newTask, deleteTask, getDefaultTask):
-        def canBeInt(d, i, P, s, S, v, V, W) ->  bool:
+        def canBeInt(_d, _i, _P, _s, S, _v, _V, _W) ->  bool:
             try:
                 int(S)
                 return True

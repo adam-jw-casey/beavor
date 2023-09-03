@@ -131,13 +131,13 @@ class MainWindow():
     ######################################################
     # GUI update functions
 
-    # TODO implement a better state-management system so that all necessary widgets are updated when the database is update
+    # TODO implement a better state-management system so that all necessary widgets are updated when the database is updated
     def refreshTasks(self) -> None:
         #Remember which task was selected
         selected_rowid = self.selection.id if self.selection is not None else None
 
         self.loadedTasks = self.db.get_open_tasks()
-        self.task_list_scroller.showTasks(self.loadedTasks)
+        self.task_list_scroller.set_tasks(self.loadedTasks)
 
         match list(filter(lambda t: t.id == selected_rowid, self.loadedTasks)):
             case []:
