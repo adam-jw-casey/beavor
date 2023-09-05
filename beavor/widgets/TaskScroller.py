@@ -1,8 +1,9 @@
 import tkinter as tk
 from typing import Optional
 from pipe import filter
+from datetime import date
 
-from ..backend import Task, today_date
+from ..backend import Task, today_date, PyDueDate
 from .ScrollFrame import ScrollFrame
 from .SensibleReturnWidget import SensibleReturnWidget, CheckbuttonSR, LabelSR
 
@@ -10,7 +11,8 @@ class TaskScroller(ScrollFrame, SensibleReturnWidget):
     def __init__(self, parent: tk.Frame | tk.LabelFrame | tk.Tk, onRowClick):
         super().__init__(parent, "Tasks")
         self.taskRows: list[TaskRow] = []
-        self.tasks: list[Task] = []
+        self.tasks:    list[Task]    = []
+        self.displayed_tasks:    list[Task]    = []
         self.onRowClick = onRowClick
 
         self.show_available_only = tk.BooleanVar()
@@ -20,17 +22,31 @@ class TaskScroller(ScrollFrame, SensibleReturnWidget):
             self,
             text="Show only available tasks",
             variable=self.show_available_only,
-            command = lambda: 
+            command = lambda: self.show_by_availability_on_date(today_date())
+        ).grid(row=1, column=0, sticky=tk.E+tk.W)
+
+    # TODO Need some indication of what date / filters are currently applied
+    def show_by_availability_on_date(self, date: date):
+        if not self.show_available_only.get():
+            self._show_tasks(self.tasks)
+        elif date == today_date():
             self._show_tasks(
                 self.tasks
                 | filter(
-                    lambda t: (not self.show_available_only.get()) or t.next_action_date <= today_date()
+                    lambda t: t.next_action_date <= today_date()
                 )
             )
-        ).grid(row=1, column=0, sticky=tk.E+tk.W)
+        else:
+            self._show_tasks(
+                self.tasks
+                | filter(
+                    lambda t: t.next_action_date <= date and t.due_date >= PyDueDate(date)
+                )
+            )
 
     def set_tasks(self, tasks: list[Task]) -> None:
         self.tasks = tasks
+        self.show_available_only.set(True)
         self._show_tasks(tasks)
 
     def _show_tasks(self, tasks: list[Task]) -> None:
@@ -73,7 +89,7 @@ class TaskRow(tk.LabelFrame, SensibleReturnWidget):
         self.categoryLabel = LabelSR(
             self,
             text=task.category,
-            font=("helvetica",
+            font=("helvetica", # todo why is font being set manually here
             8),
             anchor=tk.W
         ).pack(side=tk.BOTTOM, fill=tk.X)

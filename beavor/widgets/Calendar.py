@@ -4,7 +4,7 @@ import datetime
 
 from .SensibleReturnWidget import SensibleReturnWidget, LabelSR
 from ..backend import green_red_scale, today_date, Task
-from typing import Any
+from typing import Any, Callable
 
 # todo put the next action / due date at a specific time?
 # todo add buttons to scroll the calendar forward week-by-week
@@ -12,7 +12,7 @@ from typing import Any
 
 # Set up the calendar display to show estimated workload each day for a several week forecast
 class Calendar(tk.LabelFrame, SensibleReturnWidget):
-    def __init__(self, parentFrame, on_click_date=lambda _: None, numweeks=4):
+    def __init__(self, parentFrame, on_click_date: Callable[[datetime.date], None]=lambda _: None, numweeks=4):
         super().__init__(parentFrame, text="Calendar", padx=4, pady=4)
 
         self.numweeks = numweeks
@@ -36,12 +36,12 @@ class Calendar(tk.LabelFrame, SensibleReturnWidget):
                 thisDay["DateLabel"] = LabelSR(
                     self,
                 ).grid(row=2*week + 1, column=dayNum, padx=4, pady=4)
-                thisDay["DateLabel"].bind("<1>", lambda _: on_click_date(thisDay["Date"]))
+                thisDay["DateLabel"].bind("<1>", lambda _, d=thisDay: on_click_date(d["Date"]))
 
                 thisDay["LoadLabel"] = LabelSR(
                     self,
                 ).grid(row=2*week + 2, column=dayNum, padx=4, pady=4)
-                thisDay["LoadLabel"].bind("<1>", lambda _: on_click_date(thisDay["Date"]))
+                thisDay["LoadLabel"].bind("<1>", lambda _, d=thisDay: on_click_date(d["Date"]))
 
                 thisWeek.append(thisDay)
             self.calendar.append(thisWeek)
@@ -61,7 +61,7 @@ class Calendar(tk.LabelFrame, SensibleReturnWidget):
                 if thisDate == today:
                     thisDay["DateLabel"].config(bg="lime")
                 else:
-                    thisDay["DateLabel"].config(bg="SystemButtonFace")
+                    thisDay["DateLabel"].config(bg="gray85")
 
                 if thisDate >= today:
                     hoursThisDay = self.getDayTotalLoad(thisDate, openTasks) / 60
