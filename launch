@@ -1,24 +1,30 @@
 #!/usr/bin/python3.11
 
 import sys, os
-from beavor.widgets import WorklistWindow
+from beavor.MainWindow import MainWindow, Settings
 from beavor.backend import DatabaseManager
 
 DEFAULT_DATABASE_PATH = "worklist.db"
+DEFAULT_SETTINGS_PATH = "settings.json"
 
 def main():
-  worklist: WorklistWindow
-  if len(sys.argv) > 1:
-    worklist = WorklistWindow(sys.argv[1])
-  elif os.path.isfile(DEFAULT_DATABASE_PATH):
-    #default
-    worklist = WorklistWindow(DEFAULT_DATABASE_PATH)
-  else:
-    print(f"No worklist found and none specified.\nCreating new {DEFAULT_DATABASE_PATH}")
-    DatabaseManager.create_new_database(DEFAULT_DATABASE_PATH)
-    worklist = WorklistWindow(DEFAULT_DATABASE_PATH)
+    beavor: MainWindow
 
-  worklist.root.mainloop()
+    # Create settings file if it doesn't exist
+    if not os.path.isfile(DEFAULT_SETTINGS_PATH):
+        Settings.create_new(DEFAULT_SETTINGS_PATH)
+
+    if len(sys.argv) > 1:
+        beavor = MainWindow(sys.argv[1], DEFAULT_SETTINGS_PATH)
+    elif os.path.isfile(DEFAULT_DATABASE_PATH):
+        #default
+        beavor = MainWindow(DEFAULT_DATABASE_PATH, DEFAULT_SETTINGS_PATH)
+    else:
+        print(f"No database found and none specified.\nCreating new {DEFAULT_DATABASE_PATH}")
+        DatabaseManager.create_new_database(DEFAULT_DATABASE_PATH)
+        beavor = MainWindow(DEFAULT_DATABASE_PATH, DEFAULT_SETTINGS_PATH)
+
+    beavor.root.mainloop()
 
 if __name__ == "__main__":
-  main()
+    main()

@@ -4,7 +4,7 @@ import platform
 from .SensibleReturnWidget import SensibleReturnWidget, CanvasSR, ScrollbarSR
 
 class ScrollFrame(tk.LabelFrame, SensibleReturnWidget):
-    def __init__(self, parent: tk.Frame | tk.LabelFrame, text: str):
+    def __init__(self, parent: tk.Frame | tk.LabelFrame | tk.Tk, text: str):
         super().__init__(parent, text=text) # create a frame (self)
 
         self.canvas = CanvasSR(
