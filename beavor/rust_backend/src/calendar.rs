@@ -9,8 +9,6 @@ use chrono::{
     Weekday
 };
 
-use std::cmp::max;
-
 use crate::{
     today_date,
     DueDate,
@@ -19,7 +17,7 @@ use crate::{
 
 use std::collections::HashMap;
 
-fn week_days_from(d1: NaiveDate, d2: NaiveDate) -> u32{
+fn num_week_days_from(d1: NaiveDate, d2: NaiveDate) -> u32{
     let weeks_between = (d2-d1).num_weeks() as u32;
 
     let marginal_weekdays: u32 = match d2.weekday(){
@@ -29,11 +27,11 @@ fn week_days_from(d1: NaiveDate, d2: NaiveDate) -> u32{
         },
         weekday2 => match d1.weekday(){
             Weekday::Sat | Weekday::Sun => weekday2.number_from_monday() - Weekday::Mon.number_from_monday(),
-            weekday1 => (weekday2.number_from_monday() as u32 - weekday1.number_from_monday() as u32).rem_euclid(5) as u32 + 1,
+            weekday1 => (weekday2.number_from_monday() - weekday1.number_from_monday()).rem_euclid(5) + 1,
         },
     };
 
-    weeks_between * 5 + marginal_weekdays as u32
+    weeks_between * 5 + marginal_weekdays
 }
 
 #[pyclass]
@@ -46,7 +44,7 @@ pub struct Calendar{
 
 impl Calendar{
     /// Counts and returns the number of non-weekend days off between d1 and d2
-    fn days_off_from(&self, d1: NaiveDate, d2: NaiveDate) -> u32 {
+    fn num_days_off_from(&self, d1: NaiveDate, d2: NaiveDate) -> u32 {
         self.days_off
             .iter()
             .filter(|d: &&NaiveDate| d1 <= **d && **d <= d2)
@@ -54,18 +52,18 @@ impl Calendar{
     }
 
     /// Counts and returns the number of working days between d1 and d2
-    fn work_days_from(&self, d1: NaiveDate, d2: NaiveDate) -> u32{
-        week_days_from(d1, d2) - self.days_off_from(d1, d2) // NOTE: this will be incorrect if a
-                                                            // weekend day has been marked as a day
-                                                            // off
+    /// NOTE: this will be incorrect if a weekend day has been marked as a day off
+    fn num_work_days_from(&self, d1: NaiveDate, d2: NaiveDate) -> u32{
+        num_week_days_from(d1, d2) - self.num_days_off_from(d1, d2)
     }
 
-    fn calculate_workloads (&self, tasks: Vec<Task>) -> HashMap<NaiveDate, u32>{
+    /// Calculates and records the number of minutes that need to be worked each day
+    fn calculate_workloads (&mut self, tasks: Vec<Task>){
         // Update self.workloads
-        todo!();
-        self.workloads
+        todo!()
     }
 
+    /// Returns a boolean representing whether a given date is a work day
     fn is_work_day(&self, date: NaiveDate) -> bool{
         !self.days_off.contains(&date) && !vec![Weekday::Sun, Weekday::Sat].contains(&date.weekday())
     }
@@ -74,10 +72,18 @@ impl Calendar{
 #[pymethods]
 impl Calendar{
     #[new]
-    fn __new__() -> Self{
-        todo!()
+    fn __new__(days_off: Vec<NaiveDate>, tasks: Vec<Task>) -> Self{
+        let mut calendar = Calendar{
+            days_off,
+            workloads: HashMap::<NaiveDate, u32>::new(),
+        };
+
+        calendar.calculate_workloads(tasks);
+
+        calendar
     }
 
+    /// Returns a boolean representing whether a given task can be worked on on a given date
     fn is_available_on_day(&self, task: Task, date: NaiveDate) -> bool{
         let before_end: bool = match task.due_date{
             DueDate::NONE => true,
@@ -90,8 +96,9 @@ impl Calendar{
         before_end && after_beginning && self.is_work_day(date)
     }
 
-    fn workload_on_day(&self, tasks: Vec<Task>, date: NaiveDate) -> u32{
-        todo!()
+    /// Returns the number of minutes of work that need to be done on a given date
+    fn workload_on_day(&self, date: NaiveDate) -> u32{
+        self.workloads[&date]
     }
 }
 
@@ -104,7 +111,7 @@ mod tests{
     #[test]
     fn test_week_days_from() {
         assert_eq!(
-            week_days_from(
+            num_week_days_from(
                 NaiveDate::from_ymd(2023, 08, 21),
                 NaiveDate::from_ymd(2023, 08, 25)
             ),
@@ -112,7 +119,7 @@ mod tests{
         );
 
         assert_eq!(
-            week_days_from(
+            num_week_days_from(
                 NaiveDate::from_ymd(2023, 08, 11),
                 NaiveDate::from_ymd(2023, 08, 14)
             ),
@@ -120,7 +127,7 @@ mod tests{
         );
 
         assert_eq!(
-            week_days_from(
+            num_week_days_from(
                 NaiveDate::from_ymd(2023, 08, 1),
                 NaiveDate::from_ymd(2023, 08, 23)
             ),
@@ -128,7 +135,7 @@ mod tests{
         );
 
         assert_eq!(
-            week_days_from(
+            num_week_days_from(
                 NaiveDate::from_ymd(2023, 08, 4),
                 NaiveDate::from_ymd(2023, 08, 23)
             ),
@@ -136,7 +143,7 @@ mod tests{
         );
 
         assert_eq!(
-            week_days_from(
+            num_week_days_from(
                 NaiveDate::from_ymd(2023, 08, 19),
                 NaiveDate::from_ymd(2023, 08, 27)
             ),
