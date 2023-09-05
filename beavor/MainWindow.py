@@ -1,11 +1,14 @@
 #!/usr/bin/python3.11
 
+import sys
+
 import tkinter as tk
 import tkinter.messagebox
 import tkinter.font
-import sys
+
 from typing import List, Optional
 import json
+import datetime
 
 from .backend import DatabaseManager, Task 
 from .widgets.SensibleReturnWidget import LabelSR
@@ -71,11 +74,10 @@ class MainWindow():
     def setupWindow(self, settings: Settings) -> None:
         if self.os == "linux":
             self.root.attributes('-zoomed', True)
-            self.font = ("Liberation Mono", settings.data["font_size"])
         else:
             #win32
             self.root.state("zoomed")
-            self.font = ("Courier", settings.data["font_size"])
+
         tk.font.nametofont("TkDefaultFont").configure(size=settings.data["font_size"])
         tk.font.nametofont("TkTextFont").configure(size=settings.data["font_size"])
 
@@ -110,7 +112,7 @@ class MainWindow():
         # Calendar
         self.calendar = Calendar(
             self.root,
-            self.font
+            on_click_date=self.filter_to_date
         ).grid(row=0, column=2, pady=4, padx=4, sticky=tk.S+tk.E)
 
         self.messageLabel = LabelSR(
@@ -129,12 +131,13 @@ class MainWindow():
     ######################################################
     # GUI update functions
 
+    # TODO implement a better state-management system so that all necessary widgets are updated when the database is updated
     def refreshTasks(self) -> None:
         #Remember which task was selected
         selected_rowid = self.selection.id if self.selection is not None else None
 
         self.loadedTasks = self.db.get_open_tasks()
-        self.task_list_scroller.showTasks(self.loadedTasks)
+        self.task_list_scroller.set_tasks(self.loadedTasks)
 
         match list(filter(lambda t: t.id == selected_rowid, self.loadedTasks)):
             case []:
@@ -194,3 +197,6 @@ class MainWindow():
             self.task_list_scroller.highlightTask(task)
         else:
             self.notify("Cancelled")
+
+    def filter_to_date(self, date: datetime.date) -> None:
+        self.task_list_scroller.show_by_availability_on_date(date)

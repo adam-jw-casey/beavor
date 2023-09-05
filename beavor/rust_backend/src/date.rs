@@ -20,7 +20,7 @@ use chrono::{
 };
 
 use std::str::FromStr;
-use std::convert::From;
+use std::convert::{From, Into};
 use core::fmt::Display;
 
 use std::cmp::Ordering;
@@ -72,6 +72,7 @@ pub fn work_days_from(d1: NaiveDate, d2: NaiveDate) -> i32{
 #[pyclass]
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Clone, PartialEq)]
+#[derive(Eq)]
 pub enum PyDueDateType{
     NONE,
     Date,
@@ -79,7 +80,7 @@ pub enum PyDueDateType{
 }
 
 #[pyclass]
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct PyDueDate{
     #[pyo3(get, set)]
     date_type: PyDueDateType,
@@ -89,6 +90,14 @@ pub struct PyDueDate{
 
 #[pymethods]
 impl PyDueDate{
+    #[new]
+    fn __new__(date: NaiveDate) -> Self {
+        PyDueDate{
+            date: Some(date),
+            date_type: PyDueDateType::Date,
+        }
+    }
+
     fn __str__(&self) -> String{
         (&DueDate::from(self)).into()
     }
@@ -97,6 +106,7 @@ impl PyDueDate{
         match op{
             CompareOp::Eq => Ok(*self == *other),
             CompareOp::Ne => Ok(*self != *other),
+            CompareOp::Ge => Ok(*self >= *other),
             _ => Err(PyNotImplementedError::new_err(format!("{:#?} is not implemented for PyDueDate", op))),
         }
     }
@@ -104,6 +114,12 @@ impl PyDueDate{
     #[classmethod]
     fn parse(_cls: &PyType, s: String) -> PyResult<Self>{
         Ok(DueDate::try_from(s)?.into())
+    }
+}
+
+impl PartialOrd for PyDueDate{
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        DueDate::from(self).partial_cmp(&DueDate::from(other))
     }
 }
 
@@ -157,8 +173,17 @@ impl From<&PyDueDate> for DueDate{
     fn from(pyvalue: &PyDueDate) -> Self {
         match pyvalue.date_type{
             PyDueDateType::NONE => DueDate::NONE,
-            PyDueDateType::Date => DueDate::Date(pyvalue.date.expect("If PyDueDateType is Date then date will no be None")),
+            PyDueDateType::Date => DueDate::Date(pyvalue.date.expect("If PyDueDateType is Date then date will not be None")),
             PyDueDateType::ASAP => DueDate::ASAP,
+        }
+    }
+}
+
+impl From<NaiveDate> for PyDueDate{
+    fn from(date: NaiveDate) -> Self {
+        PyDueDate{
+            date_type: PyDueDateType::Date,
+            date: Some(date),
         }
     }
 }
