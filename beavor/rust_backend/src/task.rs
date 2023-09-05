@@ -3,19 +3,12 @@ use pyo3::prelude::{
     pymethods,
 };
 
-use chrono::{
-    NaiveDate,
-};
-
-use std::cmp::max;
+use chrono::NaiveDate;
 
 use crate::due_date::{
     DueDate,
     PyDueDate,
 };
-
-use crate::calendar::work_days_from;
-use crate::utils::today_date;
 
 #[derive(Clone)]
 #[pyclass]
