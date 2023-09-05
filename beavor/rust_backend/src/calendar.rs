@@ -38,11 +38,14 @@ fn week_days_from(d1: NaiveDate, d2: NaiveDate) -> u32{
 
 #[pyclass]
 pub struct Calendar{
+    #[pyo3(get)]
     days_off: Vec<NaiveDate>,
+    #[pyo3(get)]
     workloads: HashMap<NaiveDate, u32>,
 }
 
 impl Calendar{
+    /// Counts and returns the number of non-weekend days off between d1 and d2
     fn days_off_from(&self, d1: NaiveDate, d2: NaiveDate) -> u32 {
         self.days_off
             .iter()
@@ -50,48 +53,45 @@ impl Calendar{
             .count().try_into().expect("This should fit in a u32")
     }
 
+    /// Counts and returns the number of working days between d1 and d2
     fn work_days_from(&self, d1: NaiveDate, d2: NaiveDate) -> u32{
-        week_days_from(d1, d2) - self.days_off_from(d1, d2)
+        week_days_from(d1, d2) - self.days_off_from(d1, d2) // NOTE: this will be incorrect if a
+                                                            // weekend day has been marked as a day
+                                                            // off
     }
-}
 
-#[pymethods]
-impl Calendar{
-    fn update_workloads (&self, tasks: Vec<Task>) -> HashMap<NaiveDate, u32>{
+    fn calculate_workloads (&self, tasks: Vec<Task>) -> HashMap<NaiveDate, u32>{
         // Update self.workloads
         todo!();
         self.workloads
     }
 
-    fn update_days_off (&self, days_off: Vec<NaiveDate>){
+    fn is_work_day(&self, date: NaiveDate) -> bool{
+        !self.days_off.contains(&date) && !vec![Weekday::Sun, Weekday::Sat].contains(&date.weekday())
+    }
+}
+
+#[pymethods]
+impl Calendar{
+    #[new]
+    fn __new__() -> Self{
         todo!()
     }
 
-    fn workload_on_day(&self, date: NaiveDate) -> u32{
-        match date.weekday(){
-            Weekday::Sun | Weekday::Sat=> 0,
-            _ => {
-                match self.due_date{
-                    DueDate::NONE => 0,
-                    DueDate::ASAP => {
-                        if (DueDate::Date(today_date()) > self.due_date && date == today_date()) || date == self.next_action_date{
-                            (self.time_needed -  self.time_used).try_into().expect("Value should be nonnegative")
-                        }else{
-                            0
-                        }
-                    },
-                    DueDate::Date(due_date) => {
-                    if date >= self.next_action_date && DueDate::Date(date) <= self.due_date{
-                            TryInto::<u32>::try_into(self.time_needed -  self.time_used).unwrap_or(0) // Remaining time
-                            / // Divided by
-                            TryInto::<u32>::try_into(work_days_from(max(today_date(), self.next_action_date), max(today_date(), due_date))).unwrap_or(1) // Days remaining
-                        }else{
-                            0
-                        }
-                    }
-                }
-            }
-        }
+    fn is_available_on_day(&self, task: Task, date: NaiveDate) -> bool{
+        let before_end: bool = match task.due_date{
+            DueDate::NONE => true,
+            DueDate::Date(raw_due_date) => date <= raw_due_date || date == today_date(),
+            DueDate::ASAP => date == today_date(),
+        };
+
+        let after_beginning: bool = task.next_action_date <= date;
+        
+        before_end && after_beginning && self.is_work_day(date)
+    }
+
+    fn workload_on_day(&self, tasks: Vec<Task>, date: NaiveDate) -> u32{
+        todo!()
     }
 }
 
