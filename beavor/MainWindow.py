@@ -199,5 +199,4 @@ class MainWindow():
             self.notify("Cancelled")
 
     def filter_to_date(self, date: datetime.date) -> None:
-        print(date)
         self.task_list_scroller.show_by_availability_on_date(date)

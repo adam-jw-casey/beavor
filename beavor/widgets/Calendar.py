@@ -70,7 +70,7 @@ class Calendar(tk.LabelFrame, SensibleReturnWidget):
                           text=str(round(hoursThisDay,1)),
                           bg=green_red_scale(0,(8 if thisDate != today else max(0, hoursLeftToday)), hoursThisDay))
                 else:
-                    thisDay["LoadLabel"].config(text="", bg="SystemButtonFace")
+                    thisDay["LoadLabel"].config(text="", bg="gray85")
 
     def getDayTotalLoad(self, date: datetime.date, openTasks: list[Task]) -> float:
         return sum(
