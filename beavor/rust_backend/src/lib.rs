@@ -33,7 +33,8 @@ use utils::{
     parse_date,
 };
 
-mod calendar;
+mod schedule;
+use schedule::Schedule;
 
 #[pymodule]
 fn backend(_py: Python, m: &PyModule) -> PyResult<()> {
@@ -46,5 +47,6 @@ fn backend(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyDueDate>().unwrap();
     m.add_class::<PyDueDateType>().unwrap();
     m.add_class::<DatabaseManager>().unwrap();
+    m.add_class::<Schedule>().unwrap();
     Ok(())
 }
