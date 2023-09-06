@@ -12,7 +12,7 @@ use chrono::{
 use crate::{
     today_date,
     DueDate,
-    Task
+    Task,
 };
 
 use std::collections::HashMap;
@@ -35,14 +35,14 @@ fn num_week_days_from(d1: NaiveDate, d2: NaiveDate) -> u32{
 }
 
 #[pyclass]
-pub struct Calendar{
+pub struct Schedule{
     #[pyo3(get)]
     days_off: Vec<NaiveDate>,
     #[pyo3(get)]
     workloads: HashMap<NaiveDate, u32>,
 }
 
-impl Calendar{
+impl Schedule{
     /// Counts and returns the number of non-weekend days off between d1 and d2
     fn num_days_off_from(&self, d1: NaiveDate, d2: NaiveDate) -> u32 {
         self.days_off
@@ -54,13 +54,37 @@ impl Calendar{
     /// Counts and returns the number of working days between d1 and d2
     /// NOTE: this will be incorrect if a weekend day has been marked as a day off
     fn num_work_days_from(&self, d1: NaiveDate, d2: NaiveDate) -> u32{
-        num_week_days_from(d1, d2) - self.num_days_off_from(d1, d2)
+        num_week_days_from(d1, d2).saturating_sub(self.num_days_off_from(d1, d2))
+    }
+
+    /// Calculates and returns the number of minutes per day you would have to work on the task to
+    /// complete it between the day it is available and the day it is due
+    fn workload_per_day(&self, task: &Task) -> Option<u32>{
+        Some(task.time_remaining() / self.num_days_to_work_on(task)?)
+    }
+
+    fn num_days_to_work_on(&self, task: &Task) -> Option<u32>{
+        Some(
+            self.num_work_days_from(
+                task.first_available_date(),
+                task.last_available_date()?
+            )
+        )
     }
 
     /// Calculates and records the number of minutes that need to be worked each day
     fn calculate_workloads (&mut self, tasks: Vec<Task>){
         // Update self.workloads
-        todo!()
+        for task in tasks{
+            if let Some(workload_per_day) = self.workload_per_day(&task){
+                for day in task{
+                    self.workloads
+                        .entry(day)
+                        .and_modify(|workload| *workload += workload_per_day)
+                        .or_insert(workload_per_day);
+                }
+            }else{continue};
+        }
     }
 
     /// Returns a boolean representing whether a given date is a work day
@@ -70,10 +94,10 @@ impl Calendar{
 }
 
 #[pymethods]
-impl Calendar{
+impl Schedule{
     #[new]
     fn __new__(days_off: Vec<NaiveDate>, tasks: Vec<Task>) -> Self{
-        let mut calendar = Calendar{
+        let mut calendar = Schedule{
             days_off,
             workloads: HashMap::<NaiveDate, u32>::new(),
         };
