@@ -31,7 +31,8 @@ use crate::{
     ParseDateError,
     parse_date,
     today_date,
-    DueDate
+    DueDate,
+    Schedule,
 };
 
 use chrono::{
@@ -444,5 +445,12 @@ impl DatabaseManager{
         days_off.append(&mut self.get_vacation_days());
 
         days_off
+    }
+
+    fn get_schedule(&self) -> Schedule{
+        Schedule::new(
+            self.get_days_off(),
+            self.get_open_tasks(),
+        )
     }
 }

@@ -3,7 +3,7 @@ import tkinter.font
 import datetime
 
 from .SensibleReturnWidget import SensibleReturnWidget, LabelSR
-from ..backend import green_red_scale, today_date, Task
+from ..backend import green_red_scale, today_date, Task, Schedule
 from typing import Any, Callable
 
 # todo put the next action / due date at a specific time?
@@ -12,9 +12,10 @@ from typing import Any, Callable
 
 # Set up the calendar display to show estimated workload each day for a several week forecast
 class Calendar(tk.LabelFrame, SensibleReturnWidget):
-    def __init__(self, parentFrame, on_click_date: Callable[[datetime.date], None]=lambda _: None, numweeks=4):
+    def __init__(self, parentFrame, schedule: Schedule, on_click_date: Callable[[datetime.date], None]=lambda _: None, numweeks=4):
         super().__init__(parentFrame, text="Calendar", padx=4, pady=4)
 
+        self.schedule: Schedule = schedule
         self.numweeks = numweeks
 
         #Build the calendar out of labels
@@ -48,6 +49,8 @@ class Calendar(tk.LabelFrame, SensibleReturnWidget):
 
     # todo this function isn't great but it seems to work
     def updateCalendar(self, openTasks: list[Task]) -> None:
+        self.schedule.calculate_workloads(openTasks)
+
         today = today_date()
         thisMonday = today - datetime.timedelta(days=today.weekday())
         hoursLeftToday = max(0, min(7, 16 - (datetime.datetime.now().hour + datetime.datetime.now().minute/60)))
@@ -64,16 +67,10 @@ class Calendar(tk.LabelFrame, SensibleReturnWidget):
                     thisDay["DateLabel"].config(bg="gray85")
 
                 if thisDate >= today:
-                    hoursThisDay = self.getDayTotalLoad(thisDate, openTasks) / 60
+                    hoursThisDay = self.schedule.workload_on_day(thisDate) / 60
                     thisDay["LoadLabel"]\
                       .config(
                           text=str(round(hoursThisDay,1)),
                           bg=green_red_scale(0,(8 if thisDate != today else max(0, hoursLeftToday)), hoursThisDay))
                 else:
                     thisDay["LoadLabel"].config(text="", bg="gray85")
-
-    def getDayTotalLoad(self, date: datetime.date, openTasks: list[Task]) -> float:
-        return sum(
-            task.workload_on_day(date)
-            for task in openTasks
-        )
