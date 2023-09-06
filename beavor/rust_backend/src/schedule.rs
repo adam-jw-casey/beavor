@@ -104,10 +104,8 @@ impl Schedule{
 
     /// Calculates and records the number of minutes that need to be worked each day
     fn calculate_workloads (&mut self, tasks: Vec<Task>){
-        // Update self.workloads
-        let mut workloads = HashMap::<NaiveDate, u32>::new(); // Cannot be done on self.workloads
-                                                              // in-place due to borrow rules with
-                                                              // the filter in the for-loop below
+        // Cannot be done on self.workloads in-place due to borrow rules with the filter in the for-loop below
+        let mut workloads = HashMap::<NaiveDate, u32>::new();
 
         for task in tasks{
             if let Some(workload_per_day) = self.workload_per_day(&task){
