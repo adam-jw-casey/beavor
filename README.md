@@ -1,6 +1,6 @@
 # beavor
 
-![logo](./.resources/beavor.png)
+<img src="./.resources/beavor.png" alt="logo" width=48 align="center"/>
 
 ## Compilation
 
