@@ -270,6 +270,8 @@ class EditingPane(tk.Frame):
                   case None:
                       return False
 
+      self.deleteButton.config(state="normal" if task is not None else "disabled")
+
       self.selection = task
       task = task or Task.default()
 
@@ -406,7 +408,7 @@ class Calendar(tk.LabelFrame):
         else:
           thisDay["LoadLabel"].config(text="", bg="#d9d9d9")
 
-  # TODO this whole area needs rewriting
+  # TODO this is just a stub so the calendar doesn't crash
   def getDayTotalLoad(self, date: datetime.date) -> float:
       # this is just a placeholder to get it running
       return 15.0
@@ -616,18 +618,12 @@ class WorklistWindow():
     # Task functions
 
     #Deletes the task selected in the listbox from the database
-    def deleteTask(self, task: Optional[Task]) -> None:
-      if task is None:
-        # TODO would be better to disable the delete button when None is selected
-        self.notify("Cannot delete - none selected")
-        return
-
+    def deleteTask(self, task: Task) -> None:
       if(tk.messagebox.askyesno(
           title="Confirm deletion",
           message=f"Are you sure you want to delete '{task.task_name}'?")):
         self.db.deleteTask(task)
         self.notify(f"Deleted '{task.task_name}'")
-
 
         self.newTask()
         self.refreshAll()
