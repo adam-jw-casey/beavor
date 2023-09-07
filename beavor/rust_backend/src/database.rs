@@ -6,6 +6,12 @@ use pyo3::prelude::{
     pyclass,
     pymethods,
     PyResult,
+    PyErr
+};
+
+use pyo3::exceptions::{
+    PyTypeError,
+    PyConnectionError
 };
 
 use pyo3::types::PyType;
@@ -25,7 +31,19 @@ use crate::{
     ParseDateError,
     parse_date,
     today_date,
-    DueDate
+    DueDate,
+    Schedule,
+};
+
+use chrono::{
+    NaiveDate,
+    Datelike,
+    Local
+};
+
+use serde::{
+    Serialize,
+    Deserialize,
 };
 
 impl TryFrom<SqliteRow> for Task{
@@ -36,9 +54,9 @@ impl TryFrom<SqliteRow> for Task{
             category:                     row.get::<String, &str>("Category"),
             finished:                     row.get::<String, &str>("O"),
             task_name:                    row.get::<String, &str>("Task"),
-            _time_budgeted:               row.get::<i32,    &str>("Budget"),
-            time_needed:                  row.get::<i32,    &str>("Time"),
-            time_used:                    row.get::<i32,    &str>("Used"),
+            _time_budgeted:               row.get::<u32,    &str>("Budget"),
+            time_needed:                  row.get::<u32,    &str>("Time"),
+            time_used:                    row.get::<u32,    &str>("Used"),
             next_action_date: parse_date(&row.get::<String, &str>("NextAction"))?,
             due_date:                     row.get::<String, &str>("DueDate").try_into()?,
             notes:                        row.get::<String, &str>("Notes"),
@@ -48,6 +66,24 @@ impl TryFrom<SqliteRow> for Task{
     }
 }
 
+#[derive(PartialEq)]
+#[derive(Serialize, Deserialize)]
+struct Province{
+    id: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct Holidays{
+    holidays: Vec<Holiday>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[allow(non_snake_case)]
+struct Holiday{
+    provinces: Vec<Province>,
+    observedDate: String
+}
+
 #[pyclass]
 pub struct DatabaseManager{
     pool: SqlitePool,
@@ -55,6 +91,7 @@ pub struct DatabaseManager{
 }
 
 // TODO should make all these pass the asyncness through to Python to deal with
+#[allow(non_snake_case)]
 #[pymethods]
 impl DatabaseManager{
     #[new]
@@ -88,8 +125,6 @@ impl DatabaseManager{
     }
 
     fn create_task(&self, task: Task) -> Task{
-        let mut new_task = self.default_task();
-
         // These must be stored so that they are not dropped in-between
         // the calls to query! and .execute
         let due_date_str = task.due_date.to_string();
@@ -143,7 +178,7 @@ impl DatabaseManager{
 
             // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
             // return type of query! to write an impl From<T> for Task
-            new_task = sqlx::query("
+            sqlx::query("
                 SELECT *, rowid
                 FROM worklist
                 WHERE rowid == ?
@@ -153,10 +188,8 @@ impl DatabaseManager{
                 .await
                 .expect("Should have inserted and retrieved a task")
                 .try_into()
-                .expect("Database should contain valid Tasks only");
-        });
-
-        new_task
+                .expect("Database should contain valid Tasks only")
+        })
     }
 
     fn update_task(&self, task: Task){
@@ -212,12 +245,10 @@ impl DatabaseManager{
     }
 
     fn get_open_tasks(&self) -> Vec<Task>{
-        let mut tasks: Vec<Task> = Vec::new();
-
-        self.rt.block_on(async{
+        let mut tasks: Vec<Task> = self.rt.block_on(async{
             // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
             // return type of query! to write an impl From<T> for Task
-            tasks = sqlx::query("
+            sqlx::query("
                 SELECT *, rowid
                 FROM worklist
                 WHERE O == 'O'
@@ -238,10 +269,8 @@ impl DatabaseManager{
     }
 
     fn get_categories(&self) -> Vec<String>{
-        let mut categories: Vec<String> = Vec::new();
-
         self.rt.block_on(async{
-            categories = sqlx::query!("
+            sqlx::query!("
                 SELECT DISTINCT Category
                 FROM worklist
                 ORDER BY Category
@@ -252,13 +281,10 @@ impl DatabaseManager{
                 .into_iter()
                 .map(|r| r.Category.expect("Each category should be a string"))
                 .collect()
-
-        });
-
-        categories
+        })
     }
 
-    fn default_task(&self) -> Task{
+    fn default_task(&self) -> Task{ // TODO why isn't this a default() method on Task itself?
         Task{
             category:         "Work".into(),
             finished:         "O".into(),
@@ -272,5 +298,159 @@ impl DatabaseManager{
             id:               None,
             date_added:       today_date(),
         }
+    }
+
+    fn try_update_holidays(&self) -> PyResult<()>{
+        // If database already has holidays from the current year, exit
+        if self.get_holidays()
+                .iter()
+                .filter(|h| h.year() == Local::now().year())
+                .peekable()
+                .peek()
+                .is_some()
+        {
+            return Ok(())
+        }
+
+
+        // If database doesn't have the holidays for this year, get them
+        // and store them in the database
+        let response: String = self.rt.block_on(async{
+            reqwest::get("https://canada-holidays.ca/api/v1/holidays")
+                .await?
+                .text()
+                .await
+        }).map_err(|e: reqwest::Error| PyErr::new::<PyConnectionError, _>(e.to_string()))?;
+
+        let holiday_dates: Vec<NaiveDate> = serde_json::from_str::<Holidays>(&response)
+            .map_err(|e| PyErr::new::<PyTypeError, _>(e.to_string()))?
+            .holidays
+            .iter()
+            .filter(|h| h.provinces.contains(&Province{id: "BC".to_string()}))
+            .map(|h| h.observedDate.parse::<NaiveDate>())
+            .collect::<Result<Vec<NaiveDate>, _>>()
+            .map_err(|e| PyErr::new::<PyTypeError, _>(e.to_string()))?;
+
+        self.rt.block_on(async{
+            for d in holiday_dates{
+                let date_string = d.to_string();
+
+                sqlx::query!("
+                    INSERT INTO days_off
+                        (
+                            Day,
+                            Reason
+                        )
+                    VALUES
+                        (
+                            ?,
+                            'stat_holiday'
+                        )
+                    ",
+                    date_string
+                )
+                    .execute(&self.pool)
+                    .await
+                    .expect("Should be able to add the stat holiday");
+            }
+        });
+
+        Ok(())
+    }
+
+    fn add_vacation_day(&self, date: NaiveDate){
+        let date_string = date.to_string();
+        self.rt.block_on(async{
+            sqlx::query!("
+                INSERT INTO days_off
+                    (
+                        Day,
+                        Reason
+                    )
+                VALUES
+                    (
+                        ?,
+                        'vacation'
+                    )
+                ",
+                date_string
+            )
+                .execute(&self.pool)
+                .await
+                .expect("Should be able to add vacation day");
+        });
+    }
+
+    fn delete_vacation_day(&self, date: NaiveDate){
+        let date_string = date.to_string();
+
+        self.rt.block_on(async{
+            sqlx::query!("
+                DELETE
+                FROM days_off
+                WHERE Day == ?
+            ",
+                date_string
+            )
+                .execute(&self.pool)
+                .await
+                .expect("Should be able do delete task");
+        });
+    }
+
+    fn get_vacation_days(&self) -> Vec<NaiveDate>{
+        self.rt.block_on(async{
+            sqlx::query!("
+                SELECT Day
+                FROM days_off
+                WHERE Reason == 'vacation'
+                ORDER BY Day
+            ")
+                .fetch_all(&self.pool)
+                .await
+                .expect("Should be able to get vacation days")
+                .into_iter()
+                .map(|record|
+                     record.Day.expect("Day is a field in days_off")
+                     .parse::<NaiveDate>().expect("days_off should contain valid dates")
+                )
+                .collect()
+        })
+    }
+
+    fn get_holidays(&self) -> Vec<NaiveDate>{
+        self.rt.block_on(async{
+            sqlx::query!("
+                SELECT Day
+                FROM days_off
+                WHERE Reason == 'stat_holiday'
+                ORDER BY Day
+            ")
+                .fetch_all(&self.pool)
+                .await
+                .expect("Should be able to get stat holidays")
+                .into_iter()
+                .map(|record|
+                     record.Day.expect("Day is a field in days_off")
+                     .parse::<NaiveDate>().expect("days_off should contain valid dates")
+                )
+                .collect()
+        })
+    }
+
+    fn get_days_off(&self) -> Vec<NaiveDate> {
+        let mut days_off = Vec::new();
+
+        days_off.append(&mut self.get_holidays());
+        days_off.append(&mut self.get_vacation_days());
+
+        days_off
+    }
+
+    fn get_schedule(&self) -> Schedule{
+        Schedule::new(
+            self.get_days_off(),
+            self.get_open_tasks(),
+        )
     }
 }

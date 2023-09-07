@@ -1,5 +1,4 @@
 use pyo3::prelude::{
-    pyfunction,
     pyclass,
     pymethods,
     PyResult,
@@ -12,12 +11,7 @@ use pyo3::exceptions::{
 };
 use pyo3::basic::CompareOp;
 
-use chrono::{
-    Local,
-    Datelike, // This isn't explicitly used, but gives access to certain trait methods on NaiveDate
-    Weekday,
-    NaiveDate,
-};
+use chrono::NaiveDate;
 
 use std::str::FromStr;
 use std::convert::{From, Into};
@@ -25,49 +19,10 @@ use core::fmt::Display;
 
 use std::cmp::Ordering;
 
-#[pyfunction]
-pub fn format_date(date: NaiveDate) -> String{
-    format_date_borrowed(&date)
-}
-
-pub fn format_date_borrowed(date: &NaiveDate) -> String{
-    date.format("%F").to_string()
-}
-
-#[pyfunction]
-pub fn parse_date(date_string: &str) -> Result<NaiveDate, ParseDateError>{
-    match NaiveDate::parse_from_str(date_string, "%F"){
-        Ok(nd) => Ok(nd),
-        _ => Err(ParseDateError)
-    }
-}
-
-#[pyfunction]
-pub fn today_str() -> String{
-    format_date(today_date())
-}
-
-#[pyfunction]
-pub fn today_date() -> NaiveDate{
-    Local::now().naive_local().date()
-}
-
-pub fn work_days_from(d1: NaiveDate, d2: NaiveDate) -> i32{
-    let weeks_between = (d2-d1).num_weeks() as i32;
-
-    let marginal_workdays: u32 = match d2.weekday(){
-        Weekday::Sat | Weekday::Sun => match d1.weekday(){
-            Weekday::Sat | Weekday::Sun => 0,
-            weekday1 => Weekday::Fri.number_from_monday() - weekday1.number_from_monday() + 1,
-        },
-        weekday2 => match d1.weekday(){
-            Weekday::Sat | Weekday::Sun => weekday2.number_from_monday() - Weekday::Mon.number_from_monday(),
-            weekday1 => (weekday2.number_from_monday() as i32 - weekday1.number_from_monday() as i32).rem_euclid(5) as u32 + 1,
-        },
-    };
-
-    weeks_between * 5 + marginal_workdays as i32
-}
+use crate::utils::{
+    format_date_borrowed,
+    parse_date,
+};
 
 #[pyclass]
 #[allow(clippy::upper_case_acronyms)]
@@ -255,48 +210,5 @@ mod tests{
         assert!(DueDate::Date(NaiveDate::from_ymd(1971,01,01)) == DueDate::Date(NaiveDate::from_ymd(1971,01,01)));
         assert!(DueDate::Date(NaiveDate::from_ymd(1971,01,01)) < DueDate::Date(NaiveDate::from_ymd(1971,01,02)));
         assert!(DueDate::Date(NaiveDate::from_ymd(1971,01,01)) > DueDate::Date(NaiveDate::from_ymd(1970,12,31)));
-    }
-
-    #[test]
-    fn test_work_days_from() {
-        assert_eq!(
-            work_days_from(
-                NaiveDate::from_ymd(2023, 08, 21),
-                NaiveDate::from_ymd(2023, 08, 25)
-            ),
-            5 // This is a simple workweek
-        );
-
-        assert_eq!(
-            work_days_from(
-                NaiveDate::from_ymd(2023, 08, 11),
-                NaiveDate::from_ymd(2023, 08, 14)
-            ),
-            2 // Friday to Monday
-        );
-
-        assert_eq!(
-            work_days_from(
-                NaiveDate::from_ymd(2023, 08, 1),
-                NaiveDate::from_ymd(2023, 08, 23)
-            ),
-        17 // Multiple weeks, starting day of week is earlier
-        );
-
-        assert_eq!(
-            work_days_from(
-                NaiveDate::from_ymd(2023, 08, 4),
-                NaiveDate::from_ymd(2023, 08, 23)
-            ),
-            14 // Multiple weeks, starting day of week is later
-        );
-
-        assert_eq!(
-            work_days_from(
-                NaiveDate::from_ymd(2023, 08, 19),
-                NaiveDate::from_ymd(2023, 08, 27)
-            ),
-            5 // Start and end on a weekend
-        );
     }
 }

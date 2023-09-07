@@ -10,7 +10,7 @@ from typing import List, Optional
 import json
 import datetime
 
-from .backend import DatabaseManager, Task 
+from .backend import DatabaseManager, Task, Schedule
 from .widgets.SensibleReturnWidget import LabelSR
 from .widgets.Calendar import Calendar
 from .widgets.TaskScroller import TaskScroller
@@ -112,6 +112,7 @@ class MainWindow():
         # Calendar
         self.calendar = Calendar(
             self.root,
+            self.db.get_schedule(),
             on_click_date=self.filter_to_date
         ).grid(row=0, column=2, pady=4, padx=4, sticky=tk.S+tk.E)
 
