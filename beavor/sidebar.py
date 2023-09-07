@@ -8,7 +8,7 @@ from .backend import Category, Project
 from .widgets import ContextMenuSpawner, EditableLabel
 
 class CategoryScroller(ScrollFrame):
-    def __init__(self, parent, onRowClick, create_category, rename_category):
+    def __init__(self, parent, onRowClick, create_category, rename_category, delete_category):
         def context_menu_builder() -> tk.Menu:
             ctx = tk.Menu(self, tearoff=0)
             ctx.add_command(label="New category", command=create_category)
@@ -17,11 +17,11 @@ class CategoryScroller(ScrollFrame):
 
         super().__init__(parent, "Projects")
         self.categoryRows: list[CategoryRow] = []
-        self.onRowClick = onRowClick
-
         self.ctx = ContextMenuSpawner([self, self.canvas], context_menu_builder)
 
+        self.onRowClick = onRowClick
         self.rename_category = rename_category
+        self.delete_category = delete_category
 
     def showCategories(self, categories: List[Category]):
 
@@ -29,12 +29,18 @@ class CategoryScroller(ScrollFrame):
             self.categoryRows.pop().destroy()
             
         for category in categories:
-            categoryRow = CategoryRow(self.viewPort, category, lambda c=category.name: self.onRowClick(c), lambda new_name, cat=category: self.rename_category(cat, new_name))
+            categoryRow = CategoryRow(
+                self.viewPort,
+                category,
+                lambda c=category.name: self.onRowClick(c),
+                lambda new_name, cat=category: self.rename_category(cat, new_name),
+                lambda c=category: self.delete_category(c)
+            )
             categoryRow.grid(sticky=tk.W + tk.E)
             self.categoryRows.append(categoryRow)
 
 class CategoryRow(tk.Frame):
-    def __init__(self, parent: tk.Frame, category: Category, select_project, update_category_name):
+    def __init__(self, parent: tk.Frame, category: Category, select_project, update_category_name, delete_category):
         def on_project_click(proj: Project):
             select_project(proj)
             self.unhighlight_all()
@@ -49,6 +55,12 @@ class CategoryRow(tk.Frame):
             else:
                 return "Click to show projects"
 
+        def context_menu_builder() -> tk.Menu:
+            ctx = tk.Menu(self, tearoff=0)
+            ctx.add_command(label="Delete Category", command=delete_category)
+
+            return ctx
+
         super().__init__(parent)
         self.grid_columnconfigure(1, weight=1)
 
@@ -62,6 +74,7 @@ class CategoryRow(tk.Frame):
 
         self.nameLabel = EditableLabel(self, text=self.category_name, edit_text=update_category_name)
         self.nameLabel.grid(row=0, column=1, sticky=tk.W+tk.E)
+        self.ctx = ContextMenuSpawner([self.nameLabel], context_menu_builder)
 
         self.expanded = False
 
