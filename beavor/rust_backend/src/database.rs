@@ -248,7 +248,35 @@ impl DatabaseManager{
     }
 
     fn create_category(&self, name: String) -> Category{
-        todo!();
+        self.rt.block_on(async{
+            let new_rowid: i64 = sqlx::query!("
+                INSERT INTO categories
+                    (Name)
+                VALUES
+                    (?)
+            ",
+                name,
+            )
+                .execute(&self.pool)
+                .await
+                .expect("Should be able to insert category into database")
+                .last_insert_rowid();
+
+            let cat_struct = sqlx::query!("
+                SELECT *
+                FROM Categories
+                WHERE CategoryID == ?
+            ", new_rowid)
+                .fetch_one(&self.pool)
+                .await
+                .expect("Should have inserted and retrieved a category");
+
+            Category{
+                name: cat_struct.Name,
+                projects: Vec::new(),
+                id: Some(cat_struct.CategoryID),
+            }
+        })
     }
 
     fn delete_category(&self, category: Category){
