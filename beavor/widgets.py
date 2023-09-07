@@ -97,7 +97,7 @@ class CategoryRow(tk.Frame):
         super().__init__(parent)
 
         self.category_name = category.name
-        self.nameLabel = tk.Label(self, text='▸ '+ self.category_name)
+        self.nameLabel = tk.Label(self, text=('▸ ' if len(category.projects) > 0 else '   ') + self.category_name)
         self.nameLabel.grid(sticky=tk.W)
         self.nameLabel.bind("<1>", lambda _: self.on_click())
 
@@ -107,9 +107,8 @@ class CategoryRow(tk.Frame):
         for (i, proj) in enumerate(category.projects):
             pr = ProjectRow(self, proj, on_project_click)
             pr.grid(row=i+1, sticky=tk.W)
+            pr.grid_forget()
             self.project_rows.append(pr)
-
-        self.collapse()
 
     def expand(self):
         self.nameLabel.configure(text= '▾ ' + self.category_name)
@@ -126,6 +125,9 @@ class CategoryRow(tk.Frame):
         self.expanded = False
 
     def on_click(self):
+        if len(self.project_rows) == 0:
+            return
+
         if self.expanded:
             self.collapse()
         else:
@@ -135,14 +137,14 @@ class CategoryRow(tk.Frame):
         for pr in self.project_rows:
             pr.unhighlight()
 
-class ProjectRow(tk.LabelFrame):
+class ProjectRow(tk.Frame):
     def __init__(self, parent: tk.Frame, project: Project, callback):
         super().__init__(parent)
 
         self.project = project
 
         self.nameLabel = tk.Label(self, text=project.name)
-        self.nameLabel.pack(fill='x', side=tk.LEFT)
+        self.nameLabel.pack()
         self.nameLabel.bind("<1>", lambda _: callback(self.project))
 
         self.visible = [self, self.nameLabel]
