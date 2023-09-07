@@ -32,6 +32,6 @@ class WorklistWindow():
         self.sidebar.grid_rowconfigure(0, weight=1)
         self.sidebar.grid(row=0, column=0, sticky = tk.N+tk.S)
 
-        self.category_scroller = CategoryScroller(self.sidebar, lambda: print("clicked"))
+        self.category_scroller = CategoryScroller(self.sidebar, lambda s: print(s))
         self.category_scroller.grid(row=0, column=0, sticky = tk.N + tk.S)
         self.category_scroller.showCategories(self.db.get_all())
