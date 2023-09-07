@@ -128,35 +128,31 @@ class CompletingComboBox(ttk.Combobox):
 
         self.config(values=getOptions())
 
-    # TODO this function could likely be rewritten much more elegantly with e.g. filter
-    #      perhaps emulate bash completion where it suggests up to the next ambiguous character
     def _completeBox(self, event: tk.Event, getSourceList) -> None:
+
       #Don't run when deleting, or when shift is released
-      if event.keysym not in ["BackSpace", "Shift_L", "Shift_R"]:
-        cursorPos:int = self.index(tk.INSERT)
-        current: str = self.get()[0:cursorPos]
-        #Don't run if self is empty, or cursor is not at the end
-        if current and cursorPos == len(self.get()):
-          options = []
-          for item in getSourceList():
-            #If any categories begin with the current string up to the cursor
-            if item.find(current) == 0:
-              options.append(item)
+      if event.keysym in ["BackSpace", "Shift_L", "Shift_R"]:
+          return
 
-          if options:
-            i = len(current)
-            try:
-              #Finds index of last character in common
-              while len(set([option[i] for option in options])) == 1:
-                i+=1
-            except IndexError:
-              # TODO wtf
-              #Iterating out the end of one of the options
-              pass
+      cursorPos: int = self.index(tk.INSERT)
+      current: str = self.get()[:]
 
-            #only if found text longer than current in common
+      #Don't run if self is empty, or cursor is not at the end
+      if current and cursorPos == len(self.get()):
+        # Find all options beginning with the current string
+        options: List[str] = list(filter(lambda s: s.find(current) == 0, getSourceList()))
+
+        if options:
+            # Find longest shared leading (from cursor) substring among matching options
+            i: int = len(current)-1
+            while i < min([len(o) for o in options]):
+                if len(set([option[i] for option in options])) != 1:
+                    break
+                i += 1
+
+            # If found a match
             if i > len(current):
-              self.insert(tk.END, options[0][cursorPos:i])
+              self.insert(tk.END, options[0][cursorPos:i+1])
 
             self.select_range(cursorPos, tk.END)
             self.icursor(tk.END)
