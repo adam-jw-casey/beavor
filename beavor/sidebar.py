@@ -87,9 +87,23 @@ class ProjectRow(tk.Label):
 
         super().__init__(parent, text="-- " + project.name, anchor=tk.W)
         self.bind("<1>", lambda _: callback(self.project))
+        self.bind("<Enter>", lambda _: self.on_mouseover())
+        self.bind("<Leave>", lambda _: self.on_mouseleave())
+
+        self.highlighted = False
 
     def highlight(self) -> None:
         self.config(bg="lightblue")
+        self.highlighted = True
 
     def unhighlight(self) -> None:
         self.config(bg="white")
+        self.highlighted = False
+
+    def on_mouseover(self):
+        if not self.highlighted:
+            self.config(bg="lightgrey")
+
+    def on_mouseleave(self):
+        if not self.highlighted:
+            self.unhighlight()
