@@ -133,6 +133,9 @@ class DateEntry(tk.Entry):
     box.insert(0, convertedDate)
 
 class WorklistWindow():
+
+  SEARCH_CRITERIA = ["O == 'O'","NextAction <= '{}'".format(todayStr())]
+
   def __init__(self, databasePath: str):
     self.os = sys.platform
 
@@ -191,7 +194,7 @@ class WorklistWindow():
     self.timer = Timer(self.entryButtonFrame, self.font, self.getSelectedTask, self.save, lambda time: self.overwriteEntryBox(self.entryBoxes["Used"], time))
     self.timer.grid(row=0, column=1, padx=(self.padscale * 0, self.padscale * 30))
 
-    self.loadTasks()
+    self.loadTasks([f"O != 'X'", "NextAction <= '{todayStr()}'"])
 
     recordLabel = tk.Label(self.taskDisplayFrame, text="")
     self.scroller = TaskScroller(self.taskDisplayFrame, self.selectTask, recordLabel)
@@ -317,7 +320,7 @@ class WorklistWindow():
     if self.selection != None:
       self.selected_rowid = self.selection["rowid"]
 
-    self.loadTasks([f"O != 'X'", "NextAction <= '{todayStr()}'"])
+    self.loadTasks(self.SEARCH_CRITERIA)
     self.scroller.showTasks(self.loadedTasks)
 
     if self.selection != None:
@@ -702,7 +705,7 @@ class WorklistWindow():
     #backup task list
     oldTasks = self.loadedTasks
 
-    self.loadTasks(["O == 'O'","NextAction <= '{}'".format(todayStr())])
+    self.loadTasks(self.SEARCH_CRITERIA)
 
     #Don't commit until the end - saves a few seconds each time
     for task in self.loadedTasks:
