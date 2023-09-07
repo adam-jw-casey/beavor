@@ -74,7 +74,7 @@ class Timer(tk.Frame):
 
     def setTime(self, time: datetime.timedelta):
         self.timerVal = time
-        self.timeLabel.config(text=str(time))
+        self.timeLabel.config(text=str(time).split('.',2)[0])
 
     def _keep_displayed_time_updated(self):
         if self.timing:
