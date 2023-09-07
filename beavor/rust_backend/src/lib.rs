@@ -11,6 +11,7 @@ use pyo3::types::PyType;
 use pyo3::{
     wrap_pyfunction,
     PyErr,
+    IntoPy,
 };
 use pyo3::exceptions::PyValueError;
 
@@ -73,7 +74,25 @@ fn today_date() -> NaiveDate{
     Local::now().naive_local().date()
 }
 
-#[derive(Clone)]
+fn work_days_between(d1: NaiveDate, d2: NaiveDate) -> i32{
+    todo!();
+}
+
+#[pyclass]
+#[allow(clippy::upper_case_acronyms)]
+enum PyDueDateType{
+    None,
+    Date,
+    ASAP,
+}
+
+#[pyclass]
+struct PyDueDate{
+    date_type: PyDueDateType,
+    date: Option<NaiveDate>,
+}
+
+#[derive(Clone, Copy)]
 #[allow(clippy::upper_case_acronyms)]
 enum DueDate{
     None,
@@ -81,8 +100,14 @@ enum DueDate{
     ASAP,
 }
 
-fn work_days_between(d1: NaiveDate, d2: NaiveDate) -> i32{
-    todo!();
+impl From<DueDate> for PyDueDate{
+    fn from(rust_due_date: DueDate) -> Self {
+        match rust_due_date{
+            DueDate::None => PyDueDate{date_type: PyDueDateType::None, date: None},
+            DueDate::Date(date) => PyDueDate{date_type: PyDueDateType::Date, date: Some(date)},
+            DueDate::ASAP => PyDueDate{date_type: PyDueDateType::ASAP, date: None},
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -124,20 +149,38 @@ impl ToString for DueDate{
     }
 }
 
-#[pyclass]
 #[derive(Clone)]
+#[pyclass]
 struct Task{
+    #[pyo3(get, set)]
     category:         String,
+    #[pyo3(get, set)]
     finished:         String,
+    #[pyo3(get, set)]
     task_name:        String,
+    #[pyo3(get)]
     _time_budgeted:   i32,
+    #[pyo3(get, set)]
     time_needed:      i32,
+    #[pyo3(get, set)]
     time_used:        i32,
+    #[pyo3(get, set)]
     next_action_date: NaiveDate,
+    #[pyo3(get, set)]
     notes:            String,
+    #[pyo3(get, set)]
     date_added:       NaiveDate,
+    #[pyo3(get)]
     id:               Option<i32>,
     due_date:         DueDate,
+}
+
+#[pymethods]
+impl Task{
+    #[getter]
+    fn get_due_date(&self) -> PyDueDate{
+        self.due_date.into()
+    }
 }
 
 impl TryFrom<SqliteRow> for Task{

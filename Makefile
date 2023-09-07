@@ -1,8 +1,8 @@
-beavor/backend.so: beavor/rust_backend/target/release/libbackend.so
-	cp beavor/rust_backend/target/release/libbackend.so beavor/backend.so
+beavor/backend.so: beavor/rust_backend/target/debug/libbackend.so
+	cp beavor/rust_backend/target/debug/libbackend.so beavor/backend.so
 
-beavor/rust_backend/target/release/libbackend.so: beavor/rust_backend/Cargo.toml beavor/rust_backend/src/*
-	cd beavor/rust_backend/; cargo build --release
+beavor/rust_backend/target/debug/libbackend.so: beavor/rust_backend/Cargo.toml beavor/rust_backend/src/*
+	cd beavor/rust_backend/; cargo build
 
 clean:
 	@rm __pycache__ -rf
