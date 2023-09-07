@@ -8,8 +8,7 @@ import sys
 import platform
 from typing import List, Any, Optional
 
-from beavor.utils import YMDstr2date, date2YMDstr, todayDate
-from beavor.backend import green_red_scale, DatabaseManager, Task
+from beavor.backend import green_red_scale, DatabaseManager, Task, PyDueDate, today_date, format_date, parse_date
 
 ###########################################
 #Readability / coding style / maintainability
@@ -98,18 +97,18 @@ class DateEntry(tk.Entry):
     convertedDate = ""
 
     try:
-      YMDstr2date(dateStr)
+      parse_date(dateStr)
       convertedDate = dateStr
     except ValueError:
       try:
         #eg. Jan 1, 21
-        convertedDate = date2YMDstr(datetime.datetime.strptime(dateStr, "%b %d, %y"))
+        convertedDate = format_date(datetime.datetime.strptime(dateStr, "%b %d, %y"))
       except ValueError:
         #Date string doesn't match
         try:
           #Try to add the current year
           #eg. Jan 1
-          convertedDate = date2YMDstr(datetime.datetime.strptime(dateStr, "%b %d").replace(year = todayDate().year))
+          convertedDate = format_date(datetime.datetime.strptime(dateStr, "%b %d").replace(year = today_date().year))
         except ValueError:
           #Date really doesn't match
           self.notify("Can't match date format of {}".format(dateStr))
@@ -158,7 +157,7 @@ class CompletingComboBox(ttk.Combobox):
             self.icursor(tk.END)
 
 class EditingPane(tk.Frame):
-    def __init__(self, parent, getSelectedTask, save, notify, get_categories, newTask, deleteTask, defaultTask):
+    def __init__(self, parent, getSelectedTask, save, notify, get_categories, newTask, deleteTask, getDefaultTask):
         def canBeInt(d, i, P, s, S, v, V, W) ->  bool:
             try:
                 int(S)
@@ -174,7 +173,7 @@ class EditingPane(tk.Frame):
 
         self.selection: Optional[Task] = None
 
-        self.defaultTask = defaultTask
+        self.getDefaultTask = getDefaultTask
 
         int_validation = (self.register(canBeInt),
                 '%d', '%i', '%P', '%s', '%S', '%v', '%V', '%W')
@@ -266,7 +265,7 @@ class EditingPane(tk.Frame):
       self.deleteButton.config(state="normal" if task is not None else "disabled")
 
       self.selection = task
-      task = task or self.defaultTask
+      task = task or self.getDefaultTask()
       assert(task is not None) # Just to make the linter happy, this is unnecessary because of the line above
 
       self._overwriteEntryBox(self.categoryBox,     task.category)
@@ -285,20 +284,19 @@ class EditingPane(tk.Frame):
     def _createTaskFromInputs(self) -> Task:
         self.timer.stop()
 
-        task: Task             = self.defaultTask
+        task: Task             = self.selection or self.getDefaultTask()
 
         try:
             task.category          = self.categoryBox.get()
             task.task_name         = self.taskNameBox.get()
             task.time_needed       = int(self.timeBox.get())
             task.time_used         = int(self.usedBox.get())
-            task.next_action_date  = YMDstr2date(self.nextActionBox.get())
+            task.next_action_date  = parse_date(self.nextActionBox.get())
             task.notes             = self.notesBox.get('1.0', 'end')[:-1]
-            task.id                = self.selection.id if self.selection is not None else None
-            task.due_date          = DueDate.fromString(self.dueDateBox.get())
+            task.due_date          = PyDueDate.parse(self.dueDateBox.get())
             task.finished          = self.doneIsChecked.get()
         except ValueError as e:
-            # On any input validation errors, notify the user and pass on the error - not pretty but better than nothing
+            # On any input validation errors, notify the user and print error - todo not pretty but better than nothing
             self.notify(e.__str__())
             raise(e)
 
@@ -382,7 +380,7 @@ class Calendar(tk.LabelFrame):
 
   # todo this function isn't great but it seems to work
   def updateCalendar(self, openTasks) -> None:
-    today = todayDate()
+    today = today_date()
     thisMonday = today - datetime.timedelta(days=today.weekday())
     hoursLeftToday = max(0, min(7, 16 - (datetime.datetime.now().hour + datetime.datetime.now().minute/60)))
     for week in range(self.numweeks):
@@ -555,7 +553,7 @@ class WorklistWindow():
       self.db.get_open_tasks()
 
       # Editing interface
-      self.editingPane = EditingPane(self.root, self.getSelectedTask, self.save, self.notify, self.db.get_categories, self.newTask, self.deleteTask, self.db.default_task())
+      self.editingPane = EditingPane(self.root, self.getSelectedTask, self.save, self.notify, self.db.get_categories, self.newTask, self.deleteTask, self.db.default_task)
       self.editingPane.grid(row=0, column=1, padx=4, pady=4)
 
       self.scroller = TaskScroller(self.taskListFrame, self.select)
@@ -628,7 +626,7 @@ class WorklistWindow():
         if self.selection is None:
             selected = self.db.createTask(task)
         else:
-            self.db.updateTask(task)
+            self.db.update_task(task)
             selected = task
 
         # This prevent the "do you want to save first? prompt from appearing"

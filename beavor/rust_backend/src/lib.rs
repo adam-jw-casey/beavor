@@ -11,8 +11,13 @@ use pyo3::types::PyType;
 use pyo3::{
     wrap_pyfunction,
     PyErr,
+    PyAny,
 };
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{
+    PyValueError,
+    PyNotImplementedError,
+};
+use pyo3::basic::CompareOp;
 
 use tokio::runtime::Runtime;
 
@@ -66,10 +71,12 @@ fn parse_date(date_string: &str) -> Result<NaiveDate, ParseDateError>{
     }
 }
 
+#[pyfunction]
 fn today_str() -> String{
     format_date(today_date())
 }
 
+#[pyfunction]
 fn today_date() -> NaiveDate{
     Local::now().naive_local().date()
 }
@@ -80,6 +87,7 @@ fn work_days_between(d1: NaiveDate, d2: NaiveDate) -> i32{
 
 #[pyclass]
 #[allow(clippy::upper_case_acronyms)]
+#[derive(Clone, PartialEq)]
 enum PyDueDateType{
     None,
     Date,
@@ -87,8 +95,11 @@ enum PyDueDateType{
 }
 
 #[pyclass]
+#[derive(Clone, PartialEq)]
 struct PyDueDate{
+    #[pyo3(get, set)]
     date_type: PyDueDateType,
+    #[pyo3(get, set)]
     date: Option<NaiveDate>,
 }
 
@@ -97,9 +108,22 @@ impl PyDueDate{
     fn __str__(&self) -> String{
         (&DueDate::from(self)).into()
     }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
+        match op{
+            CompareOp::Eq => Ok(*self == *other),
+            CompareOp::Ne => Ok(*self != *other),
+            _ => Err(PyNotImplementedError::new_err(format!("{:#?} is not implemented for PyDueDate", op))),
+        }
+    }
+
+    #[classmethod]
+    fn parse(_cls: &PyType, s: String) -> PyResult<Self>{
+        Ok(DueDate::try_from(s)?.into())
+    }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 #[allow(clippy::upper_case_acronyms)]
 enum DueDate{
     None,
@@ -203,6 +227,11 @@ impl Task{
     #[getter]
     fn get_due_date(&self) -> PyDueDate{
         self.due_date.into()
+    }
+
+    #[setter]
+    fn set_due_date(&mut self, due_date: PyDueDate){
+        self.due_date = (&due_date).into()
     }
 }
 
@@ -432,7 +461,11 @@ fn backend(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(format_date, m)?)?;
     m.add_function(wrap_pyfunction!(green_red_scale, m)?)?;
     m.add_function(wrap_pyfunction!(parse_date, m)?)?;
+    m.add_function(wrap_pyfunction!(today_date, m)?)?;
+    m.add_function(wrap_pyfunction!(today_str, m)?)?;
     m.add_class::<Task>().unwrap();
+    m.add_class::<PyDueDate>().unwrap();
+    m.add_class::<PyDueDateType>().unwrap();
     m.add_class::<DatabaseManager>().unwrap();
     Ok(())
 }
