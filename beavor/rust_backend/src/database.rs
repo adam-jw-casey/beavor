@@ -75,10 +75,10 @@ impl DatabaseManager{
     }
 
     fn create_task_on_deliverable(&self, deliverable: Deliverable) -> Task{
-        let mut new_task = Task::new(&deliverable);
+        let default_task = Task::new(&deliverable);
 
-        let available_string: String = (&new_task.available).into();
-        let status_string: String = (&new_task.status).into();
+        let available_string: String = (&default_task.available).into();
+        let status_string: String = (&default_task.status).into();
         let today_string = today_str();
 
         self.rt.block_on(async{
@@ -106,13 +106,13 @@ impl DatabaseManager{
                         ?
                     )
             ",
-                new_task.name,
+                default_task.name,
                 status_string,
-                new_task.time_needed, // When creating a new task, save the initial time_needed estimate as time_budgeted
-                new_task.time_needed,
-                new_task.time_used,
+                default_task.time_needed, // When creating a new task, save the initial time_needed estimate as time_budgeted
+                default_task.time_needed,
+                default_task.time_used,
                 available_string,
-                new_task.notes,
+                default_task.notes,
                 today_string,
             )
                 .execute(&self.pool)
@@ -120,7 +120,7 @@ impl DatabaseManager{
                 .expect("Should be able to insert Task into database")
                 .last_insert_rowid();
 
-            new_task = sqlx::query_as::<_, Task>("
+            sqlx::query_as::<_, Task>("
                 SELECT *
                 FROM tasks
                 WHERE TaskID == ?
@@ -128,10 +128,8 @@ impl DatabaseManager{
                 .bind(new_rowid)
                 .fetch_one(&self.pool)
                 .await
-                .expect("Should have inserted and retrieved a task");
-        });
-
-        new_task
+                .expect("Should have inserted and retrieved a task")
+        })
     }
 
     fn delete_task(&self, task: Task){
@@ -305,10 +303,8 @@ impl DatabaseManager{
 
 impl DatabaseManager{
     fn get_categories(&self) -> Vec<Category>{
-        let mut categories: Vec<Category> = Vec::new();
-
         self.rt.block_on(async{
-            categories = sqlx::query!("
+            sqlx::query!("
                 SELECT *
                 FROM categories
             ")
@@ -321,17 +317,13 @@ impl DatabaseManager{
                     projects: self.get_projects_by_category_id(&cs.CategoryID),
                     id: Some(cs.CategoryID),
                 })
-                .collect();
-        });
-
-        categories
+                .collect()
+        })
     }
 
     fn get_projects_by_category_id(&self, id: &i64) -> Vec<Project>{
-        let mut projects: Vec<Project> = Vec::new();
-
         self.rt.block_on(async{
-            projects = sqlx::query!("
+            sqlx::query!("
                 SELECT *
                 FROM projects
                 WHERE Category == ?
@@ -345,17 +337,13 @@ impl DatabaseManager{
                     deliverables: self.get_deliverables_by_project_id(&ps.ProjectID),
                     id: Some(ps.ProjectID),
                 })
-                .collect();
-        });
-
-        projects
+                .collect()
+        })
     }
 
     fn get_deliverables_by_project_id(&self, id: &i64) -> Vec<Deliverable>{
-        let mut deliverables: Vec<Deliverable> = Vec::new();
-
         self.rt.block_on(async{
-            deliverables = sqlx::query!("
+            sqlx::query!("
                 SELECT *
                 FROM deliverables
                 WHERE Project == ?
@@ -372,17 +360,13 @@ impl DatabaseManager{
                     externals: self.get_externals_by_deliverable_id(&ds.DeliverableID),
                     id: Some(ds.DeliverableID),
                 })
-                .collect();
-        });
-
-        deliverables
+                .collect()
+        })
     }
 
     fn get_tasks_by_deliverable_id(&self, id: &i64) -> Vec<Task>{
-        let mut tasks: Vec<Task> = Vec::new();
-
         self.rt.block_on(async{
-            tasks = sqlx::query("
+            sqlx::query("
                 SELECT *
                 FROM tasks
                 WHERE DueDeliverable == ?
@@ -393,17 +377,13 @@ impl DatabaseManager{
                 .unwrap()
                 .iter()
                 .map(|tr| Task::from_row(tr).expect("Should produce valid tasks"))
-                .collect();
-        });
-
-        tasks
+                .collect()
+        })
     }
 
     fn get_externals_by_deliverable_id(&self, id: &i64) -> Vec<External>{
-        let mut externals: Vec<External> = Vec::new();
-
         self.rt.block_on(async{
-            externals = sqlx::query("
+            sqlx::query("
                 SELECT *
                 FROM externals
                 WHERE Deliverable == ?
@@ -414,10 +394,8 @@ impl DatabaseManager{
                 .unwrap()
                 .iter()
                 .map(|es| External::from_row(es).expect("Should produce valid externals"))
-                .collect();
-        });
-
-        externals
+                .collect()
+        })
     }
 }
 
