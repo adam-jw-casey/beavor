@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS deliverables(
 	Name	      TEXT,
 	Project       INTEGER,
 	DueDate	      TEXT,
+	Finished      BOOLEAN NOT NULL CHECK (Finished IN (0,1)),
 	Notes	      TEXT,
 	FOREIGN KEY (Project) REFERENCES projects (ProjectID)
 	);
@@ -39,8 +40,7 @@ CREATE TABLE IF NOT EXISTS externals(
 	Link	      	TEXT,
 	DeliverableID	INTEGER,
 	TaskID		INTEGER,
-	FOREIGN KEY (DeliverableID) REFERENCES deliverables (DeliverableID),
-	FOREIGN KEY (DeliverableID) REFERENCES tasks (TaskID)
+	FOREIGN KEY (DeliverableID) REFERENCES deliverables (DeliverableID)
 	);
 
 CREATE TABLE IF NOT EXISTS categories(
