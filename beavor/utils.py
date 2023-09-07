@@ -6,18 +6,6 @@ from typing import Optional
 
 DATE_FORMAT = "%Y-%m-%d"
 
-def greenRedScale(low: float, high: float, val: float) -> str:
-  #linear interpolation bounded on [0,1]
-  frac = max(0, min(1, (val - low) / (high - low)))
-  if frac > 0.5:
-    red = 255
-    green = int((2-2*frac) * 255)
-  else:
-    red = int((2*frac) * 255)
-    green = 255
-
-  return "#{}{}00".format(str(hex(red)[2:]).rjust(2,'0'), str(hex(green)[2:]).rjust(2,'0'))
-
 # takes strings "%Y-%m-%d"
 # inclusive of start and end date
 def workDaysBetween(d1: str | datetime.date, d2: str) -> int:
