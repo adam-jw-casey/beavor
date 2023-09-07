@@ -1,7 +1,6 @@
 #!/usr/bin/python3.11
 
 import sys, os
-import sqlite3
 from widgets import WorklistWindow
 from utils import DatabaseManager
 
@@ -16,7 +15,7 @@ def main():
     worklist = WorklistWindow(DEFAULT_DATABASE_PATH)
   else:
     print("No worklist found and none specified.\nCreating new {DEFAULT_DATABASE_PATH}")
-    DatabaseManager.createNew(DEFAULT_DATABASE_PATH)
+    DatabaseManager.createNewDatabase(DEFAULT_DATABASE_PATH)
     worklist = WorklistWindow(DEFAULT_DATABASE_PATH)
 
   worklist.root.mainloop()
