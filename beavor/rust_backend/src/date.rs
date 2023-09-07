@@ -72,10 +72,10 @@ pub enum Availability{
     DeliverableID(i64),
 }
 
-impl TryFrom<String> for Availability{
+impl TryFrom<&String> for Availability{
     type Error = ParseDateError;
 
-    fn try_from(value: String) -> Result<Self, Self::Error> {
+    fn try_from(value: &String) -> Result<Self, Self::Error> {
         Ok(match value.as_str(){
             "Any" => Availability::Any,
             other => {
@@ -167,7 +167,7 @@ impl PyDueDate{
 
     #[classmethod]
     fn parse(_cls: &PyType, s: String) -> PyResult<Self>{
-        Ok((&DueDate::try_from(s)?).into())
+        Ok((&DueDate::try_from(&s)?).into())
     }
 }
 
@@ -220,10 +220,10 @@ impl FromStr for DueDate{
     }
 }
 
-impl TryFrom<String> for DueDate{
+impl TryFrom<&String> for DueDate{
     type Error = ParseDateError;
 
-    fn try_from(date_string: String) -> Result<Self, Self::Error> {
+    fn try_from(date_string: &String) -> Result<Self, Self::Error> {
         DueDate::from_str(&date_string)
     }
 }
