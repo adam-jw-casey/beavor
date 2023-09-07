@@ -120,24 +120,15 @@ impl DatabaseManager{
                 .expect("Should be able to insert Task into database")
                 .last_insert_rowid();
 
-            let ts = sqlx::query!("
+            new_task = sqlx::query_as::<_, Task>("
                 SELECT *
                 FROM tasks
                 WHERE TaskID == ?
-            ", new_rowid)
+            ")
+                .bind(new_rowid)
                 .fetch_one(&self.pool)
                 .await
                 .expect("Should have inserted and retrieved a task");
-
-            new_task = Task{
-                name: ts.Name,
-                status: (&ts.Status).try_into().expect("Should be formatted correctly"),
-                time_needed: ts.TimeNeeded as i32,
-                time_used: ts.TimeUsed as i32,
-                available: (&ts.Available).try_into().expect("Should be formatted correctly"),
-                notes: ts.Notes,
-                id: Some(ts.TaskID),
-            }
         });
 
         new_task
