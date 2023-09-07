@@ -75,7 +75,7 @@ impl Task{
     }
 
     #[staticmethod]
-    pub fn new() -> Task{
+    pub fn default() -> Task{
         Task{
             name:             "".into(),
             status:           TaskStatus::Open,
