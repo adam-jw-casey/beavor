@@ -12,6 +12,8 @@ import re
 from dateutil.relativedelta import relativedelta
 import platform
 
+from enum import Enum
+
 ###########################################
 #Readability / coding style / maintainability
 
@@ -112,10 +114,6 @@ class WorklistWindow():
     self.timerFrame = tk.Frame(self.entryButtonFrame)
     self.timerFrame.grid(row=0, column=1, padx=self.padscale * [0,30])
 
-    # The buttons to the right of the entry boxes, eg. backup
-    self.adminButtonFrame = tk.Frame(self.interactiveFrame)
-    self.adminButtonFrame.grid(row=0, column=2, padx=self.padscale * 4)
-
   def setupTimer(self):
     #Timer and button to start/stop
     self.timeLabel = tk.Label(self.timerFrame, text="0:00:00", font=self.font)
@@ -162,7 +160,7 @@ class WorklistWindow():
         self.entryBoxes[header].bind("<Return>", self.save)
 
       self.entryBoxes[header].grid(sticky="NW",row=i, column=1, pady=self.padscale * 1)
-      self.entryBoxes[header].config(width=60, font=self.font)
+      self.entryBoxes[header].config(width=50, font=self.font)
 
     self.checkDone = tk.StringVar()
     self.doneCheck = tk.Checkbutton(self.entryButtonFrame,
@@ -189,14 +187,13 @@ class WorklistWindow():
     self.deleteButton.grid(row=0, column=4)
     self.deleteButton.bind("<Return>", lambda e: self.deleteTask())
 
-    self.messageLabel = tk.Label(self.interactiveFrame, text="")
-    self.messageLabel.grid(column=0, columnspan=3)
-
-    # todo doesn't really belong here. The multiedit stuff should probably move down below with the other task buttons too
-    self.duplicateButton = tk.Button(self.adminButtonFrame,
+    self.duplicateButton = tk.Button(self.entryButtonFrame,
                                      text="Duplicate",
                                      command=self.duplicateTask)
-    self.duplicateButton.grid(sticky="W")
+    self.duplicateButton.grid(row=0, column=5)
+
+    self.messageLabel = tk.Label(self.interactiveFrame, text="")
+    self.messageLabel.grid(column=0, columnspan=3)
 
   ######################################################
   # GUI update functions
