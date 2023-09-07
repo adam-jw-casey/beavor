@@ -179,6 +179,7 @@ class EditingPane(tk.Frame):
 
         self.save = lambda: save(self._createTaskFromInputs())
         self.getCategories = getCategories
+        self.notify = notify
 
         self.selection: Optional[Task] = None
 
@@ -243,7 +244,7 @@ class EditingPane(tk.Frame):
         self.doneCheckBox.deselect()
 
         #Add buttons to interact
-        self.saveButton = tk.Button(self.entryButtonFrame, text="Save", command=lambda: save(self._createTaskFromInputs()))
+        self.saveButton = tk.Button(self.entryButtonFrame, text="Save", command=self.save)
         self.saveButton.grid(row=0, column=2)
 
         self.newTaskButton = tk.Button(self.entryButtonFrame, text="New", command=newTask)
@@ -284,24 +285,26 @@ class EditingPane(tk.Frame):
 
       return True
 
-    # TODO this needs better input validation - currently it just dumps an exception in console
-    #      but ideally it would highlight the offending box in red, or something like that
-    #      maybe .bind() red highlighting to onKeyUp on each input, and this function could
-    #      notify() on failures?
+    # todo this needs better input validation
     def _createTaskFromInputs(self) -> Task:
         self.timer.stop()
 
         task: Task             = Task.default()
 
-        task.category          = self.categoryBox.get()
-        task.task_name         = self.taskNameBox.get()
-        task.time_needed       = int(self.timeBox.get())
-        task.time_used         = int(self.usedBox.get())
-        task.next_action_date  = YMDstr2date(self.nextActionBox.get())
-        task.notes             = self.notesBox.get('1.0', 'end')[:-1]
-        task.id                = self.selection.id if self.selection is not None else None
-        task.due_date          = DueDate.fromString(self.dueDateBox.get())
-        task.finished          = self.doneIsChecked.get()
+        try:
+            task.category          = self.categoryBox.get()
+            task.task_name         = self.taskNameBox.get()
+            task.time_needed       = int(self.timeBox.get())
+            task.time_used         = int(self.usedBox.get())
+            task.next_action_date  = YMDstr2date(self.nextActionBox.get())
+            task.notes             = self.notesBox.get('1.0', 'end')[:-1]
+            task.id                = self.selection.id if self.selection is not None else None
+            task.due_date          = DueDate.fromString(self.dueDateBox.get())
+            task.finished          = self.doneIsChecked.get()
+        except ValueError as e:
+            # On any input validation errors, notify the user and pass on the error - not pretty but better than nothing
+            self.notify(str(e))
+            raise(e)
 
         return task
 
@@ -572,7 +575,7 @@ class WorklistWindow():
       self.calendar.grid(row=0, column=2, pady=4, padx=4, sticky=tk.S)
 
       self.messageLabel = tk.Label(self.root, text="")
-      self.messageLabel.grid(column=1, columnspan=3)
+      self.messageLabel.grid(column=1)
 
       self.root.bind("<Control-q>", lambda _: self.root.destroy())
       self.root.bind("<Control-w>", lambda _: self.root.destroy())
