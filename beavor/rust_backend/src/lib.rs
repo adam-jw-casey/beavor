@@ -180,9 +180,7 @@ impl DatabaseManager{
                 DELETE
                 FROM tasks
                 WHERE rowid == ?
-            ",
-                task.id
-            )
+            ", task.id)
                 .execute(&self.pool)
                 .await
                 .expect("Should be able do delete task");
@@ -228,7 +226,16 @@ impl DatabaseManager{
     }
 
     fn delete_external(&self, external: External){
-        todo!();
+        self.rt.block_on(async{
+            sqlx::query!("
+                DELETE
+                FROM externals
+                WHERE ExternalID == ?
+            ", external.id)
+                .execute(&self.pool)
+                .await
+                .expect("Should be able to delete external");
+        });
     }
 
     fn update_external(&self, external: External){
@@ -240,7 +247,18 @@ impl DatabaseManager{
     }
 
     fn delete_deliverable(&self, deliverable: Deliverable){
-        todo!();
+        self.rt.block_on(async{
+            // Because of CASCADE ON DELETE, this will recursively remove
+            // all contained tasks and externals
+            sqlx::query!("
+                DELETE
+                FROM deliverables
+                WHERE DeliverableID == ?
+            ", deliverable.id)
+                .execute(&self.pool)
+                .await
+                .expect("Should be able to delete deliverable");
+        });
     }
 
     fn update_deliveral(&self, deliverable: Deliverable){
@@ -252,7 +270,18 @@ impl DatabaseManager{
     }
 
     fn delete_project(&self, project: Project){
-        todo!();
+        self.rt.block_on(async{
+            // Because of CASCADE ON DELETE, this will recursively remove
+            // all contained deliverables, tasks and externals
+            sqlx::query!("
+                DELETE
+                FROM projects
+                WHERE ProjectID == ?
+            ", project.id)
+                .execute(&self.pool)
+                .await
+                .expect("Should be able to delete project");
+        });
     }
 
     fn update_project(&self, project: Project){
@@ -264,7 +293,18 @@ impl DatabaseManager{
     }
 
     fn delete_category(&self, category: Category){
-        todo!();
+        self.rt.block_on(async{
+            // Because of CASCADE ON DELETE, this will recursively remove
+            // all contained projects, deliverables, tasks and externals
+            sqlx::query!("
+                DELETE
+                FROM categories
+                WHERE CategoryID == ?
+            ",category.id)
+                .execute(&self.pool)
+                .await
+                .expect("Should be able to delete category");
+        });
     }
 
     fn update_category(&self, category: Category){
