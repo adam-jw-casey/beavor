@@ -5,7 +5,7 @@ from typing import Optional
 
 from .main_window import ProjectWindow
 from .sidebar import CategoryScroller
-from .backend import DatabaseManager, Project
+from .backend import DatabaseManager, Project, Category
 
 class WorklistWindow():
     def __init__(self, databasePath: str):
@@ -39,7 +39,7 @@ class WorklistWindow():
         self.main_window.grid(row=0, column=1, sticky=tk.N+tk.S+tk.E+tk.W)
 
         # Make sidebar that displays categories and projects
-        self.sidebar = CategoryScroller(self.root, self.select_project, self.create_category)
+        self.sidebar = CategoryScroller(self.root, self.select_project, self.create_category, self.rename_category)
         self.sidebar.grid(row=0, column=0, sticky = tk.N+tk.S+tk.E+tk.W)
         self.sidebar.showCategories(self.db.get_all())
 
@@ -56,3 +56,7 @@ class WorklistWindow():
     def create_category(self):
         self.db.create_default_category()
         self.sidebar.showCategories(self.db.get_all())
+
+    def rename_category(self, category: Category, new_name: str):
+        category.name = new_name
+        self.db.update_category(category)

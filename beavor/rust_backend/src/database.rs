@@ -44,7 +44,7 @@ where I: IntoIterator<Item = u32>,
     let mut n = 1;
     for i in iter.into_iter().sorted(){
         if i != n{
-            return i
+            return n
         }
 
         n += 1;
