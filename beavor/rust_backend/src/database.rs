@@ -283,7 +283,7 @@ impl DatabaseManager{
         });
     }
 
-    fn update_deliveral(&self, deliverable: Deliverable){
+    fn update_deliverable(&self, deliverable: Deliverable){
         todo!();
     }
 
@@ -364,7 +364,19 @@ impl DatabaseManager{
     }
 
     fn update_category(&self, category: Category){
-        todo!();
+        self.rt.block_on(async{
+            sqlx::query!("
+                UPDATE categories
+                SET   Name  = ?
+                WHERE id   == ?
+            ",
+                category.name,
+                category.id
+            )
+                .execute(&self.pool)
+                .await
+                .expect("Should be able to update category");
+        });
     }
 
     fn get_all(&self) -> Vec<Category>{
