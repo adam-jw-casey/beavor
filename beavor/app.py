@@ -40,7 +40,7 @@ class WorklistWindow():
 
         # Make sidebar that displays categories and projects
         self.sidebar = CategoryScroller(self.root, self.select_project)
-        self.sidebar.grid(row=0, column=0, sticky = tk.N+tk.S)
+        self.sidebar.grid(row=0, column=0, sticky = tk.N+tk.S+tk.E+tk.W)
         self.sidebar.showCategories(self.db.get_all())
 
     ##########
