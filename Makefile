@@ -3,6 +3,10 @@ LIB_TARGET = beavor/backend.so
 
 default: debug
 
+check:
+	cd $(BACKEND); cargo check
+	pyright .
+
 release: $(BACKEND)/target/release/libbackend.so
 	cp $< $(LIB_TARGET)
 
