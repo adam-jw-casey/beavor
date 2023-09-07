@@ -311,7 +311,7 @@ impl DatabaseManager{
         let date_added_str = DueDate::Date(task.date_added).to_string();
 
         self.rt.block_on(async{
-            sqlx::query!("
+            let new_rowid: i64 = sqlx::query!("
                 INSERT INTO worklist
                     (
                         Category,
@@ -352,15 +352,18 @@ impl DatabaseManager{
             )
                 .execute(&self.pool)
                 .await
-                .expect("Should be able to insert Task into database");
+                .expect("Should be able to insert Task into database")
+                .last_insert_rowid();
 
             // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
             // return type of query! to write an impl From<T> for Task
             new_task = sqlx::query("
-                SELECT *
+                SELECT *, rowid
                 FROM worklist
-                WHERE rowid == last_insert_rowid()
-            ").fetch_one(&self.pool)
+                WHERE rowid == ?
+            ")
+                .bind(new_rowid)
+                .fetch_one(&self.pool)
                 .await
                 .expect("Should have inserted and retrieved a task")
                 .try_into()
