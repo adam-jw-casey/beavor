@@ -19,12 +19,9 @@ use sqlx::sqlite::{
     SqliteConnectOptions,
 };
 use sqlx::{
-    Row,
-    ConnectOptions,
     Executor,
+    ConnectOptions,
 };
-
-use chrono::naive::NaiveDate;
 
 use std::str::FromStr;
 
@@ -35,14 +32,14 @@ use date::{
     PyDueDateType,
     today_date,
     parse_date,
-    ParseDateError,
     format_date,
     today_str,
 };
 
+mod task;
+use task::Task;
+
 #[pyfunction]
-// Tested and this is ~3x faster than the exact same implementation in Python,
-// even with the API calls
 fn green_red_scale(low: f32, high: f32, val: f32) -> String {
     let frac = f32::max(0.0,f32::min(1.0,(val-low)/(high-low)));
 
@@ -58,65 +55,6 @@ fn green_red_scale(low: f32, high: f32, val: f32) -> String {
     }
 
     format!("#{red:02X}{green:02X}00")
-}
-
-#[derive(Clone)]
-#[pyclass]
-struct Task{
-    #[pyo3(get, set)]
-    category:         String,
-    #[pyo3(get, set)]
-    finished:         String,
-    #[pyo3(get, set)]
-    task_name:        String,
-    #[pyo3(get)]
-    _time_budgeted:   i32,
-    #[pyo3(get, set)]
-    time_needed:      i32,
-    #[pyo3(get, set)]
-    time_used:        i32,
-    #[pyo3(get, set)]
-    next_action_date: NaiveDate,
-    #[pyo3(get, set)]
-    notes:            String,
-    #[pyo3(get, set)]
-    date_added:       NaiveDate,
-    #[pyo3(get)]
-    id:               Option<i32>,
-    due_date:         DueDate,
-}
-
-#[pymethods]
-impl Task{
-    #[getter]
-    fn get_due_date(&self) -> PyDueDate{
-        self.due_date.into()
-    }
-
-    #[setter]
-    fn set_due_date(&mut self, due_date: PyDueDate){
-        self.due_date = (&due_date).into()
-    }
-}
-
-impl TryFrom<SqliteRow> for Task{
-    type Error = ParseDateError;
-
-    fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
-        Ok(Task{
-            category:                     row.get::<String, &str>("Category"),
-            finished:                     row.get::<String, &str>("O"),
-            task_name:                    row.get::<String, &str>("Task"),
-            _time_budgeted:               row.get::<i32,    &str>("Budget"),
-            time_needed:                  row.get::<i32,    &str>("Time"),
-            time_used:                    row.get::<i32,    &str>("Used"),
-            next_action_date: parse_date(&row.get::<String, &str>("NextAction"))?,
-            due_date:                     row.get::<String, &str>("DueDate").try_into()?,
-            notes:                        row.get::<String, &str>("Notes"),
-            id:                           row.get::<Option<i32>, &str>("rowid"),
-            date_added:       parse_date(&row.get::<String, &str>("DateAdded"))?,
-        })
-    }
 }
 
 #[pyclass]
