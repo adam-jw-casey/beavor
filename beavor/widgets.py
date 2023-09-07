@@ -67,8 +67,8 @@ class Timer(tk.Frame):
       pass
 
 class CategoryScroller(ScrollFrame):
-    def __init__(self, parent: tk.Frame | tk.LabelFrame, onRowClick):
-        super().__init__(parent)
+    def __init__(self, parent, onRowClick):
+        super().__init__(parent, "Projects")
         self.categoryRows = []
         self.onRowClick = onRowClick
         self.viewPort.grid_columnconfigure(0, weight=1)
