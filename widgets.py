@@ -56,9 +56,8 @@ class Timer(tk.Frame):
 
     def start(self, task) -> None:
       if task is None:
-        # todo better way of handling this -> this dumps the exception in the console
         self.notify("Cannot time an empty task")
-        raise self.EmptyTaskError("Cannot time an empty task")
+        return
 
       self.timeButton.config(text="Stop")
       self.startTime = datetime.datetime.now()
