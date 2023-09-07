@@ -48,7 +48,7 @@ class CategoryRow(tk.Frame):
             self.add_project_row(proj)
 
     def add_project_row(self, proj: Project):
-            pr = ProjectRow(self, proj, self.on_project_click)
+            pr = ProjectRow(self, proj, self.on_project_click, prefix="\t" )
             self.project_rows.append(pr)
             pr.grid(row=len(self.project_rows), column=0, sticky=tk.W+tk.E)
             pr.grid_forget()
@@ -82,10 +82,10 @@ class CategoryRow(tk.Frame):
             pr.unhighlight()
 
 class ProjectRow(tk.Label):
-    def __init__(self, parent: tk.Frame, project: Project, callback):
+    def __init__(self, parent: tk.Frame, project: Project, callback, prefix: str):
         self.project = project
 
-        super().__init__(parent, text="-- " + project.name, anchor=tk.W)
+        super().__init__(parent, text=prefix+ project.name, anchor=tk.W)
         self.bind("<1>", lambda _: callback(self.project))
         self.bind("<Enter>", lambda _: self.on_mouseover())
         self.bind("<Leave>", lambda _: self.on_mouseleave())
