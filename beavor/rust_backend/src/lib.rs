@@ -200,14 +200,14 @@ impl DatabaseManager{
             sqlx::query!("
                 UPDATE tasks
                 SET
-                    Finished =           ?,
+                    Finished =    ?,
                     Name =        ?,
-                    TimeNeeded =        ?,
-                    TimeUsed =        ?,
-                    Available =  ?,
+                    TimeNeeded =  ?,
+                    TimeUsed =    ?,
+                    Available =   ?,
                     Notes =       ?
                 WHERE
-                    rowid == ?
+                    rowid ==      ?
             ",
                 task.finished,
                 task.name,
