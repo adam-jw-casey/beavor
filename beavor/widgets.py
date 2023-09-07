@@ -1,12 +1,10 @@
 #!/usr/bin/python3.11
 
 import tkinter as tk
-import tkinter.messagebox
-import tkinter.ttk as ttk
 import datetime
-from typing import List, Any, Optional
+from typing import List, Optional
 
-from .backend import green_red_scale, Task, Category, Project, PyDueDate, today_date, format_date, parse_date
+from .backend import green_red_scale, Task, Category, Project, Deliverable, PyDueDate, today_date, format_date, parse_date
 from .ScrollFrame import ScrollFrame
 
 class Timer(tk.Frame):
@@ -78,14 +76,13 @@ class CategoryScroller(ScrollFrame):
             self.categoryRows.pop().destroy()
             
         for category in categories:
-            self.add_category(category)
+            self.add_category_row(category)
 
-    def add_category(self, category):
+    def add_category_row(self, category):
         categoryRow = CategoryRow(self.viewPort, category, lambda c=category.name: self.onRowClick(c))
         categoryRow.pack(fill='x', side='bottom')
         self.categoryRows.append(categoryRow)
 
-   
 class CategoryRow(tk.Frame):
     def __init__(self, parent: tk.Frame, category: Category, select_project):
         def on_project_click(proj: Project):
@@ -161,7 +158,30 @@ class ProjectRow(tk.Frame):
 class ProjectWindow(tk.LabelFrame):
     def __init__(self, parent):
         super().__init__(parent)
+        self.deliverable_rows: list[Deliverable] = []
         self.select_project(None)
 
     def select_project(self, proj: Optional[Project]):
-        self.config(text=proj.name if proj else "No projcet selected")
+        self.selected_project = proj
+        self.config(text=proj.name if proj else "No project selected")
+
+        for _ in range(len(self.deliverable_rows)):
+            self.deliverable_rows.pop().destroy()
+
+        if proj is None:
+            return
+
+        for deliverable in proj.deliverables:
+            self.add_deliverable_row(deliverable)
+
+    def add_deliverable_row(self, deliverable: Deliverable):
+        deliverable_row = DeliverableRow(self, deliverable)
+        deliverable_row.pack(fill='x', side='bottom')
+        self.deliverable_rows.append(deliverable_row)
+
+class DeliverableRow(tk.LabelFrame):
+    def __init__(self, parent, deliverable: Deliverable):
+        super().__init__(parent, text=deliverable.name)
+        #self.notes_label=tk.Label(self, text=deliverable.notes)
+        self.notes_label=tk.Label(self, text="lorem ipsum dolore")
+        self.notes_label.pack(fill='x')
