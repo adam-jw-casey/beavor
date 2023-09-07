@@ -100,10 +100,10 @@ class CategoryRow(tk.Frame):
             w.bind("<1>", lambda _: self.on_click())
 
     def expand(self):
-        self.nameLabel.configure(text= '▼ ' + self.category_name)
+        self.nameLabel.configure(text= '▾ ' + self.category_name)
 
     def collapse(self):
-        self.nameLabel.configure(text= '▶ ' + self.category_name)
+        self.nameLabel.configure(text= '▸ ' + self.category_name)
 
     def on_click(self):
         self.highlight()
