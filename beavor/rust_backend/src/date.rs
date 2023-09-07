@@ -57,9 +57,12 @@ pub enum PyAvailabilityType{
 #[pyclass]
 #[derive(Clone)]
 pub struct PyAvailability{
-    availability_type: PyAvailabilityType,
-    date: Option<NaiveDate>,
-    deliverable_id: Option<i64>,
+    #[pyo3(get,set)]
+    pub availability_type: PyAvailabilityType,
+    #[pyo3(get,set)]
+    pub date: Option<NaiveDate>,
+    #[pyo3(get,set)]
+    pub deliverable_id: Option<i64>,
 }
 
 #[derive(Clone)]
