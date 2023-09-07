@@ -109,7 +109,6 @@ impl DatabaseManager{
         });
     }
 
-    // TODO update this to use new schema properly
     fn create_task_on_deliverable(&self, deliverable: Deliverable) -> Task{
         let mut new_task = Task::default();
 
@@ -203,7 +202,7 @@ impl DatabaseManager{
             sqlx::query!("
                 UPDATE tasks
                 SET
-                    Finished =    ?,
+                    Status =    ?,
                     Name =        ?,
                     TimeNeeded =  ?,
                     TimeUsed =    ?,
