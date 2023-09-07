@@ -326,7 +326,19 @@ impl DatabaseManager{
     }
 
     fn update_project(&self, project: Project){
-        todo!();
+        self.rt.block_on(async{
+            sqlx::query!("
+                UPDATE projects
+                SET Name  = ?
+                WHERE id == ?
+            ",
+                project.name,
+                project.id
+            )
+                .execute(&self.pool)
+                .await
+                .expect("Should be able to update project");
+        });
     }
 
     fn create_category(&self, name: String) -> Category{
