@@ -166,8 +166,7 @@ impl DatabaseManager{
                     TimeUsed   = ?,
                     Available  = ?,
                     Notes      = ?
-                WHERE
-                        id    == ?
+                WHERE id      == ?
             ",
                 task.name,
                 status_string,
@@ -222,7 +221,22 @@ impl DatabaseManager{
     }
 
     fn update_external(&self, external: External){
-        todo!();
+        self.rt.block_on(async{
+            sqlx::query!("
+                UPDATE externals
+                SET
+                    Name  = ?,
+                    Link  = ?
+                WHERE id == ?
+            ",
+                external.name,
+                external.link,
+                external.id
+            )
+                .execute(&self.pool)
+                .await
+                .expect("Should be able to update external");
+        });
     }
 
     fn create_deliverable_in_project(&self, project: &Project) -> Deliverable{
