@@ -44,6 +44,7 @@ class CategoryRow(tk.Frame):
         self.grid_columnconfigure(0, weight=1)
 
         self.category_name = category.name
+        self.select_none = lambda: select_project(None)
 
         self.nameLabel = tk.Label(self, text='📁 ' + ('▸ ' if len(category.projects) > 0 else '   ') + self.category_name, anchor=tk.W)
         self.nameLabel.grid(row=0, column=0, sticky=tk.W+tk.E)
@@ -78,6 +79,8 @@ class CategoryRow(tk.Frame):
             pr.grid_forget()
 
         self.expanded = False
+
+        self.select_none()
 
     def on_click(self):
         if len(self.project_rows) == 0:
