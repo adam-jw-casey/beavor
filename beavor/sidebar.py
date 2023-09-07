@@ -9,7 +9,6 @@ class CategoryScroller(ScrollFrame):
         super().__init__(parent, "Projects")
         self.categoryRows: list[CategoryRow] = []
         self.onRowClick = onRowClick
-        self.grid_columnconfigure(0, weight=1)
     
     def showCategories(self, categories: List[Category]):
         for _ in range(len(self.categoryRows)):
@@ -32,10 +31,12 @@ class CategoryRow(tk.Frame):
             next(filter(lambda pr: pr.project == proj, self.project_rows)).highlight()
 
         super().__init__(parent)
+        self.grid_columnconfigure(0, weight=1)
 
         self.category_name = category.name
-        self.nameLabel = tk.Label(self, text=('▸ ' if len(category.projects) > 0 else '   ') + self.category_name)
-        self.nameLabel.grid(sticky=tk.W + tk.E)
+
+        self.nameLabel = tk.Label(self, text=('▸ ' if len(category.projects) > 0 else '   ') + self.category_name, anchor=tk.W)
+        self.nameLabel.grid(row=0, column=0, sticky=tk.W+tk.E)
         self.nameLabel.bind("<1>", lambda _: self.on_click())
 
         self.expanded = False
@@ -49,13 +50,13 @@ class CategoryRow(tk.Frame):
     def add_project_row(self, proj: Project):
             pr = ProjectRow(self, proj, self.on_project_click)
             self.project_rows.append(pr)
-            pr.grid(row=len(self.project_rows), sticky=tk.W)
+            pr.grid(row=len(self.project_rows), column=0, sticky=tk.W+tk.E)
             pr.grid_forget()
 
     def expand(self):
         self.nameLabel.configure(text= '▾ ' + self.category_name)
         for pr in self.project_rows:
-            pr.grid()
+            pr.grid(sticky=tk.W+tk.E)
 
         self.expanded = True
 
@@ -80,22 +81,15 @@ class CategoryRow(tk.Frame):
         for pr in self.project_rows:
             pr.unhighlight()
 
-class ProjectRow(tk.Frame):
+class ProjectRow(tk.Label):
     def __init__(self, parent: tk.Frame, project: Project, callback):
-        super().__init__(parent)
-
         self.project = project
 
-        self.nameLabel = tk.Label(self, text="-- " + project.name)
-        self.nameLabel.grid(sticky=tk.W)
-        self.nameLabel.bind("<1>", lambda _: callback(self.project))
-
-        self.visible = [self, self.nameLabel]
+        super().__init__(parent, text="-- " + project.name, anchor=tk.W)
+        self.bind("<1>", lambda _: callback(self.project))
 
     def highlight(self) -> None:
-        for w in self.visible:
-            w.config(bg="lightblue")
+        self.config(bg="lightblue")
 
     def unhighlight(self) -> None:
-        for w in self.visible:
-            w.config(bg="white")
+        self.config(bg="white")
