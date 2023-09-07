@@ -7,7 +7,6 @@ import datetime
 import sys
 import platform
 from typing import List, Any, Optional
-from beavor.backend import surround
 
 from .utils import *
 
@@ -596,7 +595,7 @@ class WorklistWindow():
 
     def newTask(self, _=tk.Event) -> None:
       self.select(None)
-      print(surround("you",  "spies"))
+      print("New task created")
 
     def refreshAll(self) -> None:
       self.calendar.updateCalendar(self.db.getTasks4Workload())
