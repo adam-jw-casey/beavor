@@ -29,10 +29,8 @@ impl TryFrom<&String> for TaskStatus{
     }
 }
 
-impl TryFrom<TaskStatus> for String{
-    type Error = ParseTaskStatusError;
-
-    fn try_from(value: TaskStatus) -> Result<Self, Self::Error> {
+impl From<&TaskStatus> for String{
+    fn from(value: &TaskStatus) -> Self {
         todo!()
     }
 }
@@ -71,7 +69,7 @@ impl Task{
     pub fn default() -> Task{
         Task{
             name:             "".into(),
-            status:         "O".into(),
+            status:           TaskStatus::Open,
             time_needed:      0,
             time_used:        0,
             available:        Availability::Any,
