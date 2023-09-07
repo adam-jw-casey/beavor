@@ -31,6 +31,8 @@ use crate::{
     today_str,
 };
 
+use futures::future;
+
 #[pyclass]
 pub struct DatabaseManager{
     pool: SqlitePool,
@@ -165,7 +167,7 @@ impl DatabaseManager{
                     Available  = ?,
                     Notes      = ?
                 WHERE
-                    id    == ?
+                        id    == ?
             ",
                 task.name,
                 status_string,
@@ -202,15 +204,7 @@ impl DatabaseManager{
                 .expect("Should be able to insert new external into database")
                 .last_insert_rowid();
 
-            sqlx::query_as::<_, External>("
-                SELECT *
-                FROM externals
-                WHERE id == ?
-            ")
-                .bind(new_rowid)
-                .fetch_one(&self.pool)
-                .await
-                .expect("Should have inserted and retrieved an external")
+            self.get_external_by_id(new_rowid).await
         })
     }
 
@@ -256,23 +250,7 @@ impl DatabaseManager{
                 .expect("Should be able to insert new external into database")
                 .last_insert_rowid();
 
-            let deliverable_struct = sqlx::query!("
-                SELECT *
-                FROM deliverables
-                WHERE id == ?
-            ", new_rowid)
-                .fetch_one(&self.pool)
-                .await
-                .expect("Should have inserted and retrieved a deliverable");
-
-            Deliverable{
-                name:    deliverable_struct.Name,
-                due:   (&deliverable_struct.DueDate).try_into().expect("Should be formatted correctly"),
-                tasks:     Vec::new(),
-                externals: Vec::new(),
-                notes:   deliverable_struct.Notes,
-                id: Some(deliverable_struct.id),
-            }
+            self.get_deliverable_by_id(new_rowid).await
         })
     }
 
@@ -333,20 +311,7 @@ impl DatabaseManager{
                 .expect("Should be able to insert category into database")
                 .last_insert_rowid();
 
-            let cat_struct = sqlx::query!("
-                SELECT *
-                FROM Categories
-                WHERE id == ?
-            ", new_rowid)
-                .fetch_one(&self.pool)
-                .await
-                .expect("Should have inserted and retrieved a category");
-
-            Category{
-                name:     cat_struct.Name,
-                projects: Vec::new(),
-                id:       Some(cat_struct.id),
-            }
+            self.get_category_by_id(new_rowid).await
         })
     }
 
@@ -370,105 +335,150 @@ impl DatabaseManager{
     }
 
     fn get_all(&self) -> Vec<Category>{
-        self.get_categories()
+        self.rt.block_on(async{
+            self.get_categories().await
+        })
     }
 }
 
+// This disables an annoying warning from the query! macro
+#[allow(non_snake_case)]
 impl DatabaseManager{
-    fn get_categories(&self) -> Vec<Category>{
-        self.rt.block_on(async{
-            sqlx::query!("
-                SELECT *
-                FROM categories
-            ")
-                .fetch_all(&self.pool)
-                .await
-                .unwrap()
-                .iter()
-                .map(|cs| Category{
-                    name: cs.Name.clone(),
-                    projects: self.get_projects_by_category_id(&cs.id),
-                    id: Some(cs.id),
-                })
-                .collect()
-        })
+    async fn get_external_by_id(&self, id: i64) -> External{
+        sqlx::query_as::<_, External>("
+            SELECT *
+            FROM externals
+            WHERE id == ?
+        ")
+            .bind(id)
+            .fetch_one(&self.pool)
+            .await
+            .expect("Should have retrieved an external")
     }
 
-    fn get_projects_by_category_id(&self, id: &i64) -> Vec<Project>{
-        self.rt.block_on(async{
-            sqlx::query!("
-                SELECT *
-                FROM projects
-                WHERE Category == ?
-            ", id)
-                .fetch_all(&self.pool)
-                .await
-                .unwrap()
-                .iter()
-                .map(|ps| Project{
-                    name: ps.Name.clone(),
-                    deliverables: self.get_deliverables_by_project_id(&ps.id),
-                    id: Some(ps.id),
-                })
-                .collect()
-        })
+    async fn get_category_by_id(&self, id: i64) -> Category{
+        let cat_struct = sqlx::query!("
+            SELECT *
+            FROM categories
+            WHERE id == ?
+        ", id)
+            .fetch_one(&self.pool)
+            .await
+            .expect("Should have retrieved a category");
+
+        Category{
+            name: cat_struct.Name.clone(),
+            projects: self.get_projects_by_category_id(&cat_struct.id).await,
+            id: Some(cat_struct.id),
+        }
     }
 
-    fn get_deliverables_by_project_id(&self, id: &i64) -> Vec<Deliverable>{
-        self.rt.block_on(async{
-            sqlx::query!("
-                SELECT *
-                FROM deliverables
-                WHERE Project == ?
-            ", id)
-                .fetch_all(&self.pool)
-                .await
-                .unwrap()
-                .iter()
-                .map(|ds| Deliverable{
-                    name: ds.Name.clone(),
-                    due: (&ds.DueDate).try_into().expect("Should be well-formatted"),
-                    notes: ds.Notes.clone(),
-                    tasks: self.get_tasks_by_deliverable_id(&ds.id),
-                    externals: self.get_externals_by_deliverable_id(&ds.id),
-                    id: Some(ds.id),
-                })
-                .collect()
-        })
+    async fn get_project_by_id(&self, id: i64) -> Project{
+        let proj_struct = sqlx::query!("
+            SELECT *
+            FROM projects
+            WHERE id == ?
+        ", id)
+            .fetch_one(&self.pool)
+            .await
+            .expect("Should have retrieved a project");
+
+        Project{
+            name: proj_struct.Name.clone(),
+            deliverables: self.get_deliverables_by_project_id(&proj_struct.id).await,
+            id: Some(proj_struct.id),
+        }
     }
 
-    fn get_tasks_by_deliverable_id(&self, id: &i64) -> Vec<Task>{
-        self.rt.block_on(async{
-            sqlx::query("
-                SELECT *
-                FROM tasks
-                WHERE DueDeliverable == ?
-            ")
-                .bind(id)
-                .fetch_all(&self.pool)
-                .await
-                .unwrap()
-                .iter()
-                .map(|tr| Task::from_row(tr).expect("Should produce valid tasks"))
-                .collect()
-        })
+    async fn get_deliverable_by_id(&self, id: i64) -> Deliverable{
+        let deliv_struct = sqlx::query!("
+            SELECT *
+            FROM deliverables
+            WHERE id == ?
+        ", id)
+            .fetch_one(&self.pool)
+            .await
+            .expect("Should have retrieved a deliverable");
+
+        Deliverable{
+            name:      deliv_struct.Name.clone(),
+            due:   (&deliv_struct.DueDate).try_into().expect("Should be well-formatted"),
+            notes:     deliv_struct.Notes.clone(),
+            tasks:     self.get_tasks_by_deliverable_id(&deliv_struct.id).await,
+            externals: self.get_externals_by_deliverable_id(&deliv_struct.id).await,
+            id:        Some(deliv_struct.id),
+        }
     }
 
-    fn get_externals_by_deliverable_id(&self, id: &i64) -> Vec<External>{
-        self.rt.block_on(async{
-            sqlx::query("
-                SELECT *
-                FROM externals
-                WHERE Deliverable == ?
-            ")
-                .bind(id)
-                .fetch_all(&self.pool)
-                .await
-                .unwrap()
-                .iter()
-                .map(|es| External::from_row(es).expect("Should produce valid externals"))
-                .collect()
-        })
+    async fn get_categories(&self) -> Vec<Category>{
+        future::join_all(sqlx::query!("
+            SELECT id
+            FROM categories
+        ")
+            .fetch_all(&self.pool)
+            .await
+            .unwrap()
+            .iter()
+            .map(|cs| async{self.get_category_by_id(cs.id).await}))
+            .await
+    }
+
+    async fn get_projects_by_category_id(&self, id: &i64) -> Vec<Project>{
+        future::join_all(sqlx::query!("
+            SELECT id
+            FROM projects
+            WHERE Category == ?
+        ", id)
+            .fetch_all(&self.pool)
+            .await
+            .unwrap()
+            .iter()
+            .map(|ps| async{self.get_project_by_id(ps.id).await}))
+            .await
+    }
+
+    async fn get_deliverables_by_project_id(&self, id: &i64) -> Vec<Deliverable>{
+        future::join_all(sqlx::query!("
+            SELECT *
+            FROM deliverables
+            WHERE Project == ?
+        ", id)
+            .fetch_all(&self.pool)
+            .await
+            .unwrap()
+            .iter()
+            .map(|ds| async{self.get_deliverable_by_id(ds.id).await}))
+            .await
+    }
+
+    async fn get_tasks_by_deliverable_id(&self, id: &i64) -> Vec<Task>{
+        sqlx::query("
+            SELECT *
+            FROM tasks
+            WHERE DueDeliverable == ?
+        ")
+            .bind(id)
+            .fetch_all(&self.pool)
+            .await
+            .unwrap()
+            .iter()
+            .map(|tr| Task::from_row(tr).expect("Should produce valid tasks"))
+            .collect()
+    }
+
+    async fn get_externals_by_deliverable_id(&self, id: &i64) -> Vec<External>{
+        sqlx::query("
+            SELECT *
+            FROM externals
+            WHERE Deliverable == ?
+        ")
+            .bind(id)
+            .fetch_all(&self.pool)
+            .await
+            .unwrap()
+            .iter()
+            .map(|es| External::from_row(es).expect("Should produce valid externals"))
+            .collect()
     }
 }
 
