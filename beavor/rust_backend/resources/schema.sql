@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS tasks(
 	PrereqDeliverable INTEGER NOT NULL,
 	Notes		  TEXT    NOT NULL,
 	DateAdded     	  TEXT    NOT NULL,
-	FOREIGN KEY (DueDeliverable)    REFERENCES deliverables (DeliverableID),
+	FOREIGN KEY (DueDeliverable)    REFERENCES deliverables (DeliverableID) ON DELETE CASCADE,
 	FOREIGN KEY (PrereqDeliverable) REFERENCES deliverables (DeliverableID)
 	);
 
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS projects(
 	Name	      TEXT    NOT NULL,
 	Category      INTEGER NOT NULL,
 	UNIQUE(Name, Category),
-	FOREIGN KEY (Category) REFERENCES categories (CategoryID)
+	FOREIGN KEY (Category) REFERENCES categories (CategoryID) ON DELETE CASCADE
 	);
 
 CREATE TABLE IF NOT EXISTS deliverables(
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS deliverables(
 	DueDate	      TEXT    NOT NULL,
 	Finished      BOOLEAN NOT NULL CHECK (Finished IN (0,1)),
 	Notes	      TEXT    NOT NULL,
-	FOREIGN KEY (Project) REFERENCES projects (ProjectID)
+	FOREIGN KEY (Project) REFERENCES projects (ProjectID) ON DELETE CASCADE
 	);
 
 CREATE TABLE IF NOT EXISTS externals(
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS externals(
 	Name		TEXT    NOT NULL,
 	Link	      	TEXT    NOT NULL,
 	Deliverable	INTEGER NOT NULL,
-	FOREIGN KEY (Deliverable) REFERENCES deliverables (DeliverableID)
+	FOREIGN KEY (Deliverable) REFERENCES deliverables (DeliverableID) ON DELETE CASCADE
 	);
 
 CREATE TABLE IF NOT EXISTS categories(
