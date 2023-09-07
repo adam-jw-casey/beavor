@@ -88,10 +88,12 @@ class ContextMenuSpawner:
         self.funcid1 = self.parents[0].winfo_toplevel().bind("<1>", lambda _: self.destroy_context_menu(), "+")
         self.funcid2 = self.parents[0].winfo_toplevel().bind("<2>", lambda _: self.destroy_context_menu(), "+")
         self.funcid3 = self.parents[0].winfo_toplevel().bind("<3>", lambda _: self.destroy_context_menu(), "+")
+        self.funcid4 = self.parents[0].winfo_toplevel().bind("<Configure>", lambda _: self.destroy_context_menu(), "+")
 
     def destroy_context_menu(self):
 
         self.parents[0].winfo_toplevel().unbind("<1>", self.funcid1)
         self.parents[0].winfo_toplevel().unbind("<2>", self.funcid2)
         self.parents[0].winfo_toplevel().unbind("<3>", self.funcid3)
+        self.parents[0].winfo_toplevel().unbind("<Configure>", self.funcid4)
         self.ctx_menu.destroy()
