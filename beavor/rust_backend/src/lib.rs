@@ -189,9 +189,7 @@ impl DatabaseManager{
         });
     }
 
-    // TODO update this to use new schema properly
     fn update_task(&self, task: Task){
-        todo!();
         // These must be stored so that they are not dropped in-between
         // the calls to query! and .execute
         let available_string: String = (&task.available).into();
@@ -223,7 +221,6 @@ impl DatabaseManager{
                 .expect("Should be able to update task");
         })
     }
-
 
     fn create_external_on_deliverable(&self, deliverable: Deliverable) -> Task{
         todo!();
