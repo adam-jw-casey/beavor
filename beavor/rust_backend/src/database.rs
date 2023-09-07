@@ -375,24 +375,31 @@ impl DatabaseManager{
         let mut externals: Vec<External> = Vec::new();
 
         self.rt.block_on(async{
-            externals = sqlx::query!("
+            externals = sqlx::query("
                 SELECT *
                 FROM externals
                 WHERE Deliverable == ?
-            ", id)
+            ")
+                .bind(id)
                 .fetch_all(&self.pool)
                 .await
                 .unwrap()
                 .iter()
-                .map(|es| External{
-                    name: es.Name.clone(),
-                    link: es.Link.clone(),
-                    id: Some(es.ExternalID),
-                })
+                .map(|es| External::from_row(es).expect("Should produce valid externals"))
                 .collect();
         });
 
         externals
+    }
+}
+
+impl FromRow<'_, SqliteRow> for External{
+    fn from_row(row: &SqliteRow) -> Result<Self, sqlx::Error> {
+        Ok(External{
+            name:    row.try_get("Name")?,
+            link:    row.try_get("Link")?,
+            id: Some(row.try_get("ExternalID")?),
+        })
     }
 }
 
