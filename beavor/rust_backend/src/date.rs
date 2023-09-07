@@ -66,6 +66,7 @@ pub struct PyAvailability{
 }
 
 #[derive(Clone)]
+#[derive(Debug)]
 pub enum Availability{
     Any,
     Date(NaiveDate),
@@ -173,6 +174,7 @@ impl PyDueDate{
 
 #[derive(Clone, Copy, PartialEq)]
 #[allow(clippy::upper_case_acronyms)]
+#[derive(Debug)]
 pub enum DueDate{
     None,
     Date(NaiveDate),
