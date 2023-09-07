@@ -45,7 +45,7 @@ class CategoryRow(tk.Frame):
 
         self.category_name = category.name
 
-        self.nameLabel = tk.Label(self, text=('▸ ' if len(category.projects) > 0 else '   ') + self.category_name, anchor=tk.W)
+        self.nameLabel = tk.Label(self, text='📁 ' + ('▸ ' if len(category.projects) > 0 else '   ') + self.category_name, anchor=tk.W)
         self.nameLabel.grid(row=0, column=0, sticky=tk.W+tk.E)
         self.nameLabel.bind("<1>", lambda _: self.on_click())
         ToolTip(self.nameLabel, msg=get_tooltip, delay=0.3)
@@ -59,20 +59,20 @@ class CategoryRow(tk.Frame):
             self.add_project_row(proj)
 
     def add_project_row(self, proj: Project):
-            pr = ProjectRow(self, proj, self.on_project_click, prefix="\t" )
+            pr = ProjectRow(self, proj, self.on_project_click, prefix="\t💡 " )
             self.project_rows.append(pr)
             pr.grid(row=len(self.project_rows), column=0, sticky=tk.W+tk.E)
             pr.grid_forget()
 
     def expand(self):
-        self.nameLabel.configure(text= '▾ ' + self.category_name)
+        self.nameLabel.configure(text= '📁 ▾ ' + self.category_name)
         for pr in self.project_rows:
             pr.grid(sticky=tk.W+tk.E)
 
         self.expanded = True
 
     def collapse(self):
-        self.nameLabel.configure(text= '▸ ' + self.category_name)
+        self.nameLabel.configure(text= '📁 ▸ ' + self.category_name)
         for pr in self.project_rows:
             pr.unhighlight()
             pr.grid_forget()
