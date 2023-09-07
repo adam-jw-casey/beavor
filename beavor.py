@@ -3,40 +3,22 @@
 import sys, os
 import sqlite3
 from widgets import WorklistWindow
+from utils import DatabaseManager
+
+DEFAULT_DATABASE_PATH = "worklist.db"
 
 def main():
   worklist: WorklistWindow
   if len(sys.argv) > 1:
     worklist = WorklistWindow(sys.argv[1])
-  elif os.path.isfile("worklist.db"):
+  elif os.path.isfile(DEFAULT_DATABASE_PATH):
     #default
-    worklist = WorklistWindow("worklist.db")
+    worklist = WorklistWindow(DEFAULT_DATABASE_PATH)
   else:
-    print("No worklist found and none specified.\nCreating new worklist.db")
-    conn = sqlite3.connect("worklist.db")
-    cur  = conn.cursor()
-    # todo a better name for "Load" would be "CurrentLoad"
-    cur.execute("""
-        CREATE TABLE worklist(
-            'Category'  TEXT,
-            'O'         TEXT,
-            'Task'      TEXT,
-            'Budget'    INTEGER,
-            'Time'      INTEGER,
-            'Used'      INTEGER,
-            'Left'      INTEGER,
-            'StartDate' TEXT,
-            'NextAction'TEXT,
-            'DueDate'   TEXT,
-            'Flex'      TEXT,
-            'DaysLeft'  INTEGER,
-            'TotalLoad' REAL,
-            'Load'      REAL,
-            'Notes'     TEXT,
-            'DateAdded' TEXT)
-    """)
-    cur.close()
-    worklist = WorklistWindow("worklist.db")
+    print("No worklist found and none specified.\nCreating new {DEFAULT_DATABASE_PATH}")
+    DatabaseManager.createNew(DEFAULT_DATABASE_PATH)
+    worklist = WorklistWindow(DEFAULT_DATABASE_PATH)
+
   worklist.root.mainloop()
 
 if __name__ == "__main__":
