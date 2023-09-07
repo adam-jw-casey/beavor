@@ -8,10 +8,10 @@ from .backend import Category, Project
 from .widgets import ContextMenuSpawner
 
 class CategoryScroller(ScrollFrame):
-    def __init__(self, parent, onRowClick):
+    def __init__(self, parent, onRowClick, create_category):
         def context_menu_builder() -> tk.Menu:
             ctx = tk.Menu(self, tearoff=0)
-            ctx.add_command(label="say hi", command=lambda: print("hello, world"))
+            ctx.add_command(label="New category", command=create_category)
 
             return ctx
 
@@ -19,7 +19,7 @@ class CategoryScroller(ScrollFrame):
         self.categoryRows: list[CategoryRow] = []
         self.onRowClick = onRowClick
 
-        self.ctx1 = ContextMenuSpawner([self, self.canvas], context_menu_builder)
+        self.ctx = ContextMenuSpawner([self, self.canvas], context_menu_builder)
 
     def showCategories(self, categories: List[Category]):
         for _ in range(len(self.categoryRows)):

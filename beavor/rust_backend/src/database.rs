@@ -33,6 +33,24 @@ use crate::{
 
 use futures::future;
 
+use sscanf::sscanf;
+
+// Helper function
+fn lowest_positive_int_not_in_interator<I>(iter: I) -> u32
+where I: IntoIterator<Item = u32>,
+{
+    let mut n = 1;
+    for i in iter{
+        if i != n{
+            return i
+        }
+
+        n += 1;
+    }
+
+    n
+}
+
 #[pyclass]
 pub struct DatabaseManager{
     pool: SqlitePool,
@@ -376,6 +394,27 @@ impl DatabaseManager{
 
             self.get_category_by_id(new_rowid).await
         })
+    }
+
+    /// Creates a new category named "New CategoryX" where X is the lowest positive integer not yet
+    /// in use
+    fn create_default_category(&self) -> Category{
+        let available_suffix: u32 = self.rt.block_on(async{
+            lowest_positive_int_not_in_interator(
+                sqlx::query!("
+                    SELECT Name
+                    FROM Categories
+                    WHERE Name LIKE 'New Category%'
+                ")
+                    .fetch_all(&self.pool)
+                    .await
+                    .unwrap()
+                    .iter()
+                    .filter_map(|cs| sscanf!(cs.Name, "New Category{u32}").ok())
+            )
+        });
+
+        self.create_category(format!("New Category{available_suffix}"))
     }
 
     fn delete_category(&self, category: Category){
