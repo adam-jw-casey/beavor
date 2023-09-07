@@ -35,7 +35,7 @@ class WorklistWindow():
 
         # Make main window that shows the selected project
         self.root.grid_columnconfigure(1, weight=1)
-        self.main_window = ProjectWindow(self.root)
+        self.main_window = ProjectWindow(self.root, self.db.update_deliverable)
         self.main_window.grid(row=0, column=1, sticky=tk.N+tk.S+tk.E+tk.W)
 
         # Make sidebar that displays categories and projects
