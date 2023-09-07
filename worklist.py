@@ -1,9 +1,9 @@
-#!/usr/bin/python3
+#!/usr/bin/python3.11
 
 import sqlite3
 import tkinter as tk
+import tkinter.messagebox
 import tkinter.ttk as ttk
-from tkinter import messagebox
 import datetime
 import time
 import sys, os
@@ -11,6 +11,7 @@ import numpy as np
 import re
 from dateutil.relativedelta import relativedelta
 import platform
+from typing import List, Any
 
 from enum import Enum
 
@@ -33,8 +34,40 @@ from enum import Enum
 
 ###########################################
 
+class DateEntry(tk.Entry):
+  def __init__(self, parentFrame, notificationFunc):
+    tk.Entry.__init__(self, parentFrame)
+    self.notify = notificationFunc
+    self.bind("<Tab>", self.convertDate)
+
+  def convertDate(self, event=tk.Event) -> None:
+    box = event.widget
+    dateStr = box.get()
+    convertedDate = ""
+
+    try:
+      YMDstr2date(dateStr)
+      convertedDate = dateStr
+    except ValueError:
+      try:
+        #eg. Jan 1, 21
+        convertedDate = date2YMDstr(datetime.datetime.strptime(dateStr, "%b %d, %y"))
+      except ValueError:
+        #Date string doesn't match
+        try:
+          #Try to add the current year
+          #eg. Jan 1
+          convertedDate = date2YMDstr(datetime.datetime.strptime(dateStr, "%b %d").replace(year = todayDate().year))
+        except ValueError:
+          #Date really doesn't match
+          self.notify("Can't match date format of {}".format(dateStr))
+          return
+
+    box.delete(0, tk.END)
+    box.insert(0, convertedDate)
+
 class WorklistWindow():
-  def __init__(self, databasePath):
+  def __init__(self, databasePath: str):
     self.os = sys.platform
 
     self.db = DatabaseManager(databasePath)
@@ -44,14 +77,11 @@ class WorklistWindow():
 
     self.setupWindow()
 
-    # Start the program
-    self.root.mainloop()
-
   ######################################################
   # GUI setup functions
 
   # Setup up the gui and load tasks
-  def setupWindow(self):
+  def setupWindow(self) -> None:
 
     if self.os == "linux":
       self.root.attributes('-zoomed', True)
@@ -71,7 +101,7 @@ class WorklistWindow():
 
     recordLabel = tk.Label(self.taskDisplayFrame, text="")
     self.scroller = TaskScroller(self.taskDisplayFrame, self.selectTask, recordLabel)
-    self.scroller.pack(side=tk.TOP, fill="both", expand="true")
+    self.scroller.pack(side=tk.TOP, fill="both", expand=True)
     recordLabel.pack(side=tk.BOTTOM)
     recordLabel.pack(side=tk.RIGHT)
 
@@ -82,14 +112,13 @@ class WorklistWindow():
 
     # These aren't all the keybindings, but they're all the ones the user should notice
     # Other keybindings mostly just make the app behave how you'd expect
-    self.root.bind("<Control-q>", lambda event: self.root.destroy())
-    self.root.bind("<Control-w>", lambda event: self.root.destroy())
-    self.root.bind("<Control-n>", lambda event: self.newTaskButton.invoke())
-    self.root.bind("<Control-f>", lambda event: self.searchBox.focus())
+    self.root.bind("<Control-q>", lambda _: self.root.destroy())
+    self.root.bind("<Control-w>", lambda _: self.root.destroy())
+    self.root.bind("<Control-n>", lambda _: self.newTaskButton.invoke())
 
     self.refreshAll()
 
-  def setupFrames(self):
+  def setupFrames(self) -> None:
 
     # Frame to hold the tasklist display and associated frames and widgets
     self.taskDisplayFrame = tk.LabelFrame(self.root, text="Tasks", padx=self.padscale*4, pady=self.padscale*4)
@@ -113,9 +142,9 @@ class WorklistWindow():
 
     # Timer and its button
     self.timerFrame = tk.Frame(self.entryButtonFrame)
-    self.timerFrame.grid(row=0, column=1, padx=self.padscale * [0,30])
+    self.timerFrame.grid(row=0, column=1, padx=self.padscale * (0,30))
 
-  def setupTimer(self):
+  def setupTimer(self) -> None:
     #Timer and button to start/stop
     self.timeLabel = tk.Label(self.timerFrame, text="0:00:00", font=self.font)
     self.timeLabel.grid(row=0, column=1)
@@ -125,13 +154,13 @@ class WorklistWindow():
     self.timeButton.bind("<Return>", self.toggleTimer)
     self.timing = False
 
-  def setupEntryBoxes(self):
+  def setupEntryBoxes(self) -> None:
     self.editColumns = ["Category", "Task", "Time", "Used", "NextAction", "DueDate", "Flex", "Notes"]
 
     self.selection = None
 
-    self.entryBoxes = {}
-    self.entryLabels = {}
+    self.entryBoxes: dict[str, ttk.Combobox | tk.Text | tk.Entry | DateEntry] = {}
+    self.entryLabels: dict[str, tk.Label] = {}
 
     #Add inputs below list
     for i, header in enumerate(self.editColumns):
@@ -139,13 +168,12 @@ class WorklistWindow():
       self.entryLabels[header].grid(sticky="W",row=i, column=0)
 
       if header == "Category":
-        self.entryBoxes[header] = tk.ttk.Combobox(self.entryFrame)
+        self.entryBoxes[header] = ttk.Combobox(self.entryFrame)
         self.entryBoxes[header].bind("<FocusOut>", self.clearComboHighlights)
         self.entryBoxes[header].bind("<KeyRelease>", lambda event: self.completeBox(event, self.categories))
-        self.entryBoxes[header].bind("<Return>",
-                                     lambda event: self.entryBoxes["Category"].icursor(tk.END))
+        self.entryBoxes[header].bind("<Return>", lambda _: self.entryBoxes["Category"].icursor(tk.END))
       elif header == "Flex":
-        self.entryBoxes[header] = tk.ttk.Combobox(self.entryFrame,
+        self.entryBoxes[header] = ttk.Combobox(self.entryFrame,
                                                   values=["Y","N"],
                                                   state="readonly")
         self.entryBoxes[header].bind("<FocusOut>", self.clearComboHighlights)
@@ -172,7 +200,7 @@ class WorklistWindow():
     self.doneCheck.grid(row=0, column=0)
     self.doneCheck.deselect()
 
-  def setupButtons(self):
+  def setupButtons(self) -> None:
     #Add buttons to interact
     self.saveButton = tk.Button(self.entryButtonFrame, text="Save", command=self.save)
     self.saveButton.grid(row=0, column=2)
@@ -200,13 +228,13 @@ class WorklistWindow():
   # GUI update functions
 
   #Clears the annoying highlighting from all comboboxes
-  def clearComboHighlights(self, event=tk.Event):
+  def clearComboHighlights(self, _=tk.Event) -> None:
     for header in ["Category", "Flex"]:
       self.entryBoxes[header].selection_clear()
 
   # todo timer should probably be its own class - turns out this is tougher than you'd expect because of the links between the time, entryboxes and tasklist
   #     -> note that these links are themselves a code smell
-  def toggleTimer(self, event=tk.Event):
+  def toggleTimer(self, _=tk.Event) -> None:
     if not self.timing:
       self.timeButton.config(text="Stop")
       self.timing = True
@@ -222,7 +250,7 @@ class WorklistWindow():
         #Empty task
         pass
 
-  def runTimer(self, task):
+  def runTimer(self, task) -> None:
     timeFormat = "%H:%M:%S"
     if self.timing:
       # TODO would be better to handle this by accounting for date rather than just fudging the days
@@ -240,16 +268,16 @@ class WorklistWindow():
         self.timeLabel.config(text=str(self.timerVal))
         self.root.after(1000, lambda t=task: self.runTimer(t))
       except ValueError as e:
-        self.notify(e)
+        self.notify(str(e))
         self.timerVal = None
         self.timeButton.invoke()
 
-  def completeBox(self, event, sourceList):
+  def completeBox(self, event: tk.Event, sourceList: List[str]) -> None:
     #Don't run when deleting, or when shift is released
     if event.keysym not in ["BackSpace", "Shift_L", "Shift_R"]:
       box = event.widget
-      cursorPos = box.index(tk.INSERT)
-      current = box.get()[0:cursorPos]
+      cursorPos:int = box.index(tk.INSERT)
+      current: str = box.get()[0:cursorPos]
       #Don't run if box is empty, or cursor is not at the end
       if current and cursorPos == len(box.get()):
         options = []
@@ -265,6 +293,7 @@ class WorklistWindow():
             while len(set([option[i] for option in options])) == 1:
               i+=1
           except IndexError:
+              #todo wtf
             #Iterating out the end of one of the options
             pass
 
@@ -277,10 +306,10 @@ class WorklistWindow():
           box.select_range(cursorPos, tk.END)
           box.icursor(tk.END)
 
-  def getSearchCriteria(self):
+  def getSearchCriteria(self) -> list[str]:
     return ["O != 'X'", "NextAction <= '{}'".format(todayStr())]
 
-  def refreshTasks(self, event=tk.Event):
+  def refreshTasks(self, _=tk.Event) -> None:
     #Remember which task was selected
     if self.selection != None:
       self.selected_rowid = self.selection["rowid"]
@@ -303,7 +332,7 @@ class WorklistWindow():
         self.clearEntryBoxes()
 
   # TODO save() calls this recursively until you click "no" or "cancel"
-  def confirmDiscardChanges(self, taskName):
+  def confirmDiscardChanges(self, taskName: str) -> bool:
     if self.nonTrivialChanges():
       selection = tk.messagebox.askyesnocancel(title="Save before switching?",
                                                message = "Do you want to save your changes to '{}' before switching?".format(taskName))
@@ -316,7 +345,7 @@ class WorklistWindow():
 
     return True
 
-  def confirmCancelTimer(self, taskName):
+  def confirmCancelTimer(self, taskName: str) -> bool:
     try:
       if self.timing:
         self.entryBoxes["Category"].focus()
@@ -334,19 +363,19 @@ class WorklistWindow():
       return True
     except AttributeError:
       #On startup the timer isn't setup yet
-      pass
+      return False
 
-  def newTask(self, event=tk.Event):
+  def newTask(self, _=tk.Event) -> None:
     self.clearEntryBoxes()
     self.notify("Creating new entry")
     self.scroller.unhighlightAndSelectTask(None)
 
   #Bound to the Tab key for Text box, so that it will cycle widgets instead of inserting a tab character
-  def focusNextWidget(self, event):
+  def focusNextWidget(self, event: tk.Event) -> str:
     event.widget.tk_focusNext().focus()
     return("break")
 
-  def clearEntryBoxes(self):
+  def clearEntryBoxes(self) -> None:
     if self.selection is None or self.confirmDiscardChanges(self.selection["Task"]):
       try:
         #Nothing selected, just clear the box
@@ -361,7 +390,7 @@ class WorklistWindow():
     else:
       raise PermissionError("Cancelled by user")
 
-  def overwriteEntryBox(self, entry, text):
+  def overwriteEntryBox(self, entry: ttk.Combobox | tk.Text | tk.Entry | DateEntry, text) -> None:
     #Check if we need to temporarily enable the box
     changeFlag = (entry["state"] == "readonly")
     if changeFlag:
@@ -375,9 +404,9 @@ class WorklistWindow():
 
     #Switch back to the original state
     if changeFlag:
-      entry.config(state="readonly")
+      entry.config(state=tk.DISABLED)
 
-  def selectTask(self, task):
+  def selectTask(self, task) -> None:
     self.messageLabel.config(text="")
     if self.selection is None or (self.confirmDiscardChanges(task["Task"]) and self.confirmCancelTimer(task["Task"])):
 
@@ -395,13 +424,13 @@ class WorklistWindow():
       if not self.timing:
         self.timeLabel.config(text=str(datetime.timedelta(minutes=(task["Used"] or 0))))
 
-  def refreshAll(self, event=tk.Event):
+  def refreshAll(self, _=tk.Event) -> None:
     self.refreshCategories()
     self.updateLoadsToday()
     self.calendarFrame.updateCalendar(self.db.getTasks4Workload())
     self.refreshTasks()
 
-  def refreshCategories(self):
+  def refreshCategories(self) -> None:
     self.categories = self.db.getCategories()
     try:
       self.entryBoxes["Category"].config(values=self.categories)
@@ -410,10 +439,10 @@ class WorklistWindow():
       pass
 
 
-  def notify(self, msg):
+  def notify(self, msg: str) -> None:
     try:
       self.messageLabel.config(text=msg)
-    except AttributeError as e:
+    except AttributeError:
       # Fails on startup
       pass
     print(msg)
@@ -422,7 +451,7 @@ class WorklistWindow():
   # Calculation functions
 
   #Gets the text in the passed entryBox
-  def getEntry(self, entryBox):
+  def getEntry(self, entryBox: tk.Text | ttk.Combobox | tk.Entry | DateEntry) -> str:
     try:
       return entryBox.get()
     except TypeError:
@@ -430,7 +459,7 @@ class WorklistWindow():
       return entryBox.get('1.0','end')[:-1]
 
   #validate data
-  def validateRow(self, row):
+  def validateRow(self, row: dict | sqlite3.Row) -> None:
       for header in self.db.headers:
         data = row[header]
         if header in ["NextAction", "DueDate", "DateAdded"]:
@@ -453,10 +482,10 @@ class WorklistWindow():
           raise ValueError("Unacceptable {}: {}".format(header, data))
 
   # takes a dict (or sqlite3.Row) representing a task, updates all calculated values and returns the new Row
-  def calculateRow(self, inRow, event=tk.Event):
+  def calculateRow(self, inRow: dict | sqlite3.Row, _=tk.Event) -> dict:
     today = todayStr()
 
-    newRowDict = {}
+    newRowDict: dict = {}
     for header in self.db.headers:
       if header == "Left":
         newRowDict[header] = max(0, int(newRowDict["Time"] or 0) - int(newRowDict["Used"] or 0))
@@ -480,13 +509,13 @@ class WorklistWindow():
   # Task functions
 
   # Wrapper for the database manager equivalent function
-  def loadTasks(self, criteria=[]):
+  def loadTasks(self, criteria: list[str] = []) -> None:
     self.loadedTasks = self.db.getTasks(criteria)
     if len(self.loadedTasks) == 0:
       self.notify("No tasks found")
 
   #Deletes the task selected in the listbox from the database
-  def deleteTask(self):
+  def deleteTask(self) -> None:
     task = self.selection
     try:
       deleted = False
@@ -511,7 +540,7 @@ class WorklistWindow():
       self.notify("Cannot delete - none selected")
 
   #Save the current state of the entry boxes for that task
-  def save(self, event=tk.Event()):
+  def save(self, _=tk.Event()) -> None:
     if self.selection is None or self.confirmCancelTimer(self.selection["Task"]):
       try:
         if self.selection is None:
@@ -525,13 +554,13 @@ class WorklistWindow():
         self.notify("Task saved")
       except ValueError as e:
         #Something wrong with the inputs given
-        self.notify(e)
+        self.notify(str(e))
       except PermissionError as e:
         #updateSelectedTask() cancelled by user
-        self.notify(e)
+        self.notify(str(e))
 
   # TODO a more elegant way of handling repeating tasks than just creating a bunch of duplicates. Maybe a task that duplicates itself a number of days in the future when completed?
-  def createTaskFromInputs(self):
+  def createTaskFromInputs(self) -> None:
     newRowDict = {}
 
     #Pull in directly entered values
@@ -571,7 +600,7 @@ class WorklistWindow():
 
   # Like updateSelectedTask, but you pass the updated task in rather than pulling from input
   # Doesn't commit the changes, so you can loop without a huge overhead
-  def updatePassedTask(self, row):
+  def updatePassedTask(self, row: dict | sqlite3.Row) -> None:
     #Find which columns were changed and how
     changes = []
     newRow = {}
@@ -585,7 +614,7 @@ class WorklistWindow():
 
     self.db.updateTasks(criteria, changes)
 
-  def nonTrivialChanges(self):
+  def nonTrivialChanges(self) -> bool:
     changes = self.getChanges()
     if len(changes) == 1 and "DaysLeft" in changes[0]:
       return False
@@ -596,7 +625,7 @@ class WorklistWindow():
     else:
       return True
 
-  def getChanges(self):
+  def getChanges(self) -> list[str]:
     changes = []
     if self.selection == None:
       pass
@@ -651,8 +680,7 @@ class WorklistWindow():
     return changes
 
   # Update the currently selected task with values from the entry boxes
-  # If a task is passed in ("row"), as a dict or sqlite3.Row, updates this instead, by rowid
-  def updateSelectedTask(self):
+  def updateSelectedTask(self) -> None:
     changes = self.getChanges()
 
     if changes:
@@ -670,7 +698,7 @@ class WorklistWindow():
 
       self.db.commit()
 
-  def duplicateTask(self):
+  def duplicateTask(self) -> None:
     oldSelection = self.selection
     self.selection = None
     self.save()
@@ -678,7 +706,7 @@ class WorklistWindow():
     self.notify("Duplicated task")
 
   #scans all tasks and updates using calculateRow()
-  def updateLoadsToday(self, event=tk.Event):
+  def updateLoadsToday(self, _=tk.Event) -> None:
     try:
       #backup task list
       oldTasks = self.loadedTasks
@@ -705,18 +733,18 @@ class WorklistWindow():
       pass
 
 class DatabaseManager():
-  def __init__(self, databasePath):
+  def __init__(self, databasePath: str):
     self.conn = sqlite3.connect(databasePath)
     self.conn.row_factory = sqlite3.Row
 
     self.c = self.conn.cursor()
     self.cwrite = self.conn.cursor()
 
-  def commit(self):
+  def commit(self) -> None:
     self.conn.commit()
 
   #Loads the tasks by searching the database with the criteria specified
-  def getTasks(self, criteria=[]):
+  def getTasks(self, criteria: list[str] =[]) -> list[dict]:
     #Super basic SQL injection check
     if True in [';' in s for s in criteria]:
       raise ValueError("; in SQL input!")
@@ -738,29 +766,29 @@ class DatabaseManager():
 
     return tasks
 
-  def getTasks4Workload(self):
+  def getTasks4Workload(self) -> list[dict]:
     self.cwrite.execute("SELECT NextAction, DueDate, Left FROM worklist WHERE O == 'O' ORDER BY DueDate;")
     return self.cwrite.fetchall()
 
   #Updates the categories in the category filter
-  def getCategories(self):
+  def getCategories(self) -> list[str]:
     self.cwrite.execute("SELECT DISTINCT Category FROM worklist ORDER BY Category;")
     return [line["Category"] for line in self.cwrite.fetchall()]
 
-  def deleteByRowid(self, rowid):
+  def deleteByRowid(self, rowid: int) -> None:
     self.cwrite.execute("DELETE FROM worklist WHERE rowid == ?", [rowid])
 
-  def deleteByNameCat(self, taskName, category):
+  def deleteByNameCat(self, taskName: str, category: str) -> None:
     self.cwrite.execute("DELETE FROM worklist WHERE Task==? AND Category==? AND O='O'", [taskName, category])
 
-  def checkSqlInput(self, sqlString):
+  def checkSqlInput(self, sqlString) -> None:
     if type(sqlString) not in [int, float, type(None)]:
       #todo a better way of cleaning input
       badChars = [';']
       if any((c in badChars) for c in sqlString):
         raise ValueError("Bad SQL input: {}".format(sqlString))
 
-  def updateTasks(self, criteria, changes):
+  def updateTasks(self, criteria: list[str], changes: list[str]) -> None:
     for string in criteria + changes:
       self.checkSqlInput(string)
 
@@ -772,7 +800,7 @@ class DatabaseManager():
 
     self.cwrite.execute(command)
 
-  def createTask(self, headers, vals):
+  def createTask(self, headers: list[str], vals: list[str]) -> None:
     for string in headers + vals:
       self.checkSqlInput(string)
 
@@ -800,7 +828,7 @@ class DatabaseManager():
 # eg. thisDay["LoadLabel"].bind("<Button-1>", CALLBACK)
 # Set up the calendar display to show estimated workload each day for a several week forecast
 class Calendar(tk.LabelFrame):
-  def __init__(self, parentFrame, parentFont):
+  def __init__(self, parentFrame: tk.Frame , parentFont):
     super().__init__(parentFrame, text="Calendar", padx=4, pady=4)
 
     self.numweeks = 4
@@ -814,18 +842,18 @@ class Calendar(tk.LabelFrame):
 
     for week in range(self.numweeks):
       thisWeek = []
-      for day in range(5):
-        thisDay = {}
+      for dayNum in range(5):
+        thisDay: dict[str, Any] = {}
         # todo *Sometimes* this significantly slows boot time. Could maybe cut down on labels by having dates all in a row for each week, but lining up with loads could be tricky. First row changes colour, so could do each date row below the first as a multi-column label.
         #Alternate date labels and workloads
         thisDay["DateLabel"] = tk.Label(self, font=parentFont)
-        thisDay["DateLabel"].grid(row=2*week + 1, column=day, padx=4, pady=4)
+        thisDay["DateLabel"].grid(row=2*week + 1, column=dayNum, padx=4, pady=4)
         thisDay["LoadLabel"] = tk.Label(self, font=parentFont)
-        thisDay["LoadLabel"].grid(row=2*week + 2, column=day, padx=4, pady=4)
+        thisDay["LoadLabel"].grid(row=2*week + 2, column=dayNum, padx=4, pady=4)
         thisWeek.append(thisDay)
       self.calendar.append(thisWeek)
 
-  def updateCalendar(self, openTasks):
+  def updateCalendar(self, openTasks) -> None:
 
     self.calculateDayLoads(openTasks)
 
@@ -845,11 +873,11 @@ class Calendar(tk.LabelFrame):
         if thisDate >= today:
           hoursThisDay = self.getDayTotalLoad(date2YMDstr(thisDate)) / 60
           thisDay["LoadLabel"].config(text=str(round(hoursThisDay,1)),
-                                      bg=greenRedScale(0,(7 if thisDate != today else max(0.1, hoursLeftToday)),hoursThisDay))
+                                      bg=greenRedScale(0,(7 if thisDate != today else max(0.1, hoursLeftToday)), hoursThisDay))
         else:
           thisDay["LoadLabel"].config(text="", bg="#d9d9d9")
 
-  def calculateDayLoads(self, openTasks):
+  def calculateDayLoads(self, openTasks) -> None:
     # Get a list of all unfinished tasks with start dates no more than self.numweeks in the future, sorted from soonest due date to latest
     today = todayDate()
     thisFriday = today - datetime.timedelta(days=today.weekday() + 4)
@@ -858,7 +886,7 @@ class Calendar(tk.LabelFrame):
     relevantTasks = [task for task in openTasks if task["NextAction"] <= endDate]
 
     # Iterate over the list of tasks (starting from soonest due date), distributing time evenly (each day gets time remaining / # days remaining) over days from max(today, start date) to due date. If adding time would push day over 8 hours, only add up to 8 hours, and withold extra time within the task.
-    self.dayLoads = {}
+    self.dayLoads: dict[str, float] = {}
     # TODO this code ignores work start time and lunch break, i.e. at midnight it will assume there are 16 hours of work left today, and at 7 AM it will assume there are 9
     # todo another way to do this would be to save how many hours of work are due today and to subtract the number of hours of tracked work. That would avoid rewarding with less work remaining simply because time has passed.
     # calculates the time (in hours) remaining until 4 PM system time, because I work an hour ahead (i.e. 4 PM system time is 5 PM my time)
@@ -906,7 +934,7 @@ class Calendar(tk.LabelFrame):
 
   # Gets the work load for the day represented by the passed string
   #date should be a string formatted "YYYY-MM-DD"
-  def getDayTotalLoad(self, date):
+  def getDayTotalLoad(self, date: str) -> float:
     # Will raise an error if date is poorly formatted
     YMDstr2date(date)
 
@@ -915,40 +943,8 @@ class Calendar(tk.LabelFrame):
     except KeyError:
       return 0;
 
-class DateEntry(tk.Entry):
-  def __init__(self, parentFrame, notificationFunc):
-    tk.Entry.__init__(self, parentFrame)
-    self.notify = notificationFunc
-    self.bind("<Tab>", self.convertDate)
-
-  def convertDate(self, event=tk.Event):
-    box = event.widget
-    dateStr = box.get()
-    convertedDate = ""
-
-    try:
-      YMDstr2date(dateStr)
-      convertedDate = dateStr
-    except ValueError:
-      try:
-        #eg. Jan 1, 21
-        convertedDate = date2YMDstr(datetime.datetime.strptime(dateStr, "%b %d, %y"))
-      except ValueError:
-        #Date string doesn't match
-        try:
-          #Try to add the current year
-          #eg. Jan 1
-          convertedDate = date2YMDstr(datetime.datetime.strptime(dateStr, "%b %d").replace(year = todayDate().year))
-        except ValueError:
-          #Date really doesn't match
-          self.notify("Can't match date format of {}".format(dateStr))
-          return
-
-    box.delete(0, tk.END)
-    box.insert(0, convertedDate)
-
 class ScrollFrame(tk.Frame):
-    def __init__(self, parent):
+    def __init__(self, parent: tk.Frame | tk.LabelFrame):
         super().__init__(parent) # create a frame (self)
 
         self.canvas = tk.Canvas(self, borderwidth=0)                                #place canvas on self
@@ -969,16 +965,16 @@ class ScrollFrame(tk.Frame):
 
         self.onFrameConfigure(None)                                                 #perform an initial stretch on render, otherwise the scroll region has a tiny border until the first resize
 
-    def onFrameConfigure(self, event):
+    def onFrameConfigure(self, _):
         '''Reset the scroll region to encompass the inner frame'''
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))                 #whenever the size of the frame changes, alter the scroll region respectively.
 
-    def onCanvasConfigure(self, event):
+    def onCanvasConfigure(self, event: tk.Event):
         '''Reset the canvas window to encompass inner frame when required'''
         canvas_width = event.width
         self.canvas.itemconfig(self.canvas_window, width = canvas_width)            #whenever the size of the canvas changes alter the window region respectively.
 
-    def onMouseWheel(self, event):                                                  # cross platform scroll wheel event
+    def onMouseWheel(self, event: tk.Event):                                                  # cross platform scroll wheel event
         if platform.system() == 'Windows':
             self.canvas.yview_scroll(int(-1* (event.delta/120)), "units")
         elif platform.system() == 'Darwin':
@@ -989,14 +985,14 @@ class ScrollFrame(tk.Frame):
             elif event.num == 5:
                 self.canvas.yview_scroll( 1, "units" )
 
-    def onEnter(self, event):                                                       # bind wheel events when the cursor enters the control
+    def onEnter(self, _):                                                       # bind wheel events when the cursor enters the control
         if platform.system() == 'Linux':
             self.canvas.bind_all("<Button-4>", self.onMouseWheel)
             self.canvas.bind_all("<Button-5>", self.onMouseWheel)
         else:
             self.canvas.bind_all("<MouseWheel>", self.onMouseWheel)
 
-    def onLeave(self, event):                                                       # unbind wheel events when the cursorl leaves the control
+    def onLeave(self, _):                                                       # unbind wheel events when the cursorl leaves the control
         if platform.system() == 'Linux':
             self.canvas.unbind_all("<Button-4>")
             self.canvas.unbind_all("<Button-5>")
@@ -1004,14 +1000,14 @@ class ScrollFrame(tk.Frame):
             self.canvas.unbind_all("<MouseWheel>")
 
 class TaskScroller(ScrollFrame):
-    def __init__(self, parent, selectTask, recordLabel):
+    def __init__(self, parent: tk.Frame | tk.LabelFrame, selectTask, recordLabel):
         super().__init__(parent)
         self.tasks = []
         self.selectTask = selectTask
 
         self.recordLabel = recordLabel
 
-    def showTasks(self, tasks):
+    def showTasks(self, tasks: list) -> None:
         self.taskRows = []
         for (i, task) in enumerate(tasks):
             taskRow = TaskRow(self.viewPort, task, lambda t=task: self.unhighlightAndSelectTask(t))
@@ -1020,7 +1016,7 @@ class TaskScroller(ScrollFrame):
 
         self.recordLabel.config(text=str(len(tasks)) + " tasks found")
 
-    def unhighlightAndSelectTask(self, task):
+    def unhighlightAndSelectTask(self, task) -> None:
         for tr in self.taskRows:
             if tr.rowid == task["rowid"]:
                 tr.highlight()
@@ -1030,7 +1026,7 @@ class TaskScroller(ScrollFrame):
         self.selectTask(task)
 
 class TaskRow(tk.LabelFrame):
-    def __init__(self, parentFrame, task, select):
+    def __init__(self, parentFrame: tk.Frame, task, select):
         super().__init__(parentFrame)
         self.select = select
         self.rowid = task["rowid"]
@@ -1043,22 +1039,23 @@ class TaskRow(tk.LabelFrame):
 
         self.visible = [self, self.taskName, self.category]
         for o in self.visible:
-            o.bind("<1>", lambda e: self.selectAndHighlight())
+            o.bind("<1>", lambda _: self.selectAndHighlight())
 
         self.unhighlight()
 
-    def selectAndHighlight(self):
+    def selectAndHighlight(self) -> None:
         self.select()
         self.highlight()
 
-    def highlight(self):
+    def highlight(self) -> None:
         for w in self.visible:
             w.config(bg="lightblue")
 
-    def unhighlight(self):
+    def unhighlight(self) -> None:
         for w in self.visible:
             w.config(bg="white")
 def main():
+  worklist: WorklistWindow
   if len(sys.argv) > 1:
     worklist = WorklistWindow(sys.argv[1])
   elif os.path.isfile("worklist.db"):
@@ -1090,16 +1087,17 @@ def main():
     """)
     cur.close()
     worklist = WorklistWindow("worklist.db")
+  worklist.root.mainloop()
 
 ###############################
 # Utilities
 ###############################
 
 #Like .ljust, but truncates to length if necessary
-def ljusttrunc(text, length):
+def ljusttrunc(text: str, length: int) -> str:
   return text[:length].ljust(length)
 
-def greenRedScale(low, high, val):
+def greenRedScale(low: float, high: float, val: float) -> str:
   #linear interpolation bounded on [0,1]
   frac = max(0, min(1, (val - low) / (high - low)))
   if frac > 0.5:
@@ -1112,34 +1110,34 @@ def greenRedScale(low, high, val):
   return "#{}{}00".format(str(hex(red)[2:]).rjust(2,'0'), str(hex(green)[2:]).rjust(2,'0'))
 
 #Surrounds the string inner with string outer, reversed the second time, and returns the result
-def surround(inner, outer):
+def surround(inner: str, outer: str) -> str:
   return outer + inner + outer[::-1]
 
 #Double up single quotes in a string
-def escapeSingleQuotes(text):
+def escapeSingleQuotes(text) -> str:
   return "".join([c if c != "'" else c+c for c in text])
 
 # Takes a string "YYYY-MM-DD"
-def daysBetween(d1, d2):
-  d1 = YMDstr2date(d1)
-  d2 = YMDstr2date(d2)
-  return (d2 - d1).days
+def daysBetween(d1: str, d2: str) -> int:
+  d1d = YMDstr2date(d1)
+  d2d = YMDstr2date(d2)
+  return (d2d - d1d).days
 
 # takes strings "%Y-%m-%d"
 # inclusive of start and end date
-def workDaysBetween(d1, d2):
+def workDaysBetween(d1: str | datetime.date, d2: str) -> int:
   return int(np.busday_count(d1, (YMDstr2date(d2) + datetime.timedelta(days=1))))
 
-def YMDstr2date(dateString):
+def YMDstr2date(dateString: str) -> datetime.date:
   return datetime.datetime.strptime(dateString, "%Y-%m-%d").date()
 
-def date2YMDstr(dateVar):
+def date2YMDstr(dateVar: datetime.date) -> str:
   return dateVar.strftime("%Y-%m-%d")
 
-def todayStr():
+def todayStr() -> str:
   return date2YMDstr(todayDate())
 
-def todayDate():
+def todayDate() -> datetime.date:
   return datetime.date.today()
 
 if __name__ == '__main__':
