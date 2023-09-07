@@ -106,12 +106,19 @@ class EditableLabel(tk.Frame):
 
         self.edit_box = tk.Entry(self)
         self.edit_box.bind("<Return>", lambda _: self.save())
+        self.edit_box.bind("<Escape>", lambda _: self.discard())
         self.click_tracker = TrackOutsideClick([self.edit_box])
 
     def bind(self, *args, **kwargs):
         super().bind(*args, **kwargs)
         self.label.bind(*args, **kwargs)
         self.edit_box.bind(*args, **kwargs)
+
+    def discard(self):
+        self.edit_box.grid_forget()
+        self.label.grid(sticky=tk.N+tk.S+tk.E+tk.W)
+
+        self.click_tracker.unbind()
 
     def save(self):
         self.text = self.edit_box.get()
@@ -129,7 +136,6 @@ class EditableLabel(tk.Frame):
             self.edit_box.select_range(0, 'end')
             # move cursor to the end
             self.edit_box.icursor('end')
-
 
         self.label.grid_forget()
         self.edit_box.grid(sticky=tk.N+tk.S+tk.E+tk.W)
