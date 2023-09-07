@@ -4,12 +4,12 @@ import tkinter as tk
 import tkinter.messagebox
 import tkinter.ttk as ttk
 import datetime
-import time
 import sys
 import platform
 from typing import List, Any, Optional
+from beavor.backend.target.release.backend import surround
 
-from utils import *
+from .utils import *
 
 ###########################################
 #Readability / coding style / maintainability
@@ -596,6 +596,7 @@ class WorklistWindow():
 
     def newTask(self, _=tk.Event) -> None:
       self.select(None)
+      print(surround("you",  "spies"))
 
     def refreshAll(self) -> None:
       self.calendar.updateCalendar(self.db.getTasks4Workload())
