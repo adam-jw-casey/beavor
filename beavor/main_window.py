@@ -5,10 +5,10 @@ from .ScrollFrame import ScrollFrame
 
 from typing import Optional
 
-class ProjectWindow(tk.LabelFrame):
+class ProjectWindow(ScrollFrame):
     def __init__(self, parent):
-        super().__init__(parent)
-        self.deliverable_rows: list[Deliverable] = []
+        super().__init__(parent, "No project selected")
+        self.deliverable_rows: list[DeliverableRow] = []
         self.select_project(None)
 
     def select_project(self, proj: Optional[Project]):
@@ -25,7 +25,7 @@ class ProjectWindow(tk.LabelFrame):
             self.add_deliverable_row(deliverable)
 
     def add_deliverable_row(self, deliverable: Deliverable):
-        deliverable_row = DeliverableRow(self, deliverable)
+        deliverable_row = DeliverableRow(self.viewPort, deliverable)
         deliverable_row.pack(fill='x', side='bottom')
         self.deliverable_rows.append(deliverable_row)
 
