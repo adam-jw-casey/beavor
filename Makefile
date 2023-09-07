@@ -32,5 +32,5 @@ $(BACKEND)/resources/schema.db: $(BACKEND)/resources/schema.sql
 clean:
 	@rm __pycache__ -rf
 	@rm beavor/__pycache__ -rf
-	@rm beavor/backend.so
+	@rm $(LIB_TARGET)
 	@cd $(BACKEND); cargo clean
