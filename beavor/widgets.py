@@ -144,8 +144,8 @@ class ProjectRow(tk.Frame):
 
         self.project = project
 
-        self.nameLabel = tk.Label(self, text=project.name)
-        self.nameLabel.pack()
+        self.nameLabel = tk.Label(self, text="-- " + project.name)
+        self.nameLabel.pack(anchor=tk.W)
         self.nameLabel.bind("<1>", lambda _: callback(self.project))
 
         self.visible = [self, self.nameLabel]
@@ -157,3 +157,11 @@ class ProjectRow(tk.Frame):
     def unhighlight(self) -> None:
         for w in self.visible:
             w.config(bg="white")
+
+class ProjectWindow(tk.LabelFrame):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.select_project(None)
+
+    def select_project(self, proj: Optional[Project]):
+        self.config(text=proj.name if proj else "No projcet selected")
