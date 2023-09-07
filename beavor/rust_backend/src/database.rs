@@ -341,7 +341,6 @@ impl DatabaseManager{
                     .iter()
                     .filter_map(|cs| sscanf!(cs.Name, "Project{u32}").ok())
             ));
-            println!("New project: {new_project_name}");
 
             let new_rowid = sqlx::query!("
                 INSERT INTO projects

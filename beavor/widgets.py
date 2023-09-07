@@ -102,7 +102,7 @@ class EditableLabel(tk.Frame):
 
         self.label = tk.Label(self, text=text)
         self.label.bind("<Double-Button-1>", lambda _: self.edit())
-        self.label.grid(sticky=tk.N+tk.S+tk.E+tk.W)
+        self.label.grid(sticky=tk.E+tk.W)
 
         self.edit_box = tk.Entry(self)
         self.edit_box.bind("<Return>", lambda _: self.save())
@@ -116,7 +116,7 @@ class EditableLabel(tk.Frame):
 
     def discard(self):
         self.edit_box.grid_forget()
-        self.label.grid(sticky=tk.N+tk.S+tk.E+tk.W)
+        self.label.grid(sticky=tk.E+tk.W)
 
         self.click_tracker.unbind()
 
@@ -146,6 +146,17 @@ class EditableLabel(tk.Frame):
         select_all()
 
         self.click_tracker.bind(self.save, ignore_self_click=True)
+
+class LabeledWidget(tk.Frame):
+    def __init__(self, parent: tk.Frame | tk.LabelFrame, text: str, child_constructor: Callable[[tk.Frame], tk.Widget]):
+        super().__init__(parent)
+
+        self.label = tk.Label(self, text=text)
+        self.label.grid(row=0, column=0)
+
+        self.w = child_constructor(self)
+        self.w.grid(row=0, column=1, sticky=tk.W+tk.E)
+        self.grid_columnconfigure(1, weight=1)
 
 class TrackOutsideClick:
     """
