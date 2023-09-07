@@ -6,6 +6,8 @@ use pyo3::prelude::{
 use crate::date::{
     Availability,
     PyAvailability,
+    DueDate,
+    PyDueDate,
 };
 
 #[derive(Clone)]
@@ -37,4 +39,58 @@ impl Task{
     fn set_available(&mut self, availability: PyAvailability){
         self.available = (&availability).into();
     }
+}
+
+#[pyclass]
+#[derive(Clone)]
+pub struct External{
+    #[pyo3(get, set)]
+    name: String,
+    #[pyo3(get, set)]
+    link: String, // this should maybe be a more specific type, like a URL or somesuch
+}
+
+#[pyclass]
+#[derive(Clone)]
+pub struct Deliverable{
+    #[pyo3(get, set)]
+    name:      String,
+    due:       DueDate,
+    #[pyo3(get, set)]
+    notes:     String,
+    #[pyo3(get, set)]
+    tasks:     Vec<Task>,
+    #[pyo3(get, set)]
+    externals: Vec<External>,
+}
+
+#[pymethods]
+impl Deliverable{
+    #[getter]
+    fn get_due(&self) -> PyDueDate{
+        (&self.due).into()
+    }
+
+    #[setter]
+    fn set_due(&mut self, due: PyDueDate){
+        self.due = (&due).into()
+    }
+}
+
+#[pyclass]
+#[derive(Clone)]
+pub struct Project{
+    #[pyo3(get, set)]
+    name: String,
+    #[pyo3(get, set)]
+    deliverables: Vec<Deliverable>,
+}
+
+#[pyclass]
+#[derive(Clone)]
+pub struct Category{
+    #[pyo3(get, set)]
+    name:     String,
+    #[pyo3(get, set)]
+    projects: Vec<Project>,
 }
