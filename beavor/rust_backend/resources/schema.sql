@@ -1,4 +1,4 @@
-PRAGMA foreign_keys = ON; -- TODO this needs to be executed on every connection
+PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS tasks(
 	Name		  TEXT,
