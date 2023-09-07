@@ -361,8 +361,13 @@ impl DatabaseManager{
     }
 
     fn update_task(&self, task: Task){
+        // These must be stored so that they are not dropped in-between
+        // the calls to query! and .execute
+        let next_action_str = DueDate::Date(task.next_action_date).to_string();
+        let due_date_str = task.due_date.to_string();
+
         self.rt.block_on(async{
-            sqlx::query("
+            sqlx::query!("
                 UPDATE worklist
                 SET
                     Category =    ?,
@@ -374,9 +379,18 @@ impl DatabaseManager{
                     DueDate =     ?,
                     Notes =       ?
                 WHERE
-                    rowid == ?   
-            ")
-                .bind(task.id)
+                    rowid == ?
+            ",
+                task.category,
+                task.finished,
+                task.task_name,
+                task.time_needed,
+                task.time_used,
+                next_action_str,
+                due_date_str,
+                task.notes,
+                task.id,
+            )
                 .execute(&self.pool)
                 .await
                 .expect("Should be able to update task");
