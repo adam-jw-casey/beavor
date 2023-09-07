@@ -305,7 +305,7 @@ class WorklistWindow():
             while len(set([option[i] for option in options])) == 1:
               i+=1
           except IndexError:
-              #todo wtf
+              # TODO wtf
             #Iterating out the end of one of the options
             pass
 
@@ -318,16 +318,12 @@ class WorklistWindow():
           box.select_range(cursorPos, tk.END)
           box.icursor(tk.END)
 
-  def getSearchCriteria(self) -> list[str]:
-    return ["O != 'X'", "NextAction <= '{}'".format(todayStr())]
-
   def refreshTasks(self, _=tk.Event) -> None:
     #Remember which task was selected
     if self.selection != None:
       self.selected_rowid = self.selection["rowid"]
 
-    criteria = self.getSearchCriteria()
-    self.loadTasks(criteria)
+    self.loadTasks([f"O != 'X'", "NextAction <= '{todayStr()}'"])
     self.scroller.showTasks(self.loadedTasks)
 
     if self.selection != None:
