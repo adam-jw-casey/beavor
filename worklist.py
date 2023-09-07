@@ -29,6 +29,7 @@ from enum import Enum
 # todo integration to get availability from Google/Outlook calendar to adjust daily workloads based on scheduled meetings
 # todo user-customizable settings (like font size, calendar colourscale) -> This could write to external file read at startup?
 # todo Dark mode toggle (use .configure(bg='black') maybe? Or another better colour. Have to do it individually by pane though, self.root.configure() only does some of the background. Also probably have to change text colour too.)
+# todo User-adjustable font/font size
 
 ###########################################
 
@@ -183,9 +184,9 @@ class WorklistWindow():
 
     self.deleteButton = tk.Button(self.entryButtonFrame,
                                   text="Delete",
-                                  command = lambda e: self.deleteTask())
+                                  command = self.deleteTask)
     self.deleteButton.grid(row=0, column=4)
-    self.deleteButton.bind("<Return>", lambda e: self.deleteTask())
+    self.deleteButton.bind("<Return>", self.deleteTask)
 
     self.duplicateButton = tk.Button(self.entryButtonFrame,
                                      text="Duplicate",
@@ -204,6 +205,7 @@ class WorklistWindow():
       self.entryBoxes[header].selection_clear()
 
   # todo timer should probably be its own class - turns out this is tougher than you'd expect because of the links between the time, entryboxes and tasklist
+  #     -> note that these links are themselves a code smell
   def toggleTimer(self, event=tk.Event):
     if not self.timing:
       self.timeButton.config(text="Stop")
@@ -300,6 +302,7 @@ class WorklistWindow():
       else:
         self.clearEntryBoxes()
 
+  # TODO save() calls this recursively until you click "no" or "cancel"
   def confirmDiscardChanges(self, taskName):
     if self.nonTrivialChanges():
       selection = tk.messagebox.askyesnocancel(title="Save before switching?",
@@ -358,7 +361,6 @@ class WorklistWindow():
     else:
       raise PermissionError("Cancelled by user")
 
-  # todo either this or multiEditConfig is sometimes leaving "Used" in readonly
   def overwriteEntryBox(self, entry, text):
     #Check if we need to temporarily enable the box
     changeFlag = (entry["state"] == "readonly")
@@ -393,7 +395,6 @@ class WorklistWindow():
       if not self.timing:
         self.timeLabel.config(text=str(datetime.timedelta(minutes=(task["Used"] or 0))))
 
-  # todo the refresh message gets clobbered here somewhere
   def refreshAll(self, event=tk.Event):
     self.refreshCategories()
     self.updateLoadsToday()
@@ -485,7 +486,8 @@ class WorklistWindow():
       self.notify("No tasks found")
 
   #Deletes the task selected in the listbox from the database
-  def deleteTask(self, task):
+  def deleteTask(self):
+    task = self.selection
     try:
       deleted = False
       if(tk.messagebox.askyesno(title="Confirm deletion",
@@ -528,7 +530,7 @@ class WorklistWindow():
         #updateSelectedTask() cancelled by user
         self.notify(e)
 
-  # todo a more elegant way of handling repeating tasks than just creating a bunch of duplicates. Maybe a task that duplicates itself a number of days in the future when completed?
+  # TODO a more elegant way of handling repeating tasks than just creating a bunch of duplicates. Maybe a task that duplicates itself a number of days in the future when completed?
   def createTaskFromInputs(self):
     newRowDict = {}
 
@@ -1019,7 +1021,6 @@ class TaskScroller(ScrollFrame):
         self.recordLabel.config(text=str(len(tasks)) + " tasks found")
 
     def unhighlightAndSelectTask(self, task):
-        # todo would be more performant to track the highlighted row and only unhighlight that one
         for tr in self.taskRows:
             if tr.rowid == task["rowid"]:
                 tr.highlight()
