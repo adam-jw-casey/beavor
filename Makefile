@@ -7,11 +7,13 @@ check:
 	cd $(BACKEND); cargo check
 	pyright .
 
-release: $(BACKEND)/target/release/libbackend.so
+release: $(BACKEND)/target/release/libbackend.so python_dependencies
 	cp $< $(LIB_TARGET)
+	@echo "Successully built release library"
 
-debug: $(BACKEND)/target/debug/libbackend.so
+debug: $(BACKEND)/target/debug/libbackend.so python_dependencies
 	cp $< $(LIB_TARGET)
+	@echo "Successfully built debug library"
 
 $(BACKEND)/target/release/libbackend.so: $(BACKEND)/Cargo.toml $(BACKEND)/src/* $(BACKEND)/.env $(BACKEND)/resources/dummy.db
 	cd $(BACKEND)/; cargo build --release
@@ -29,3 +31,17 @@ clean:
 	@rm beavor/__pycache__ -rf
 	@rm beavor/backend.so
 	@cd $(BACKEND); cargo clean
+
+python_dependencies: .pydepsupdated
+	@:
+
+.pydepsupdated: requirements.txt .pipreqsinstalled
+	pip3 install -r $<
+	@touch $@
+
+requirements.txt: launch beavor/*.py
+	pipreqs . --force
+
+.pipreqsinstalled:
+	pip3 install pipreqs
+	@touch $@
