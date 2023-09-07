@@ -24,9 +24,9 @@ from utils import *
 # todo would be cool to support multi-step / project-type tasks
 # todo integration to put tasks into Google/Outlook calendar would be cool or just have a way of marking a task as scheduled
 # todo integration to get availability from Google/Outlook calendar to adjust daily workloads based on scheduled meetings
-# todo user-customizable settings (like font size, calendar colourscale) -> This could write to external file, read at startup?
 # todo Dark mode toggle (use .configure(bg='black') maybe? Or another better colour. Have to do it individually by pane though, self.root.configure() only does some of the background. Also probably have to change text colour too.)
 # todo User-adjustable font/font size
+    # todo user-customizable settings (like font size, calendar colourscale) -> This could write to external file, read at startup?
 
 ###########################################
 
@@ -172,7 +172,7 @@ class EditingPane(tk.Frame):
             try:
                 int(S)
                 return True
-            except:
+            except ValueError:
                 return False
 
         super().__init__(parent)
@@ -186,8 +186,8 @@ class EditingPane(tk.Frame):
                 '%d', '%i', '%P', '%s', '%S', '%v', '%V', '%W')
 
         # Entry boxes and labels
-        self.entryFrame = tk.Frame(self)
-        self.entryFrame.grid(row=0, column=0)
+        eframe = tk.Frame(self)
+        eframe.grid(row=0, column=0)
 
         # For save button, etc. below entry boxes
         self.entryButtonFrame = tk.Frame(self)
@@ -198,47 +198,40 @@ class EditingPane(tk.Frame):
         self.timer.grid(row=0, column=1)
 
         #Setup the lower half of the window
-        self.categoryLabel = tk.Label(self.entryFrame, text= "Category")
-        self.categoryLabel.grid(sticky="W", row=0, column=0)
-        self.categoryBox = CompletingComboBox(self.entryFrame, getCategories)
-        self.categoryBox.grid(sticky="NW",row=0, column=1, pady=1)
-        self.categoryBox.config(width=50)
+        self.categoryLabel = tk.Label(eframe, text= "Category")
+        self.categoryBox = CompletingComboBox(eframe, getCategories)
 
-        self.taskNameLabel = tk.Label(self.entryFrame, text="Task Name")
-        self.taskNameLabel.grid(sticky="W",row=1, column=0)
-        self.taskNameBox = tk.Entry(self.entryFrame)
-        self.taskNameBox.grid(sticky="NW",row=1, column=1, pady=1)
-        self.taskNameBox.config(width=50)
+        self.taskNameLabel = tk.Label(eframe, text="Task Name")
+        self.taskNameBox = tk.Entry(eframe)
 
-        self.timeLabel = tk.Label(self.entryFrame, text="Time Needed")
-        self.timeLabel.grid(sticky="W",row=2, column=0)
-        self.timeBox = tk.Entry(self.entryFrame)
-        self.timeBox.grid(sticky="NW",row=2, column=1, pady=1)
-        self.timeBox.config(width=50, validate="key", validatecommand=int_validation)
+        self.timeLabel = tk.Label(eframe, text="Time Needed")
+        self.timeBox = tk.Entry(eframe, validate="key", validatecommand=int_validation)
 
-        self.usedLabel = tk.Label(self.entryFrame, text="Time Used")
-        self.usedLabel.grid(sticky="W",row=3, column=0)
-        self.usedBox = tk.Entry(self.entryFrame)
-        self.usedBox.grid(sticky="NW",row=3, column=1, pady=1)
-        self.usedBox.config(width=50, validate="key", validatecommand=int_validation)
+        self.usedLabel = tk.Label(eframe, text="Time Used")
+        self.usedBox = tk.Entry(eframe, validate="key", validatecommand=int_validation)
 
-        self.nextActionLabel = tk.Label(self.entryFrame, text="Next Action")
-        self.nextActionLabel.grid(sticky="W",row=4, column=0)
-        self.nextActionBox = DateEntry(self.entryFrame, notify)
-        self.nextActionBox.grid(sticky="NW",row=4, column=1, pady=1)
-        self.nextActionBox.config(width=50)
+        self.nextActionLabel = tk.Label(eframe, text="Next Action")
+        self.nextActionBox = DateEntry(eframe, notify)
 
-        self.dueDateLabel = tk.Label(self.entryFrame, text="Due Date")
-        self.dueDateLabel.grid(sticky="W",row=5, column=0)
-        self.dueDateBox = DateEntry(self.entryFrame, notify)
-        self.dueDateBox.grid(sticky="NW",row=5, column=1, pady=1)
-        self.dueDateBox.config(width=50)
+        self.dueDateLabel = tk.Label(eframe, text="Due Date")
+        self.dueDateBox = DateEntry(eframe, notify)
 
-        self.notesLabel = tk.Label(self.entryFrame, text="Notes")
-        self.notesLabel.grid(sticky="W",row=6, column=0)
-        self.notesBox = tk.Text(self.entryFrame, wrap="word")
-        self.notesBox.grid(sticky="NW",row=6, column=1, pady=1)
-        self.notesBox.config(width=50)
+        self.notesLabel = tk.Label(eframe, text="Notes")
+        self.notesBox = tk.Text(eframe, wrap="word")
+
+        for i, [label, widget] in enumerate([
+            [self.categoryLabel, self.categoryBox],
+            [self.taskNameLabel, self.taskNameBox],
+            [self.timeLabel, self.timeBox],
+            [self.usedLabel, self.usedBox],
+            [self.nextActionLabel, self.nextActionBox],
+            [self.dueDateLabel, self.dueDateBox],
+            [self.notesLabel, self.notesBox]
+                ]):
+            label.grid(sticky="W", row=i, column=0)
+            widget.grid(sticky="NW",row=i, column=1, pady=1)
+            widget.config(width=50)
+
 
         self.doneIsChecked = tk.StringVar()
         self.doneCheckBox = tk.Checkbutton(self.entryButtonFrame,
