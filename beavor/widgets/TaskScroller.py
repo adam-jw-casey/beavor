@@ -66,7 +66,7 @@ class TaskScroller(ScrollFrame, SensibleReturnWidget):
 
     def _show_tasks(self, tasks: list[Task]) -> None:
         if self.displayed_tasks == tasks:
-            return
+            return # TODO this might be preventing tasks from being hidden when their date is updated such that they are no longer availabe on the selected date
 
         self.displayed_tasks = tasks
         for _ in range(len(self.taskRows)):
