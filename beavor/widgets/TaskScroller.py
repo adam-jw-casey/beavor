@@ -7,6 +7,8 @@ from ..backend import Task, today_date, PyDueDate
 from .ScrollFrame import ScrollFrame
 from .SensibleReturnWidget import SensibleReturnWidget, CheckbuttonSR, LabelSR
 
+# TODO - Add separators for tasks due today, this week, later
+
 class TaskScroller(ScrollFrame, SensibleReturnWidget):
     def __init__(self, parent: tk.Frame | tk.LabelFrame | tk.Tk, onRowClick):
         super().__init__(parent, "Tasks")
