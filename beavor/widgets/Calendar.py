@@ -12,10 +12,9 @@ from typing import Any, Callable
 
 # Set up the calendar display to show estimated workload each day for a several week forecast
 class Calendar(tk.LabelFrame, SensibleReturnWidget):
-    def __init__(self, parentFrame, schedule: Schedule, on_click_date: Callable[[datetime.date], None]=lambda _: None, numweeks=4):
+    def __init__(self, parentFrame, on_click_date: Callable[[datetime.date], None]=lambda _: None, numweeks=4):
         super().__init__(parentFrame, text="Calendar", padx=4, pady=4)
 
-        self.schedule: Schedule = schedule
         self.numweeks = numweeks
 
         #Build the calendar out of labels
@@ -48,8 +47,7 @@ class Calendar(tk.LabelFrame, SensibleReturnWidget):
             self.calendar.append(thisWeek)
 
     # todo this function isn't great but it seems to work
-    def updateCalendar(self, openTasks: list[Task]) -> None:
-        self.schedule.calculate_workloads(openTasks) # TODO this should be done in the MainWindow, not here. The schedule should be the only state the Calendar has, if that
+    def updateCalendar(self, schedule: Schedule) -> None:
 
         today = today_date()
         thisMonday = today - datetime.timedelta(days=today.weekday())
@@ -64,14 +62,14 @@ class Calendar(tk.LabelFrame, SensibleReturnWidget):
                 if thisDate >= today:
                     if thisDate == today:
                         thisDay["DateLabel"].config(bg="lime")
-                    elif not self.schedule.is_work_day(thisDay["Date"]):
+                    elif not schedule.is_work_day(thisDay["Date"]):
                         thisDay["DateLabel"].config(bg="RoyalBlue")
                         thisDay["LoadLabel"].config(bg="gray85", text="")
                         continue
                     else:
                         thisDay["DateLabel"].config(bg="gray85")
 
-                    hoursThisDay = self.schedule.workload_on_day(thisDate) / 60
+                    hoursThisDay = schedule.workload_on_day(thisDate) / 60
                     thisDay["LoadLabel"]\
                       .config(
                           text=str(round(hoursThisDay,1)),
