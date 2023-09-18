@@ -66,7 +66,7 @@ class TaskScroller(ScrollFrame, SensibleReturnWidget):
 
     def _show_tasks(self, tasks: list[Task]) -> None:
         if self.displayed_tasks == tasks:
-            return # TODO this might be preventing tasks from being hidden when their date is updated such that they are no longer availabe on the selected date
+            return # TODO this might be preventing tasks from being hidden when their date is updated to make them no longer availabe on the currently selected date
 
         self.displayed_tasks = tasks
         for _ in range(len(self.taskRows)):
@@ -87,7 +87,6 @@ class TaskScroller(ScrollFrame, SensibleReturnWidget):
             else:
                 tr.unhighlight()
 
-# TODO bring in mouseover highlighting from new-schema sidebar.py ProjectRow
 class TaskRow(tk.LabelFrame, SensibleReturnWidget):
     def __init__(self, parentFrame: tk.Frame, task, select):
         super().__init__(parentFrame)
@@ -113,6 +112,8 @@ class TaskRow(tk.LabelFrame, SensibleReturnWidget):
         self.visible = [self, self.nameLabel, self.categoryLabel]
         for o in self.visible:
             o.bind("<1>", lambda _: self.select())
+            o.bind("<Enter>", lambda _: self.on_mouseover())
+            o.bind("<Leave>", lambda _: self.on_mouseleave())
 
         self.unhighlight()
 
@@ -120,6 +121,19 @@ class TaskRow(tk.LabelFrame, SensibleReturnWidget):
         for w in self.visible:
             w.config(bg="lightblue")
 
+        self.highlighted = True
+
     def unhighlight(self) -> None:
         for w in self.visible:
             w.config(bg="white")
+
+        self.highlighted = False
+
+    def on_mouseover(self):
+        if not self.highlighted:
+            for w in self.visible:
+                w.config(bg="lightgrey")
+
+    def on_mouseleave(self):
+        if not self.highlighted:
+            self.unhighlight()
