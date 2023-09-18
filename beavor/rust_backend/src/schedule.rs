@@ -105,11 +105,6 @@ impl Schedule{
         self.work_days_for_task(task).count().try_into().expect("This fails on huge numbers")
     }
 
-    /// Returns a boolean representing whether a given date is a work day
-    fn is_work_day(&self, date: NaiveDate) -> bool{
-        !self.days_off.contains(&date) && ![Weekday::Sun, Weekday::Sat].contains(&date.weekday())
-    }
-
     /// Returns the date of the soonest work day, including today
     fn next_work_day(&self) -> NaiveDate {
         let mut day = today_date();
@@ -171,4 +166,8 @@ impl Schedule{
         self.workloads = workloads;
     }
 
+    /// Returns a boolean representing whether a given date is a work day
+    fn is_work_day(&self, date: NaiveDate) -> bool{
+        !self.days_off.contains(&date) && ![Weekday::Sun, Weekday::Sat].contains(&date.weekday())
+    }
 }

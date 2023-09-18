@@ -49,7 +49,7 @@ class Calendar(tk.LabelFrame, SensibleReturnWidget):
 
     # todo this function isn't great but it seems to work
     def updateCalendar(self, openTasks: list[Task]) -> None:
-        self.schedule.calculate_workloads(openTasks)
+        self.schedule.calculate_workloads(openTasks) # TODO this should be done in the MainWindow, not here. The schedule should be the only state the Calendar has, if that
 
         today = today_date()
         thisMonday = today - datetime.timedelta(days=today.weekday())
@@ -61,16 +61,21 @@ class Calendar(tk.LabelFrame, SensibleReturnWidget):
                 thisDay["Date"] = thisDate
                 thisDay["DateLabel"].config(text=thisDate.strftime("%b %d"))
 
-                if thisDate == today:
-                    thisDay["DateLabel"].config(bg="lime")
-                else:
-                    thisDay["DateLabel"].config(bg="gray85")
-
                 if thisDate >= today:
+                    if thisDate == today:
+                        thisDay["DateLabel"].config(bg="lime")
+                    elif not self.schedule.is_work_day(thisDay["Date"]):
+                        thisDay["DateLabel"].config(bg="RoyalBlue")
+                        thisDay["LoadLabel"].config(bg="gray85", text="")
+                        continue
+                    else:
+                        thisDay["DateLabel"].config(bg="gray85")
+
                     hoursThisDay = self.schedule.workload_on_day(thisDate) / 60
                     thisDay["LoadLabel"]\
                       .config(
                           text=str(round(hoursThisDay,1)),
                           bg=green_red_scale(0,(8 if thisDate != today else max(0, hoursLeftToday)), hoursThisDay))
                 else:
+                    thisDay["DateLabel"].config(bg="gray85")
                     thisDay["LoadLabel"].config(text="", bg="gray85")
