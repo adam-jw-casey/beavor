@@ -95,7 +95,7 @@ class TaskRow(tk.LabelFrame, SensibleReturnWidget):
 
         self.nameLabel = LabelSR(
             self,
-            text=task.task_name,
+            text=task.name,
             justify="left",
             anchor=tk.W
         ).pack(side=tk.TOP, fill=tk.X)

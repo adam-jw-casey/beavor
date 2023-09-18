@@ -19,8 +19,9 @@ pub struct Task{
     pub category:         String,
     #[pyo3(get, set)]
     pub finished:         String, // TODO It's inexcusable that this is a string and not an Enum
+                                  // (or just a bool???)
     #[pyo3(get, set)]
-    pub task_name:        String, // TODO this should just be `name`
+    pub name:             String,
     #[pyo3(get)]
     pub _time_budgeted:   u32,
     #[pyo3(get, set)]
@@ -51,7 +52,7 @@ impl Task{
         Task{
             category:         "Work".into(),
             finished:         "O".into(),
-            task_name:        "".into(),
+            name:             "".into(),
             _time_budgeted:   0,
             time_needed:      0,
             time_used:        0,

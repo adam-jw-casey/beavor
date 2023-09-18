@@ -172,9 +172,9 @@ class MainWindow():
     def deleteTask(self, task: Task) -> None:
       if(tk.messagebox.askyesno(
           title="Confirm deletion",
-          message=f"Are you sure you want to delete '{task.task_name}'?")):
+          message=f"Are you sure you want to delete '{task.name}'?")):
         self.db.delete_task(task)
-        self.notify(f"Deleted '{task.task_name}'")
+        self.notify(f"Deleted '{task.name}'")
 
         self.newTask()
         self.refreshAll()

@@ -52,7 +52,7 @@ impl TryFrom<SqliteRow> for Task{
         Ok(Task{
             category:                     row.get::<String, &str>("Category"),
             finished:                     row.get::<String, &str>("O"),
-            task_name:                    row.get::<String, &str>("Task"),
+            name:                         row.get::<String, &str>("Task"),
             _time_budgeted:               row.get::<u32,    &str>("Budget"),
             time_needed:                  row.get::<u32,    &str>("Time"),
             time_used:                    row.get::<u32,    &str>("Used"),
@@ -162,7 +162,7 @@ impl DatabaseManager{
             ",
                 task.category,
                 task.finished,
-                task.task_name,
+                task.name,
                 task.time_needed, // When creating a new task, save the initial time_needed estimate as time_budgeted
                 task.time_needed,
                 task.time_used,
@@ -215,7 +215,7 @@ impl DatabaseManager{
             ",
                 task.category,
                 task.finished,
-                task.task_name,
+                task.name,
                 task.time_needed,
                 task.time_used,
                 next_action_str,

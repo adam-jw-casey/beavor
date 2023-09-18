@@ -158,7 +158,7 @@ class EditingPane(tk.LabelFrame, SensibleReturnWidget):
             self.timer.stop()
 
             if self._nonTrivialChanges():
-                match self._askSaveChanges(self.selection.task_name):
+                match self._askSaveChanges(self.selection.name):
                     case True:
                         self.save()
                     case False:
@@ -173,7 +173,7 @@ class EditingPane(tk.LabelFrame, SensibleReturnWidget):
         assert(task is not None) # Just to make the linter happy, this is unnecessary because of the line above
 
         self._overwriteEntryBox(self.categoryBox,     task.category)
-        self._overwriteEntryBox(self.taskNameBox,     task.task_name)
+        self._overwriteEntryBox(self.taskNameBox,     task.name)
         self._overwriteEntryBox(self.timeBox,         task.time_needed)
         self._overwriteEntryBox(self.usedBox,         task.time_used)
         self._overwriteEntryBox(self.dueDateBox,      task.due_date)
@@ -192,7 +192,7 @@ class EditingPane(tk.LabelFrame, SensibleReturnWidget):
 
         try:
             task.category          = self.categoryBox.get()
-            task.task_name         = self.taskNameBox.get()
+            task.name              = self.taskNameBox.get()
             task.time_needed       = int(self.timeBox.get())
             task.time_used         = int(self.usedBox.get())
             task.next_action_date  = parse_date(self.nextActionBox.get())
@@ -215,7 +215,7 @@ class EditingPane(tk.LabelFrame, SensibleReturnWidget):
 
             return (
                 t1.category         != t2.category         or
-                t1.task_name        != t2.task_name        or
+                t1.name             != t2.name        or
                 t1.time_needed      != t2.time_needed      or
                 t1.time_used        != t2.time_used        or
                 t1.next_action_date != t2.next_action_date or
