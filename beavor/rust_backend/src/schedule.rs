@@ -72,6 +72,11 @@ impl Schedule{
         schedule
     }
 
+    // TODO - This does not consider the amount of time already worked today, or the time of day,
+    //        so it continues to assign the same amount of time to the current day, regardless of
+    //        how much of the day is left.
+    //        Consider adjusting  `num_days_to_work_on` to incorporate the current time-of-day when
+    //        the date range overlaps today
     /// Calculates and returns the number of minutes per day you would have to work on the task to
     /// complete it between the day it is available and the day it is due
     fn workload_per_day(&self, task: &Task) -> Option<u32>{
