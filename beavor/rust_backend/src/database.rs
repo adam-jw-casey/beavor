@@ -388,7 +388,7 @@ impl DatabaseManager{
             sqlx::query!("
                 DELETE
                 FROM days_off
-                WHERE Day == ?
+                WHERE Day == ? AND Reason=='vacation'
             ",
                 date_string
             )

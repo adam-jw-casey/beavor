@@ -112,7 +112,9 @@ class MainWindow():
         # Calendar
         self.calendar = Calendar(
             self.root,
-            on_click_date=self.filter_to_date
+            mark_vacation = self.add_vacation_day,
+            unmark_vacation = self.remove_vacation_day,
+            on_click_date = self.filter_to_date
         ).grid(row=0, column=2, pady=4, padx=4, sticky=tk.S+tk.E)
 
         self.messageLabel = LabelSR(
@@ -204,3 +206,11 @@ class MainWindow():
 
     def filter_to_date(self, date: datetime.date) -> None:
         self.task_list_scroller.show_by_availability_on_date(date)
+
+    def add_vacation_day(self, date: datetime.date) -> None:
+        self.db.add_vacation_day(date)
+        self.refreshAll()
+
+    def remove_vacation_day(self, date: datetime.date) -> None:
+        self.db.delete_vacation_day(date)
+        self.refreshAll()

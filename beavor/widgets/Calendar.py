@@ -3,7 +3,8 @@ import tkinter.font
 import datetime
 
 from .SensibleReturnWidget import SensibleReturnWidget, LabelSR
-from ..backend import green_red_scale, today_date, Task, Schedule
+from ..utils.ContextMenuSpawner import ContextMenuSpawner
+from ..backend import green_red_scale, today_date, Schedule
 from typing import Any, Callable
 
 # todo put the next action / due date at a specific time?
@@ -12,7 +13,22 @@ from typing import Any, Callable
 
 # Set up the calendar display to show estimated workload each day for a several week forecast
 class Calendar(tk.LabelFrame, SensibleReturnWidget):
-    def __init__(self, parentFrame, on_click_date: Callable[[datetime.date], None]=lambda _: None, numweeks=4):
+    def __init__(
+        self,
+        parentFrame,
+        mark_vacation: Callable[[datetime.date], None] = lambda _: None,
+        unmark_vacation: Callable[[datetime.date], None] = lambda _: None,
+        on_click_date: Callable[[datetime.date], None] = lambda _: None,
+        numweeks=4
+    ):
+        def context_menu_builder(date: datetime.date) -> tk.Menu:
+            ctx = tk.Menu(self, tearoff=0)
+
+            ctx.add_command(label="Mark vacation", command=lambda d=date: mark_vacation(d))
+            ctx.add_command(label="Unmark vacation", command=lambda d=date: unmark_vacation(d))
+
+            return ctx
+
         super().__init__(parentFrame, text="Calendar", padx=4, pady=4)
 
         self.numweeks = numweeks
@@ -35,13 +51,15 @@ class Calendar(tk.LabelFrame, SensibleReturnWidget):
                 #Alternate date labels and workloads
                 thisDay["DateLabel"] = LabelSR(
                     self,
-                ).grid(row=2*week + 1, column=dayNum, padx=4, pady=4)
-                thisDay["DateLabel"].bind("<1>", lambda _, d=thisDay: on_click_date(d["Date"]))
+                ).grid(row=2*week + 1, column=dayNum, padx=4, pady=4
+                ).bind("<1>", lambda _, d=thisDay: on_click_date(d["Date"]))
 
                 thisDay["LoadLabel"] = LabelSR(
                     self,
-                ).grid(row=2*week + 2, column=dayNum, padx=4, pady=4)
-                thisDay["LoadLabel"].bind("<1>", lambda _, d=thisDay: on_click_date(d["Date"]))
+                ).grid(row=2*week + 2, column=dayNum, padx=4, pady=4
+                ).bind("<1>", lambda _, d=thisDay: on_click_date(d["Date"]))
+
+                ContextMenuSpawner([thisDay["DateLabel"], thisDay["LoadLabel"]], lambda d=thisDay: context_menu_builder(d["Date"]))
 
                 thisWeek.append(thisDay)
             self.calendar.append(thisWeek)
@@ -52,6 +70,7 @@ class Calendar(tk.LabelFrame, SensibleReturnWidget):
         today = today_date()
         thisMonday = today - datetime.timedelta(days=today.weekday())
         hoursLeftToday = max(0, min(7, 16 - (datetime.datetime.now().hour + datetime.datetime.now().minute/60)))
+
         for week in range(self.numweeks):
             for day in range(5):
                 thisDay = self.calendar[week][day]
@@ -59,6 +78,7 @@ class Calendar(tk.LabelFrame, SensibleReturnWidget):
                 thisDay["Date"] = thisDate
                 thisDay["DateLabel"].config(text=thisDate.strftime("%b %d"))
 
+                # TODO should also highlight the day that is selected / filterred to
                 if thisDate >= today:
                     if thisDate == today:
                         thisDay["DateLabel"].config(bg="lime")
