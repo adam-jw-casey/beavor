@@ -102,7 +102,7 @@ class MainWindow():
             self.db.get_categories,
             self.newTask,
             self.deleteTask,
-            self.db.default_task
+            Task.default
         ).grid(row=0, column=1, padx=4, pady=4, sticky=tk.N+tk.S+tk.E+tk.W)
         self.root.grid_columnconfigure(1, weight=5)
 

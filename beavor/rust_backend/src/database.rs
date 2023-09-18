@@ -30,7 +30,6 @@ use crate::{
     Task,
     ParseDateError,
     parse_date,
-    today_date,
     DueDate,
     Schedule,
 };
@@ -282,22 +281,6 @@ impl DatabaseManager{
                 .map(|r| r.Category.expect("Each category should be a string"))
                 .collect()
         })
-    }
-
-    fn default_task(&self) -> Task{ // TODO why isn't this a default() method on Task itself?
-        Task{
-            category:         "Work".into(),
-            finished:         "O".into(),
-            task_name:        "".into(),
-            _time_budgeted:   0,
-            time_needed:      0,
-            time_used:        0,
-            next_action_date: today_date(),
-            due_date:         DueDate::Date(today_date()),
-            notes:            "".into(),
-            id:               None,
-            date_added:       today_date(),
-        }
     }
 
     fn try_update_holidays(&self) -> PyResult<()>{

@@ -5,6 +5,8 @@ use pyo3::prelude::{
 
 use chrono::NaiveDate;
 
+use crate::today_date;
+
 use crate::due_date::{
     DueDate,
     PyDueDate,
@@ -44,6 +46,23 @@ impl Task{
 
 #[pymethods]
 impl Task{
+    #[staticmethod]
+    fn default() -> Self{
+        Task{
+            category:         "Work".into(),
+            finished:         "O".into(),
+            task_name:        "".into(),
+            _time_budgeted:   0,
+            time_needed:      0,
+            time_used:        0,
+            next_action_date: today_date(),
+            due_date:         DueDate::Date(today_date()),
+            notes:            "".into(),
+            id:               None,
+            date_added:       today_date(),
+        }
+    }
+
     #[getter]
     fn get_due_date(&self) -> PyDueDate{
         self.due_date.into()

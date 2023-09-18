@@ -188,7 +188,7 @@ class EditingPane(tk.LabelFrame, SensibleReturnWidget):
     def _createTaskFromInputs(self) -> Task:
         self.timer.stop()
 
-        task: Task             = self.selection or self.getDefaultTask()
+        task: Task = self.selection or self.getDefaultTask()
 
         try:
             task.category          = self.categoryBox.get()
