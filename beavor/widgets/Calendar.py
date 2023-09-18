@@ -36,6 +36,7 @@ class Calendar(tk.LabelFrame, SensibleReturnWidget):
         #Build the calendar out of labels
         self.calendar = []
 
+        # TODO the days should have their own Widget class. Calendar shouldn't have so much low-level tinkering
         #Add day of week names at top, but won't change so don't save
         for i, day in enumerate(["Mon", "Tue", "Wed", "Thu", "Fri"]):
             LabelSR(
