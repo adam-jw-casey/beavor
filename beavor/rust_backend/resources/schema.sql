@@ -1,8 +1,7 @@
---TODO this should be renamed to tasks
-CREATE TABLE IF NOT EXISTS worklist(
+CREATE TABLE IF NOT EXISTS tasks(
 	Category   TEXT,
 	Finished   BOOLEAN,
-	Task       TEXT,
+	Name       TEXT,
 	Budget     INTEGER,
 	Time       INTEGER,
 	Used       INTEGER,

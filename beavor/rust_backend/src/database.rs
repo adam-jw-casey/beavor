@@ -52,7 +52,7 @@ impl TryFrom<SqliteRow> for Task{
         Ok(Task{
             category:                     row.get::<String, &str>("Category"),
             finished:                     row.get::<bool,   &str>("Finished"),
-            name:                         row.get::<String, &str>("Task"),
+            name:                         row.get::<String, &str>("Name"),
             _time_budgeted:               row.get::<u32,    &str>("Budget"),
             time_needed:                  row.get::<u32,    &str>("Time"),
             time_used:                    row.get::<u32,    &str>("Used"),
@@ -133,11 +133,11 @@ impl DatabaseManager{
 
         self.rt.block_on(async{
             let new_rowid: i64 = sqlx::query!("
-                INSERT INTO worklist
+                INSERT INTO tasks
                     (
                         Category,
                         Finished,
-                        Task,
+                        Name,
                         Budget,
                         Time,
                         Used,
@@ -180,7 +180,7 @@ impl DatabaseManager{
             // return type of query! to write an impl From<T> for Task
             sqlx::query("
                 SELECT *, rowid
-                FROM worklist
+                FROM tasks
                 WHERE rowid == ?
             ")
                 .bind(new_rowid)
@@ -200,11 +200,11 @@ impl DatabaseManager{
 
         self.rt.block_on(async{
             sqlx::query!("
-                UPDATE worklist
+                UPDATE tasks
                 SET
                     Category =    ?,
                     Finished =    ?,
-                    Task =        ?,
+                    Name =        ?,
                     Time =        ?,
                     Used =        ?,
                     NextAction =  ?,
@@ -233,7 +233,7 @@ impl DatabaseManager{
         self.rt.block_on(async{
             sqlx::query!("
                 DELETE
-                FROM worklist
+                FROM tasks
                 WHERE rowid == ?
             ",
                 task.id
@@ -250,7 +250,7 @@ impl DatabaseManager{
             // return type of query! to write an impl From<T> for Task
             sqlx::query("
                 SELECT *, rowid
-                FROM worklist
+                FROM tasks
                 WHERE Finished == false
                 ORDER BY DueDate
             ")
@@ -272,7 +272,7 @@ impl DatabaseManager{
         self.rt.block_on(async{
             sqlx::query!("
                 SELECT DISTINCT Category
-                FROM worklist
+                FROM tasks
                 ORDER BY Category
             ")
                 .fetch_all(&self.pool)
