@@ -16,9 +16,9 @@ class Calendar(tk.LabelFrame, SensibleReturnWidget):
     def __init__(
         self,
         parentFrame,
-        mark_vacation: Callable[[datetime.date], None] = lambda _: None,
-        unmark_vacation: Callable[[datetime.date], None] = lambda _: None,
-        on_click_date: Callable[[datetime.date], None] = lambda _: None,
+        mark_vacation: Callable[[datetime.date], None],
+        unmark_vacation: Callable[[datetime.date], None],
+        on_click_date: Callable[[datetime.date], None],
         numweeks=4
     ):
         super().__init__(parentFrame, text="Calendar", padx=4, pady=4)
@@ -68,9 +68,9 @@ class DayDisplay(FrameSR):
     def __init__(
         self,
         parent,
-        mark_vacation: Callable[[datetime.date], None] = lambda _: None,
-        unmark_vacation: Callable[[datetime.date], None] = lambda _: None,
-        on_click_date: Callable[[datetime.date], None] = lambda _: None
+        mark_vacation: Callable[[datetime.date], None],
+        unmark_vacation: Callable[[datetime.date], None],
+        on_click_date: Callable[[datetime.date], None]
     ):
         def context_menu_builder(date: datetime.date) -> tk.Menu:
             ctx = tk.Menu(self, tearoff=0)
