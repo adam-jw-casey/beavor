@@ -89,7 +89,7 @@ class MainWindow():
 
         self.task_list_scroller = TaskScroller(
             self.root,
-            self.select
+            self.select_task
         ).grid(row=0, column=0, pady=4, padx=4, sticky=tk.N+tk.S+tk.E+tk.W)
         self.root.grid_columnconfigure(0, weight=1)
 
@@ -97,7 +97,7 @@ class MainWindow():
         self.editingPane = EditingPane(
             self.root,
             self.getSelectedTask,
-            self.save,
+            self.save_task,
             self.notify,
             self.db.get_categories,
             self.newTask,
@@ -107,13 +107,14 @@ class MainWindow():
         self.root.grid_columnconfigure(1, weight=5)
 
         self.loadedTasks: List[Task] = []
-        self.select(None)
+        self.select_task(None)
 
         # Calendar
         self.calendar = Calendar(
             self.root,
-            self.db.get_schedule(),
-            on_click_date=self.filter_to_date
+            mark_vacation = self.add_vacation_day,
+            unmark_vacation = self.remove_vacation_day,
+            on_click_date = self.filter_to_date
         ).grid(row=0, column=2, pady=4, padx=4, sticky=tk.S+tk.E)
 
         self.messageLabel = LabelSR(
@@ -142,19 +143,23 @@ class MainWindow():
 
         match list(filter(lambda t: t.id == selected_rowid, self.loadedTasks)):
             case []:
-                self.select(None)
+                self.select_task(None)
             case [task]:
-                self.select(task)
+                self.select_task(task)
             case _:
                 raise ValueError(f"This should never happen")
 
     def newTask(self, _=tk.Event) -> None:
-      self.select(None)
+      self.select_task(None)
       self.notify("New task created")
 
     def refreshAll(self) -> None:
-      self.calendar.updateCalendar(self.db.get_open_tasks())
       self.refreshTasks()
+
+      schedule: Schedule = self.db.get_schedule()
+      schedule.calculate_workloads(self.loadedTasks)
+
+      self.calendar.updateCalendar(schedule)
 
     def notify(self, msg: str) -> None:
       self.messageLabel.config(text=msg)
@@ -175,7 +180,7 @@ class MainWindow():
         self.refreshAll()
 
     #Save the current state of the entry boxes for that task
-    def save(self, task: Task) -> None:
+    def save_task(self, task: Task) -> None:
         self.editingPane.timer.stop()
 
         if self.selection is None:
@@ -184,15 +189,15 @@ class MainWindow():
             self.db.update_task(task)
             selected = task
 
-        # This prevent the "do you want to save first? prompt from appearing"
+        # This prevents the "do you want to save first? prompt from appearing"
         self.editingPane.selection = None
         #Refresh the screen
         self.refreshAll()
-        self.select(selected) # TODO this doesn't highlight the newly-created task when creating a new task
+        self.select_task(selected) # TODO this doesn't highlight the newly-created task when creating a new task
 
         self.notify("Task saved")
 
-    def select(self,  task: Optional[Task]) -> None:
+    def select_task(self,  task: Optional[Task]) -> None:
         if self.editingPane.tryShow(task):
             self.selection = task
             self.task_list_scroller.highlightTask(task)
@@ -201,3 +206,11 @@ class MainWindow():
 
     def filter_to_date(self, date: datetime.date) -> None:
         self.task_list_scroller.show_by_availability_on_date(date)
+
+    def add_vacation_day(self, date: datetime.date) -> None:
+        self.db.add_vacation_day(date)
+        self.refreshAll()
+
+    def remove_vacation_day(self, date: datetime.date) -> None:
+        self.db.delete_vacation_day(date)
+        self.refreshAll()
