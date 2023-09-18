@@ -87,6 +87,7 @@ class TaskScroller(ScrollFrame, SensibleReturnWidget):
             else:
                 tr.unhighlight()
 
+# TODO bring in mouseover highlighting from new-schema sidebar.py ProjectRow
 class TaskRow(tk.LabelFrame, SensibleReturnWidget):
     def __init__(self, parentFrame: tk.Frame, task, select):
         super().__init__(parentFrame)

@@ -9,6 +9,10 @@ class SensibleReturnWidget(Widget):
         super().pack(*args, **kwargs)
         return self
 
+    def bind(self, *args, **kwargs):
+        super().bind(*args, **kwargs)
+        return self
+
 class EntrySR(Entry, SensibleReturnWidget):
     pass
 
