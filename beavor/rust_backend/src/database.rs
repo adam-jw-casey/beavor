@@ -51,7 +51,7 @@ impl TryFrom<SqliteRow> for Task{
     fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
         Ok(Task{
             category:                     row.get::<String, &str>("Category"),
-            finished:                     row.get::<String, &str>("O"),
+            finished:                     row.get::<bool,   &str>("Finished"),
             name:                         row.get::<String, &str>("Task"),
             _time_budgeted:               row.get::<u32,    &str>("Budget"),
             time_needed:                  row.get::<u32,    &str>("Time"),
@@ -136,7 +136,7 @@ impl DatabaseManager{
                 INSERT INTO worklist
                     (
                         Category,
-                        O,
+                        Finished,
                         Task,
                         Budget,
                         Time,
@@ -203,7 +203,7 @@ impl DatabaseManager{
                 UPDATE worklist
                 SET
                     Category =    ?,
-                    O =           ?,
+                    Finished =    ?,
                     Task =        ?,
                     Time =        ?,
                     Used =        ?,
@@ -251,7 +251,7 @@ impl DatabaseManager{
             sqlx::query("
                 SELECT *, rowid
                 FROM worklist
-                WHERE O == 'O'
+                WHERE Finished == false
                 ORDER BY DueDate
             ")
                 .fetch_all(&self.pool)

@@ -1,7 +1,7 @@
 --TODO this should be renamed to tasks
 CREATE TABLE IF NOT EXISTS worklist(
 	Category   TEXT,
-	O          TEXT CHECK (O in ('O', 'X')),
+	Finished   BOOLEAN,
 	Task       TEXT,
 	Budget     INTEGER,
 	Time       INTEGER,

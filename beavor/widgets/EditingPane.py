@@ -122,13 +122,11 @@ class EditingPane(tk.LabelFrame, SensibleReturnWidget):
 
         self.editing_box_frame.grid_columnconfigure(1, weight=1)
 
-        self.doneIsChecked = tk.StringVar()
+        self.doneIsChecked = tk.BooleanVar()
         self.doneCheckBox = CheckbuttonSR(
             self.entryButtonFrame,
             text="Done",
-            variable=self.doneIsChecked,
-            onvalue="X",
-            offvalue="O"
+            variable=self.doneIsChecked
         ).grid(row=0, column=0)
         self.doneCheckBox.deselect()
 
