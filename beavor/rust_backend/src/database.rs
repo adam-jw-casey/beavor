@@ -441,6 +441,7 @@ impl DatabaseManager{
     fn get_days_off(&self) -> Vec<NaiveDate> {
         let mut days_off = Vec::new();
 
+        self.try_update_holidays().unwrap();
         days_off.append(&mut self.get_holidays());
         days_off.append(&mut self.get_vacation_days());
 
