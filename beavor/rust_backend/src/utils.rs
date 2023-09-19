@@ -49,6 +49,8 @@ pub fn today_date() -> NaiveDate{
     Local::now().naive_local().date()
 }
 
+#[allow(deprecated)]
+#[allow(clippy::zero_prefixed_literal)]
 mod tests{
     use super::*;
 
@@ -56,5 +58,11 @@ mod tests{
     fn test_green_red_scale(){
         assert_eq!(green_red_scale(0.0,100.0,100.0), "#FF0000");
         assert_eq!(green_red_scale(0.0,100.0,0.0), "#00FF00");
+    }
+
+    #[test]
+    fn test_parse_format_date(){
+        let d = NaiveDate::from_ymd(1971,01,10);
+        assert_eq!(parse_date(&format_date(d)).unwrap(), d);
     }
 }
