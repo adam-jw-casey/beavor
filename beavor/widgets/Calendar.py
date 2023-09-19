@@ -5,7 +5,7 @@ import datetime
 from .SensibleReturnWidget import SensibleReturnWidget, LabelSR, FrameSR
 from ..utils.ContextMenuSpawner import ContextMenuSpawner
 from ..backend import green_red_scale, today_date, Schedule
-from typing import Any, Callable
+from typing import Callable
 
 # Set up the calendar display to show estimated workload each day for a several week forecast
 class Calendar(tk.LabelFrame, SensibleReturnWidget):
@@ -17,7 +17,7 @@ class Calendar(tk.LabelFrame, SensibleReturnWidget):
         on_click_date:   Callable[[datetime.date], None],
         numweeks=4
     ):
-        super().__init__(parentFrame, text="Calendar", padx=4, pady=4)
+        super().__init__(parentFrame, text=f"{today_date().year}", padx=4, pady=4)
 
         self.numweeks = numweeks
 
