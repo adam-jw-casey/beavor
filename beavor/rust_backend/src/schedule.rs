@@ -72,11 +72,6 @@ impl Schedule{
         schedule
     }
 
-    // TODO - This does not consider the amount of time already worked today, or the time of day,
-    //        so it continues to assign the same amount of time to the current day, regardless of
-    //        how much of the day is left.
-    //        Consider adjusting  `num_days_to_work_on` to incorporate the current time-of-day when
-    //        the date range overlaps today
     /// Calculates and returns the number of minutes per day you would have to work on the task to
     /// complete it between the day it is available and the day it is due
     fn workload_per_day(&self, task: &Task) -> Option<u32>{
@@ -91,8 +86,6 @@ impl Schedule{
 
     /// Returns an iterator over the days a task can be worked on, or nothing if the task has no due
     /// date (i.e., the range is undefined)
-    // TODO -> this is begging for an enum. The empty iterator is being abused here, and this will
-    // be confusing down the line
     fn work_days_for_task(&self, task: &Task) -> Box<dyn Iterator<Item = NaiveDate> + '_> {
         match self.last_available_date_for_task(task){
             Some(due_date) => Box::new(self.work_days_from(
@@ -105,7 +98,6 @@ impl Schedule{
     }
 
     /// Returns the number of days a task can be worked on, or 0 if the task has no due date
-    // TODO see comment above re: enum
     fn num_days_to_work_on(&self, task: &Task) -> u32 {
         self.work_days_for_task(task).count().try_into().expect("This fails on huge numbers")
     }

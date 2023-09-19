@@ -7,10 +7,6 @@ from ..utils.ContextMenuSpawner import ContextMenuSpawner
 from ..backend import green_red_scale, today_date, Schedule
 from typing import Any, Callable
 
-# todo put the next action / due date at a specific time?
-# todo add buttons to scroll the calendar forward week-by-week
-# todo Days of the week shown should be user-configurable (M-F vs. student schedule lol, or freelance).
-
 # Set up the calendar display to show estimated workload each day for a several week forecast
 class Calendar(tk.LabelFrame, SensibleReturnWidget):
     def __init__(

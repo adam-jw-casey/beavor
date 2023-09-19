@@ -89,8 +89,6 @@ pub struct DatabaseManager{
     rt: Runtime,
 }
 
-// TODO - should make all these pass the asyncness through to Python to deal with -> but asyncio and
-//        tkinter don't seem to play well together out-of-the-box
 #[allow(non_snake_case)]
 #[pymethods]
 impl DatabaseManager{

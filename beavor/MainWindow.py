@@ -16,22 +16,6 @@ from .widgets.Calendar import Calendar
 from .widgets.TaskScroller import TaskScroller
 from .widgets.EditingPane import EditingPane
 
-###########################################
-#Readability / coding style / maintainability
-
-# todo should add tests to make development smoother and catch bugs earlier
-
-###########################################
-#Nice-to-haves
-
-# todo would be neat to have it build a daily schedule for me
-# todo would be cool to support multi-step / project-type tasks
-# todo integration to put tasks into Google/Outlook calendar would be cool or just have a way of marking a task as scheduled
-# todo integration to get availability from Google/Outlook calendar to adjust daily workloads based on scheduled meetings
-# todo Dark mode toggle (use .configure(bg='black') maybe? Or another better colour. Have to do it individually by pane though, self.root.configure() only does some of the background. Also probably have to change text colour too.)
-
-###########################################
-
 class Settings:
     def __init__(self, file_path: str):
         self.f = open(file_path, "r+")
