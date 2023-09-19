@@ -82,12 +82,12 @@ class DayDisplay(FrameSR):
         self.date_label: LabelSR = LabelSR(
             self
         ).pack(side="top"
-        ).bind("<1>", lambda _, d=self: on_click_date(d.date))
+        ).bind("<1>", lambda _, d=self: on_click_date(d.date) if d.date >= today_date() else None)
 
         self.load_label: LabelSR = LabelSR(
             self
         ).pack(side="bottom"
-        ).bind("<1>", lambda _, d=self: on_click_date(d.date))
+        ).bind("<1>", lambda _, d=self: on_click_date(d.date) if d.date >= today_date() else None)
 
         ContextMenuSpawner([self.date_label, self.load_label], lambda d=self: context_menu_builder(d.date))
 
