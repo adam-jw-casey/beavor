@@ -47,7 +47,7 @@ impl Task{
 #[pymethods]
 impl Task{
     #[staticmethod]
-    fn default() -> Self{
+    pub fn default() -> Self{
         Task{
             category:         "Work".into(),
             finished:         false,

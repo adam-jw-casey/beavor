@@ -36,18 +36,35 @@ pub fn format_date_borrowed(date: &NaiveDate) -> String{
 
 #[pyfunction]
 pub fn parse_date(date_string: &str) -> Result<NaiveDate, ParseDateError>{
-    match NaiveDate::parse_from_str(date_string, "%F"){
-        Ok(nd) => Ok(nd),
-        _ => Err(ParseDateError)
-    }
+    NaiveDate::parse_from_str(date_string, "%F").or(Err(ParseDateError))
 }
 
 #[pyfunction]
-pub fn today_str() -> String{
+pub fn today_string() -> String{
     format_date(today_date())
 }
 
 #[pyfunction]
 pub fn today_date() -> NaiveDate{
     Local::now().naive_local().date()
+}
+
+#[allow(deprecated)]
+#[allow(clippy::zero_prefixed_literal)]
+mod tests{
+    use super::*;
+
+    #[test]
+    fn test_green_red_scale(){
+        assert_eq!(green_red_scale(0.0,100.0,100.0), "#FF0000");
+        assert_eq!(green_red_scale(0.0,100.0,0.0), "#00FF00");
+    }
+
+    #[test]
+    fn test_parse_format_date_today(){
+        let d = NaiveDate::from_ymd(1971,01,10);
+        assert_eq!(parse_date(&format_date(d)).unwrap(), d);
+
+        assert_eq!(today_date(), parse_date(&today_string()).unwrap());
+    }
 }
