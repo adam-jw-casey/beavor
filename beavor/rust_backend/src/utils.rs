@@ -40,7 +40,7 @@ pub fn parse_date(date_string: &str) -> Result<NaiveDate, ParseDateError>{
 }
 
 #[pyfunction]
-pub fn today_str() -> String{
+pub fn today_string() -> String{
     format_date(today_date())
 }
 
@@ -61,8 +61,10 @@ mod tests{
     }
 
     #[test]
-    fn test_parse_format_date(){
+    fn test_parse_format_date_today(){
         let d = NaiveDate::from_ymd(1971,01,10);
         assert_eq!(parse_date(&format_date(d)).unwrap(), d);
+
+        assert_eq!(today_date(), parse_date(&today_string()).unwrap());
     }
 }

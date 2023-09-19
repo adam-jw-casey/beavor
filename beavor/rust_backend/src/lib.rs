@@ -28,7 +28,7 @@ mod utils;
 use utils::{
     green_red_scale,
     today_date,
-    today_str,
+    today_string,
     format_date,
     parse_date,
 };
@@ -42,7 +42,7 @@ fn backend(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(green_red_scale, m)?)?;
     m.add_function(wrap_pyfunction!(parse_date, m)?)?;
     m.add_function(wrap_pyfunction!(today_date, m)?)?;
-    m.add_function(wrap_pyfunction!(today_str, m)?)?;
+    m.add_function(wrap_pyfunction!(today_string, m)?)?;
     m.add_class::<Task>().unwrap();
     m.add_class::<PyDueDate>().unwrap();
     m.add_class::<PyDueDateType>().unwrap();
