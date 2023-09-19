@@ -205,7 +205,7 @@ class MainWindow():
             self.notify("Cancelled")
 
     def filter_to_date(self, date: datetime.date) -> None:
-        self.task_list_scroller.show_by_availability_on_date(date)
+        self.task_list_scroller.show_by_availability_on_date(self.loadedTasks, date)
 
     def add_vacation_day(self, date: datetime.date) -> None:
         self.db.add_vacation_day(date)

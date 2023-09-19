@@ -16,9 +16,9 @@ class Calendar(tk.LabelFrame, SensibleReturnWidget):
     def __init__(
         self,
         parentFrame,
-        mark_vacation: Callable[[datetime.date], None],
+        mark_vacation:   Callable[[datetime.date], None],
         unmark_vacation: Callable[[datetime.date], None],
-        on_click_date: Callable[[datetime.date], None],
+        on_click_date:   Callable[[datetime.date], None],
         numweeks=4
     ):
         super().__init__(parentFrame, text="Calendar", padx=4, pady=4)
@@ -50,9 +50,7 @@ class Calendar(tk.LabelFrame, SensibleReturnWidget):
 
             self.calendar.append(thisWeek)
 
-    # todo this function isn't great but it seems to work
     def updateCalendar(self, schedule: Schedule) -> None:
-
         today = today_date()
         thisMonday = today - datetime.timedelta(days=today.weekday())
         hoursLeftToday = max(0, min(7, 16 - (datetime.datetime.now().hour + datetime.datetime.now().minute/60)))
@@ -68,14 +66,14 @@ class DayDisplay(FrameSR):
     def __init__(
         self,
         parent,
-        mark_vacation: Callable[[datetime.date], None],
+        mark_vacation:   Callable[[datetime.date], None],
         unmark_vacation: Callable[[datetime.date], None],
-        on_click_date: Callable[[datetime.date], None]
+        on_click_date:   Callable[[datetime.date], None]
     ):
         def context_menu_builder(date: datetime.date) -> tk.Menu:
             ctx = tk.Menu(self, tearoff=0)
 
-            ctx.add_command(label="Mark vacation", command=lambda d=date: mark_vacation(d))
+            ctx.add_command(label="Mark vacation",   command=lambda d=date: mark_vacation(d))
             ctx.add_command(label="Unmark vacation", command=lambda d=date: unmark_vacation(d))
 
             return ctx
