@@ -125,24 +125,6 @@ impl Schedule{
             DueDate::ASAP => Some(self.first_available_date_for_task(task)),
         }
     }
-}
-
-#[pymethods]
-impl Schedule{
-    /// Returns a boolean representing whether a given task can be worked on on a given date
-    fn is_available_on_day(&self, task: Task, date: NaiveDate) -> bool{
-        let before_end = self.last_available_date_for_task(&task).map(|available_date| date <= available_date).unwrap_or(true);
-
-        let after_beginning = task.next_action_date <= date;
-
-        before_end && after_beginning
-    }
-
-    /// Returns the number of minutes of work that need to be done on a given date
-    fn workload_on_day(&self, date: NaiveDate) -> u32{
-        *self.workloads.get(&date)
-            .unwrap_or(&0)
-    }
 
     /// Calculates and records the number of minutes that need to be worked each day
     fn calculate_workloads (&mut self, tasks: Vec<Task>){
@@ -162,9 +144,54 @@ impl Schedule{
 
         self.workloads = workloads;
     }
+}
+
+#[pymethods]
+impl Schedule{
+    /// Returns a boolean representing whether a given task can be worked on on a given date
+    fn is_available_on_day(&self, task: Task, date: NaiveDate) -> bool{
+        let before_end = self.last_available_date_for_task(&task).map(|available_date| date <= available_date).unwrap_or(true);
+
+        let after_beginning = task.next_action_date <= date;
+
+        before_end && after_beginning
+    }
+
+    /// Returns the number of minutes of work that need to be done on a given date
+    fn workload_on_day(&self, date: NaiveDate) -> u32{
+        *self.workloads.get(&date)
+            .unwrap_or(&0)
+    }
 
     /// Returns a boolean representing whether a given date is a work day
     fn is_work_day(&self, date: NaiveDate) -> bool{
         !self.days_off.contains(&date) && ![Weekday::Sun, Weekday::Sat].contains(&date.weekday())
+    }
+}
+
+#[cfg(test)]
+#[allow(deprecated)]
+#[allow(clippy::zero_prefixed_literal)]
+mod tests{
+    use super::*;
+
+    #[test]
+    fn test_schedule(){
+        let mut task = Task::default();
+        task.next_action_date = NaiveDate::from_ymd(3000, 01, 01);
+        task.due_date = DueDate::Date(NaiveDate::from_ymd(3000, 01, 03));
+        task.time_needed = 60;
+        let schedule = Schedule::new(vec![NaiveDate::from_ymd(3000,01,08)], vec![task.clone()]);
+
+        assert!(schedule.is_available_on_day(task.clone(), NaiveDate::from_ymd(3000,01,01)));
+        assert!(schedule.is_available_on_day(task.clone(), NaiveDate::from_ymd(3000,01,02)));
+        assert!(schedule.is_available_on_day(task.clone(), NaiveDate::from_ymd(3000,01,03)));
+        assert!(!schedule.is_available_on_day(task.clone(), NaiveDate::from_ymd(3000,01,04)));
+
+        assert!(schedule.is_work_day(NaiveDate::from_ymd(3000,01,06)));
+        assert!(!schedule.is_work_day(NaiveDate::from_ymd(3000,01,05)));
+        assert!(!schedule.is_work_day(NaiveDate::from_ymd(3000,01,08)));
+
+        assert_eq!(schedule.workload_on_day(NaiveDate::from_ymd(3000,01,02)), 20);
     }
 }
