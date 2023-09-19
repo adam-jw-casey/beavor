@@ -51,3 +51,13 @@ pub fn today_str() -> String{
 pub fn today_date() -> NaiveDate{
     Local::now().naive_local().date()
 }
+
+mod tests{
+    use super::*;
+
+    #[test]
+    fn test_green_red_scale(){
+        assert_eq!(green_red_scale(0.0,100.0,100.0), "#FF0000");
+        assert_eq!(green_red_scale(0.0,100.0,0.0), "#00FF00");
+    }
+}
