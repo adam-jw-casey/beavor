@@ -118,9 +118,9 @@ impl Ord for DueDate {
 impl From<DueDate> for PyDueDate{
     fn from(rust_due_date: DueDate) -> Self {
         match rust_due_date{
-            DueDate::NONE => PyDueDate{date_type: PyDueDateType::NONE, date: None},
+            DueDate::NONE =>       PyDueDate{date_type: PyDueDateType::NONE, date: None},
             DueDate::Date(date) => PyDueDate{date_type: PyDueDateType::Date, date: Some(date)},
-            DueDate::ASAP => PyDueDate{date_type: PyDueDateType::ASAP, date: None},
+            DueDate::ASAP =>       PyDueDate{date_type: PyDueDateType::ASAP, date: None},
         }
     }
 }
@@ -217,6 +217,13 @@ mod tests{
     fn test_due_date_string_parse(){
         for dd in [DueDate::ASAP, DueDate::NONE, DueDate::Date(NaiveDate::from_ymd(1971,01,01))]{
             assert_eq!(DueDate::from_str(&dd.to_string()).unwrap(), dd);
+        }
+    }
+
+    #[test]
+    fn test_to_from_py_due_date(){
+        for dd in [DueDate::ASAP, DueDate::NONE, DueDate::Date(NaiveDate::from_ymd(1971,01,01))]{
+            assert_eq!(DueDate::from(&PyDueDate::from(dd)), dd);
         }
     }
 }
