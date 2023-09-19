@@ -26,8 +26,7 @@ use crate::utils::{
 
 #[pyclass]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Clone, PartialEq)]
-#[derive(Eq)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub enum PyDueDateType{
     NONE,
     Date,
@@ -35,7 +34,7 @@ pub enum PyDueDateType{
 }
 
 #[pyclass]
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct PyDueDate{
     #[pyo3(get, set)]
     date_type: PyDueDateType,
@@ -80,7 +79,7 @@ impl PartialOrd for PyDueDate{
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum DueDate{
     NONE,
@@ -212,5 +211,12 @@ mod tests{
         assert!(DueDate::Date(NaiveDate::from_ymd(1971,01,01)) == DueDate::Date(NaiveDate::from_ymd(1971,01,01)));
         assert!(DueDate::Date(NaiveDate::from_ymd(1971,01,01)) < DueDate::Date(NaiveDate::from_ymd(1971,01,02)));
         assert!(DueDate::Date(NaiveDate::from_ymd(1971,01,01)) > DueDate::Date(NaiveDate::from_ymd(1970,12,31)));
+    }
+
+    #[test]
+    fn test_due_date_string_parse(){
+        for dd in [DueDate::ASAP, DueDate::NONE, DueDate::Date(NaiveDate::from_ymd(1971,01,01))]{
+            assert_eq!(DueDate::from_str(&dd.to_string()).unwrap(), dd);
+        }
     }
 }
