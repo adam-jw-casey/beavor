@@ -36,10 +36,7 @@ pub fn format_date_borrowed(date: &NaiveDate) -> String{
 
 #[pyfunction]
 pub fn parse_date(date_string: &str) -> Result<NaiveDate, ParseDateError>{
-    match NaiveDate::parse_from_str(date_string, "%F"){
-        Ok(nd) => Ok(nd),
-        _ => Err(ParseDateError)
-    }
+    NaiveDate::parse_from_str(date_string, "%F").or(Err(ParseDateError))
 }
 
 #[pyfunction]
