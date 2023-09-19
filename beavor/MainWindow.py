@@ -193,7 +193,7 @@ class MainWindow():
         self.editingPane.selection = None
         #Refresh the screen
         self.refreshAll()
-        self.select_task(selected) # TODO this doesn't highlight the newly-created task when creating a new task
+        self.select_task(selected)
 
         self.notify("Task saved")
 
