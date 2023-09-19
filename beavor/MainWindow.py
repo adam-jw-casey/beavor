@@ -16,22 +16,6 @@ from .widgets.Calendar import Calendar
 from .widgets.TaskScroller import TaskScroller
 from .widgets.EditingPane import EditingPane
 
-###########################################
-#Readability / coding style / maintainability
-
-# todo should add tests to make development smoother and catch bugs earlier
-
-###########################################
-#Nice-to-haves
-
-# todo would be neat to have it build a daily schedule for me
-# todo would be cool to support multi-step / project-type tasks
-# todo integration to put tasks into Google/Outlook calendar would be cool or just have a way of marking a task as scheduled
-# todo integration to get availability from Google/Outlook calendar to adjust daily workloads based on scheduled meetings
-# todo Dark mode toggle (use .configure(bg='black') maybe? Or another better colour. Have to do it individually by pane though, self.root.configure() only does some of the background. Also probably have to change text colour too.)
-
-###########################################
-
 class Settings:
     def __init__(self, file_path: str):
         self.f = open(file_path, "r+")
@@ -102,7 +86,7 @@ class MainWindow():
             self.db.get_categories,
             self.newTask,
             self.deleteTask,
-            self.db.default_task
+            Task.default
         ).grid(row=0, column=1, padx=4, pady=4, sticky=tk.N+tk.S+tk.E+tk.W)
         self.root.grid_columnconfigure(1, weight=5)
 
@@ -172,9 +156,9 @@ class MainWindow():
     def deleteTask(self, task: Task) -> None:
       if(tk.messagebox.askyesno(
           title="Confirm deletion",
-          message=f"Are you sure you want to delete '{task.task_name}'?")):
+          message=f"Are you sure you want to delete '{task.name}'?")):
         self.db.delete_task(task)
-        self.notify(f"Deleted '{task.task_name}'")
+        self.notify(f"Deleted '{task.name}'")
 
         self.newTask()
         self.refreshAll()
@@ -193,7 +177,7 @@ class MainWindow():
         self.editingPane.selection = None
         #Refresh the screen
         self.refreshAll()
-        self.select_task(selected) # TODO this doesn't highlight the newly-created task when creating a new task
+        self.select_task(selected)
 
         self.notify("Task saved")
 
@@ -205,7 +189,7 @@ class MainWindow():
             self.notify("Cancelled")
 
     def filter_to_date(self, date: datetime.date) -> None:
-        self.task_list_scroller.show_by_availability_on_date(date)
+        self.task_list_scroller.show_by_availability_on_date(self.loadedTasks, date)
 
     def add_vacation_day(self, date: datetime.date) -> None:
         self.db.add_vacation_day(date)

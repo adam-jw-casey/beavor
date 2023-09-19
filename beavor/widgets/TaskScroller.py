@@ -32,7 +32,7 @@ class TaskScroller(ScrollFrame, SensibleReturnWidget):
             command = lambda: self.show_by_availability_on_date(None)
         ).grid(row=2, column=0, sticky=tk.E+tk.W)
 
-    def show_by_availability_on_date(self, date: Optional[date]):
+    def show_by_availability_on_date(self, tasks: list[Task], date: Optional[date]):
         if date is None:
             date = self.selected_date
         else:
@@ -42,31 +42,30 @@ class TaskScroller(ScrollFrame, SensibleReturnWidget):
         self.filter_indicator.config(text=date.strftime("%b %d"))
 
         if not self.show_available_only.get():
-            self._show_tasks(self.tasks)
+            self._show_tasks(tasks)
         else:
             if date == today_date():
                 self._show_tasks(
-                    self.tasks
+                    tasks
                     | filter(
                         lambda t: t.next_action_date <= today_date()
                     )
                 )
             else:
                 self._show_tasks(
-                    self.tasks
+                    tasks
                     | filter(
                         lambda t: t.next_action_date <= date and t.due_date >= PyDueDate(date)
                     )
                 )
 
     def set_tasks(self, tasks: list[Task]) -> None:
-        self.tasks = tasks
         self.show_available_only.set(True)
-        self._show_tasks(tasks)
+        self.show_by_availability_on_date(tasks, self.selected_date)
 
     def _show_tasks(self, tasks: list[Task]) -> None:
         if self.displayed_tasks == tasks:
-            return # TODO this might be preventing tasks from being hidden when their date is updated such that they are no longer availabe on the selected date
+            return
 
         self.displayed_tasks = tasks
         for _ in range(len(self.taskRows)):
@@ -87,7 +86,6 @@ class TaskScroller(ScrollFrame, SensibleReturnWidget):
             else:
                 tr.unhighlight()
 
-# TODO bring in mouseover highlighting from new-schema sidebar.py ProjectRow
 class TaskRow(tk.LabelFrame, SensibleReturnWidget):
     def __init__(self, parentFrame: tk.Frame, task, select):
         super().__init__(parentFrame)
@@ -96,7 +94,7 @@ class TaskRow(tk.LabelFrame, SensibleReturnWidget):
 
         self.nameLabel = LabelSR(
             self,
-            text=task.task_name,
+            text=task.name,
             justify="left",
             anchor=tk.W
         ).pack(side=tk.TOP, fill=tk.X)
@@ -113,6 +111,8 @@ class TaskRow(tk.LabelFrame, SensibleReturnWidget):
         self.visible = [self, self.nameLabel, self.categoryLabel]
         for o in self.visible:
             o.bind("<1>", lambda _: self.select())
+            o.bind("<Enter>", lambda _: self.on_mouseover())
+            o.bind("<Leave>", lambda _: self.on_mouseleave())
 
         self.unhighlight()
 
@@ -120,6 +120,19 @@ class TaskRow(tk.LabelFrame, SensibleReturnWidget):
         for w in self.visible:
             w.config(bg="lightblue")
 
+        self.highlighted = True
+
     def unhighlight(self) -> None:
         for w in self.visible:
             w.config(bg="white")
+
+        self.highlighted = False
+
+    def on_mouseover(self):
+        if not self.highlighted:
+            for w in self.visible:
+                w.config(bg="lightgrey")
+
+    def on_mouseleave(self):
+        if not self.highlighted:
+            self.unhighlight()

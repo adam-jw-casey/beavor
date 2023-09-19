@@ -30,7 +30,6 @@ use crate::{
     Task,
     ParseDateError,
     parse_date,
-    today_date,
     DueDate,
     Schedule,
 };
@@ -52,8 +51,8 @@ impl TryFrom<SqliteRow> for Task{
     fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
         Ok(Task{
             category:                     row.get::<String, &str>("Category"),
-            finished:                     row.get::<String, &str>("O"),
-            task_name:                    row.get::<String, &str>("Task"),
+            finished:                     row.get::<bool,   &str>("Finished"),
+            name:                         row.get::<String, &str>("Name"),
             _time_budgeted:               row.get::<u32,    &str>("Budget"),
             time_needed:                  row.get::<u32,    &str>("Time"),
             time_used:                    row.get::<u32,    &str>("Used"),
@@ -90,7 +89,6 @@ pub struct DatabaseManager{
     rt: Runtime,
 }
 
-// TODO should make all these pass the asyncness through to Python to deal with
 #[allow(non_snake_case)]
 #[pymethods]
 impl DatabaseManager{
@@ -133,11 +131,11 @@ impl DatabaseManager{
 
         self.rt.block_on(async{
             let new_rowid: i64 = sqlx::query!("
-                INSERT INTO worklist
+                INSERT INTO tasks
                     (
                         Category,
-                        O,
-                        Task,
+                        Finished,
+                        Name,
                         Budget,
                         Time,
                         Used,
@@ -162,7 +160,7 @@ impl DatabaseManager{
             ",
                 task.category,
                 task.finished,
-                task.task_name,
+                task.name,
                 task.time_needed, // When creating a new task, save the initial time_needed estimate as time_budgeted
                 task.time_needed,
                 task.time_used,
@@ -180,7 +178,7 @@ impl DatabaseManager{
             // return type of query! to write an impl From<T> for Task
             sqlx::query("
                 SELECT *, rowid
-                FROM worklist
+                FROM tasks
                 WHERE rowid == ?
             ")
                 .bind(new_rowid)
@@ -200,11 +198,11 @@ impl DatabaseManager{
 
         self.rt.block_on(async{
             sqlx::query!("
-                UPDATE worklist
+                UPDATE tasks
                 SET
                     Category =    ?,
-                    O =           ?,
-                    Task =        ?,
+                    Finished =    ?,
+                    Name =        ?,
                     Time =        ?,
                     Used =        ?,
                     NextAction =  ?,
@@ -215,7 +213,7 @@ impl DatabaseManager{
             ",
                 task.category,
                 task.finished,
-                task.task_name,
+                task.name,
                 task.time_needed,
                 task.time_used,
                 next_action_str,
@@ -233,7 +231,7 @@ impl DatabaseManager{
         self.rt.block_on(async{
             sqlx::query!("
                 DELETE
-                FROM worklist
+                FROM tasks
                 WHERE rowid == ?
             ",
                 task.id
@@ -250,8 +248,8 @@ impl DatabaseManager{
             // return type of query! to write an impl From<T> for Task
             sqlx::query("
                 SELECT *, rowid
-                FROM worklist
-                WHERE O == 'O'
+                FROM tasks
+                WHERE Finished == false
                 ORDER BY DueDate
             ")
                 .fetch_all(&self.pool)
@@ -272,7 +270,7 @@ impl DatabaseManager{
         self.rt.block_on(async{
             sqlx::query!("
                 SELECT DISTINCT Category
-                FROM worklist
+                FROM tasks
                 ORDER BY Category
             ")
                 .fetch_all(&self.pool)
@@ -282,22 +280,6 @@ impl DatabaseManager{
                 .map(|r| r.Category.expect("Each category should be a string"))
                 .collect()
         })
-    }
-
-    fn default_task(&self) -> Task{ // TODO why isn't this a default() method on Task itself?
-        Task{
-            category:         "Work".into(),
-            finished:         "O".into(),
-            task_name:        "".into(),
-            _time_budgeted:   0,
-            time_needed:      0,
-            time_used:        0,
-            next_action_date: today_date(),
-            due_date:         DueDate::Date(today_date()),
-            notes:            "".into(),
-            id:               None,
-            date_added:       today_date(),
-        }
     }
 
     fn try_update_holidays(&self) -> PyResult<()>{
