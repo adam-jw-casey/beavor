@@ -58,12 +58,14 @@ impl PyDueDate{
     }
 
     fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
-        match op{
-            CompareOp::Eq => Ok(*self == *other),
-            CompareOp::Ne => Ok(*self != *other),
-            CompareOp::Ge => Ok(*self >= *other),
-            _ => Err(PyNotImplementedError::new_err(format!("{:#?} is not implemented for PyDueDate", op))),
-        }
+        Ok(
+            op.matches(
+                self.partial_cmp(other)
+                    .ok_or(
+                        PyNotImplementedError::new_err(format!("{:#?} is not implemented for PyDueDate", op))
+                    )?
+            )
+        )
     }
 
     #[classmethod]
