@@ -52,6 +52,15 @@ pub fn today_date() -> NaiveDate{
 #[allow(deprecated)]
 #[allow(clippy::zero_prefixed_literal)]
 mod tests{
+    use crate::{
+        green_red_scale,
+        format_date,
+        parse_date,
+        today_date,
+        today_string
+    };
+    use chrono::NaiveDate;
+
     #[test]
     fn test_green_red_scale(){
         assert_eq!(green_red_scale(0.0,100.0,100.0), "#FF0000");

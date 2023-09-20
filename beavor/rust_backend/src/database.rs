@@ -105,7 +105,8 @@ impl PyDatabaseManager{
     #[classmethod]
     fn create_new_database<'a>(_cls: &PyType, py: Python<'a>, database_path: String) -> PyResult<&'a PyAny>{
         future_into_py(py, async move{
-            Ok(DatabaseManager::create_new_database(database_path).await)
+            DatabaseManager::create_new_database(database_path).await;
+            Ok(())
         })
     }
 
@@ -118,79 +119,83 @@ impl PyDatabaseManager{
 
     fn update_task<'a>(&self, py: Python<'a>, task: Task) -> PyResult<&'a PyAny>{
         let me = Arc::clone(&self.db);
-        Ok(future_into_py(py, async move{
-            Ok(me.update_task(task).await)
-        })?)
+        future_into_py(py, async move{
+            me.update_task(task).await;
+            Ok(())
+        })
     }
 
     fn delete_task<'a>(&self, py: Python<'a>, task: Task) -> PyResult<&'a PyAny>{
         let me = Arc::clone(&self.db);
-        Ok(future_into_py(py, async move{
-            Ok(me.delete_task(task).await)
-        })?)
+        future_into_py(py, async move{
+            me.delete_task(task).await;
+            Ok(())
+        })
     }
 
     fn get_open_tasks<'a>(&self, py: Python<'a>) -> PyResult<&'a PyAny>{
         let me = Arc::clone(&self.db);
-        Ok(future_into_py(py, async move{
+        future_into_py(py, async move{
             Ok(me.get_open_tasks().await)
-        })?)
+        })
     }
 
     fn get_categories<'a>(&self, py: Python<'a>) -> PyResult<&'a PyAny>{
         let me = Arc::clone(&self.db);
-        Ok(future_into_py(py, async move{
+        future_into_py(py, async move{
             Ok(me.get_categories().await)
-        })?)
+        })
     }
 
     fn try_update_holidays<'a>(&self, py: Python<'a>) -> PyResult<&'a PyAny>{
         let me = Arc::clone(&self.db);
-        Ok(future_into_py(py, async move{
+        future_into_py(py, async move{
             me.try_update_holidays().await
-        })?)
+        })
     }
 
     fn add_vacation_day<'a>(&self, py: Python<'a>, date: NaiveDate) -> PyResult<&'a PyAny>{
         let me = Arc::clone(&self.db);
-        Ok(future_into_py(py, async move{
-            Ok(me.add_vacation_day(date).await)
-        })?)
+        future_into_py(py, async move{
+            me.add_vacation_day(date).await;
+            Ok(())
+        })
     }
 
     fn delete_vacation_day<'a>(&self, py: Python<'a>, date: NaiveDate)-> PyResult<&'a PyAny>{
         let me = Arc::clone(&self.db);
-        Ok(future_into_py(py, async move{
-            Ok(me.delete_vacation_day(date).await)
-        })?)
+        future_into_py(py, async move{
+            me.delete_vacation_day(date).await;
+            Ok(())
+        })
     }
 
     fn get_vacation_days<'a>(&self, py: Python<'a>) -> PyResult<&'a PyAny>{
         let me = Arc::clone(&self.db);
-        Ok(future_into_py(py, async move{
+        future_into_py(py, async move{
             Ok(me.get_vacation_days().await)
-        })?)
+        })
     }
 
     fn get_holidays<'a>(&self, py: Python<'a>) -> PyResult<&'a PyAny>{
         let me = Arc::clone(&self.db);
-        Ok(future_into_py(py, async move{
+        future_into_py(py, async move{
             Ok(me.get_holidays().await)
-        })?)
+        })
     }
 
     fn get_days_off<'a>(&self, py: Python<'a>) -> PyResult<&'a PyAny>{
         let me = Arc::clone(&self.db);
-        Ok(future_into_py(py, async move{
+        future_into_py(py, async move{
             Ok(me.get_days_off().await)
-        })?)
+        })
     }
 
     fn get_schedule<'a>(&self, py: Python<'a>) -> PyResult<&'a PyAny>{
         let me = Arc::clone(&self.db);
-        Ok(future_into_py(py, async move{
+        future_into_py(py, async move{
             Ok(me.get_schedule().await)
-        })?)
+        })
     }
 }
 

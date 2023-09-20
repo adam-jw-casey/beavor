@@ -5,15 +5,15 @@ import datetime
 from .SensibleReturnWidget import SensibleReturnWidget, LabelSR, FrameSR
 from ..utils.ContextMenuSpawner import ContextMenuSpawner
 from ..backend import green_red_scale, today_date, Schedule
-from typing import Callable
+from typing import Callable, Awaitable
 
 # Set up the calendar display to show estimated workload each day for a several week forecast
 class Calendar(tk.LabelFrame, SensibleReturnWidget):
     def __init__(
         self,
         parentFrame,
-        mark_vacation:   Callable[[datetime.date], None],
-        unmark_vacation: Callable[[datetime.date], None],
+        mark_vacation:   Callable[[datetime.date], Awaitable[None]],
+        unmark_vacation: Callable[[datetime.date], Awaitable[None]],
         on_click_date:   Callable[[datetime.date], None],
         numweeks=4
     ):
@@ -62,8 +62,8 @@ class DayDisplay(FrameSR):
     def __init__(
         self,
         parent,
-        mark_vacation:   Callable[[datetime.date], None],
-        unmark_vacation: Callable[[datetime.date], None],
+        mark_vacation:   Callable[[datetime.date], Awaitable[None]],
+        unmark_vacation: Callable[[datetime.date], Awaitable[None]],
         on_click_date:   Callable[[datetime.date], None]
     ):
         def context_menu_builder(date: datetime.date) -> tk.Menu:

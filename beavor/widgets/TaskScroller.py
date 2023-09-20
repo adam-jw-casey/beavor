@@ -29,7 +29,7 @@ class TaskScroller(ScrollFrame, SensibleReturnWidget):
             self,
             text="Show only available tasks",
             variable=self.show_available_only,
-            command = lambda: self.show_by_availability_on_date(None)
+            command = lambda: self.show_by_availability_on_date(self.displayed_tasks, None)
         ).grid(row=2, column=0, sticky=tk.E+tk.W)
 
     def show_by_availability_on_date(self, tasks: list[Task], date: Optional[date]):

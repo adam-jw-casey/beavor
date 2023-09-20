@@ -2,6 +2,7 @@ import tkinter as tk
 import tkinter.messagebox
 import tkinter.ttk as ttk
 import datetime
+from asyncio import ensure_future
 from typing import Optional
 
 from ..backend import parse_date, PyDueDate, Task
@@ -9,9 +10,10 @@ from .Timer import Timer
 from .DateEntry import DateEntry
 from .CompletingComboBox import CompletingComboBox
 from .SensibleReturnWidget import SensibleReturnWidget, EntrySR, LabelSR, TextSR, FrameSR, CheckbuttonSR, ButtonSR
+from ..utils.async_obj import async_obj
 
-class EditingPane(tk.LabelFrame, SensibleReturnWidget):
-    def __init__(self, parent, getSelectedTask, save, notify, get_categories, newTask, deleteTask, getDefaultTask):
+class EditingPane(tk.LabelFrame, SensibleReturnWidget, async_obj):
+    async def __init__(self, parent, getSelectedTask, save, notify, get_categories, newTask, deleteTask, getDefaultTask):
         def canBeInt(_d, _i, _P, _s, S, _v, _V, _W) ->  bool:
             try:
                 int(S)
@@ -21,7 +23,7 @@ class EditingPane(tk.LabelFrame, SensibleReturnWidget):
 
         super().__init__(parent, text="Edit")
 
-        self.save = lambda: save(self._createTaskFromInputs())
+        self.save = lambda: ensure_future(save(self._createTaskFromInputs()))
         self.get_categories = get_categories
         self.notify = notify
 
@@ -59,10 +61,10 @@ class EditingPane(tk.LabelFrame, SensibleReturnWidget):
             self.editing_box_frame,
             text= "Category"
         ).grid(sticky=tk.W, row=0, column=0, pady=1)
-        self.categoryBox = CompletingComboBox(
+        self.categoryBox = (await CompletingComboBox(
             self.editing_box_frame,
             get_categories
-        ).grid(sticky=tk.W+tk.E, row=0, column=1, pady=1)
+        )).grid(sticky=tk.W+tk.E, row=0, column=1, pady=1)
 
         self.taskNameLabel = LabelSR(
             self.editing_box_frame,
@@ -149,8 +151,8 @@ class EditingPane(tk.LabelFrame, SensibleReturnWidget):
             command = lambda: deleteTask(self.selection)
         ).grid(row=0, column=4)
 
-    def tryShow(self, task: Optional[Task]) -> bool:
-        self.categoryBox.config(values=self.get_categories())
+    async def tryShow(self, task: Optional[Task]) -> bool:
+        self.categoryBox.config(values=await self.get_categories())
 
         if self.selection is not None:
             self.timer.stop()
@@ -222,7 +224,7 @@ class EditingPane(tk.LabelFrame, SensibleReturnWidget):
             )
 
     def _clearEntryBoxes(self) -> None:
-        self.doneIsChecked.set("O")
+        self.doneIsChecked.set(False)
         self.timer.setTime(datetime.timedelta(0))
         for w in [self.categoryBox, self.taskNameBox, self.timeBox, self.usedBox, self.dueDateBox, self.nextActionBox, self.notesBox]:
           self._overwriteEntryBox(w, "")

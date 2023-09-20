@@ -16,7 +16,7 @@ async def tk_update(root: Tk):
         root.update()
         await asyncio.sleep(0.01) # Sleep for a short duration to yield control to the event loop
 
-def main():
+async def main():
     beavor: MainWindow
 
     # Create settings file if it doesn't exist
@@ -24,24 +24,25 @@ def main():
         Settings.create_new(DEFAULT_SETTINGS_PATH)
 
     if len(sys.argv) > 1:
-        beavor = MainWindow(sys.argv[1], DEFAULT_SETTINGS_PATH)
+        beavor = await MainWindow(sys.argv[1], DEFAULT_SETTINGS_PATH)
     elif os.path.isfile(DEFAULT_DATABASE_PATH):
         #default
-        beavor = MainWindow(DEFAULT_DATABASE_PATH, DEFAULT_SETTINGS_PATH)
+        beavor = await MainWindow(DEFAULT_DATABASE_PATH, DEFAULT_SETTINGS_PATH)
     else:
         print(f"No database found and none specified.\nCreating new {DEFAULT_DATABASE_PATH}")
-        PyDatabaseManager.create_new_database(DEFAULT_DATABASE_PATH)
-        beavor = MainWindow(DEFAULT_DATABASE_PATH, DEFAULT_SETTINGS_PATH)
-
-    # Get asyncio event loop
-    loop = asyncio.get_event_loop()
+        await PyDatabaseManager.create_new_database(DEFAULT_DATABASE_PATH)
+        beavor = await MainWindow(DEFAULT_DATABASE_PATH, DEFAULT_SETTINGS_PATH)
 
     # Create callback to kill event loop and close application when tkinter window closed
     beavor.root.protocol("WM_DELETE_WINDOW", lambda: loop.stop())
 
     # Run tkinter within the asyncio event loop
     loop.create_task(tk_update(beavor.root))
-    loop.run_forever()
 
 if __name__ == "__main__":
-    main()
+    # Get asyncio event loop
+    loop = asyncio.get_event_loop()
+    loop.create_task(main())
+
+    loop.run_forever()
+    

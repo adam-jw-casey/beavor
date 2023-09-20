@@ -15,6 +15,7 @@ from .widgets.SensibleReturnWidget import LabelSR
 from .widgets.Calendar import Calendar
 from .widgets.TaskScroller import TaskScroller
 from .widgets.EditingPane import EditingPane
+from .utils.async_obj import async_obj
 
 class Settings:
     def __init__(self, file_path: str):
@@ -37,8 +38,8 @@ class Settings:
                 "font_size" : 10,
             }, f)
 
-class MainWindow():
-    def __init__(self, database_path: str, settings_path: str):
+class MainWindow(async_obj):
+    async def __init__(self, database_path: str, settings_path: str):
       self.os = sys.platform
 
       self.db = PyDatabaseManager(database_path)
@@ -46,7 +47,7 @@ class MainWindow():
       #Tkinter stuff
       self.root = tk.Tk()
 
-      self.setupWindow(Settings(settings_path))
+      await self.setupWindow(Settings(settings_path))
 
     def getSelectedTask(self):
         return self.selection
@@ -55,7 +56,7 @@ class MainWindow():
     # GUI setup functions
 
     # Setup up the gui and load tasks
-    def setupWindow(self, settings: Settings) -> None:
+    async def setupWindow(self, settings: Settings) -> None:
         if self.os == "linux":
             self.root.attributes('-zoomed', True)
         else:
@@ -76,7 +77,7 @@ class MainWindow():
         self.root.grid_columnconfigure(0, weight=1)
 
         # Editing interface
-        self.editingPane = EditingPane(
+        self.editingPane = (await EditingPane(
             self.root,
             self.getSelectedTask,
             self.save_task,
@@ -85,11 +86,11 @@ class MainWindow():
             self.newTask,
             self.deleteTask,
             Task.default
-        ).grid(row=0, column=1, padx=4, pady=4, sticky=tk.N+tk.S+tk.E+tk.W)
+        )).grid(row=0, column=1, padx=4, pady=4, sticky=tk.N+tk.S+tk.E+tk.W)
         self.root.grid_columnconfigure(1, weight=5)
 
         self.loadedTasks: List[Task] = []
-        self.select_task(None)
+        await self.select_task(None)
 
         # Calendar
         self.calendar = Calendar(
@@ -110,35 +111,35 @@ class MainWindow():
         self.root.bind("<Control-w>", lambda _: self.root.destroy())
         self.root.bind("<Control-n>", lambda _: self.newTask())
 
-        self.refreshAll()
+        await self.refreshAll()
 
     ######################################################
     # GUI update functions
 
     # TODO implement a better state-management system so that all necessary widgets are updated when the database is updated
-    def refreshTasks(self) -> None:
+    async def refreshTasks(self) -> None:
         #Remember which task was selected
         selected_rowid = self.selection.id if self.selection is not None else None
 
-        self.loadedTasks = self.db.get_open_tasks()
+        self.loadedTasks = await self.db.get_open_tasks()
         self.task_list_scroller.set_tasks(self.loadedTasks)
 
         match list(filter(lambda t: t.id == selected_rowid, self.loadedTasks)):
             case []:
-                self.select_task(None)
+                await self.select_task(None)
             case [task]:
-                self.select_task(task)
+                await self.select_task(task)
             case _:
                 raise ValueError(f"This should never happen")
 
-    def newTask(self, _=tk.Event) -> None:
-      self.select_task(None)
+    async def newTask(self, _=tk.Event) -> None:
+      await self.select_task(None)
       self.notify("New task created")
 
-    def refreshAll(self) -> None:
-      self.refreshTasks()
+    async def refreshAll(self) -> None:
+      await self.refreshTasks()
 
-      schedule: Schedule = self.db.get_schedule()
+      schedule: Schedule = await self.db.get_schedule()
 
       self.calendar.updateCalendar(schedule)
 
@@ -150,36 +151,36 @@ class MainWindow():
     # Task functions
 
     #Deletes the task selected in the listbox from the database
-    def deleteTask(self, task: Task) -> None:
+    async def deleteTask(self, task: Task) -> None:
       if(tk.messagebox.askyesno(
           title="Confirm deletion",
           message=f"Are you sure you want to delete '{task.name}'?")):
-        self.db.delete_task(task)
+        await self.db.delete_task(task)
         self.notify(f"Deleted '{task.name}'")
 
-        self.newTask()
-        self.refreshAll()
+        await self.newTask()
+        await self.refreshAll()
 
     #Save the current state of the entry boxes for that task
-    def save_task(self, task: Task) -> None:
+    async def save_task(self, task: Task) -> None:
         self.editingPane.timer.stop()
 
         if self.selection is None:
-            selected = self.db.create_task(task)
+            selected = await self.db.create_task(task)
         else:
-            self.db.update_task(task)
+            await self.db.update_task(task)
             selected = task
 
         # This prevents the "do you want to save first? prompt from appearing"
         self.editingPane.selection = None
         #Refresh the screen
-        self.refreshAll()
-        self.select_task(selected)
+        await self.refreshAll()
+        await self.select_task(selected)
 
         self.notify("Task saved")
 
-    def select_task(self,  task: Optional[Task]) -> None:
-        if self.editingPane.tryShow(task):
+    async def select_task(self,  task: Optional[Task]) -> None:
+        if await self.editingPane.tryShow(task):
             self.selection = task
             self.task_list_scroller.highlightTask(task)
         else:
@@ -188,10 +189,10 @@ class MainWindow():
     def filter_to_date(self, date: datetime.date) -> None:
         self.task_list_scroller.show_by_availability_on_date(self.loadedTasks, date)
 
-    def add_vacation_day(self, date: datetime.date) -> None:
-        self.db.add_vacation_day(date)
-        self.refreshAll()
+    async def add_vacation_day(self, date: datetime.date) -> None:
+        await self.db.add_vacation_day(date)
+        await self.refreshAll()
 
-    def remove_vacation_day(self, date: datetime.date) -> None:
-        self.db.delete_vacation_day(date)
-        self.refreshAll()
+    async def remove_vacation_day(self, date: datetime.date) -> None:
+        await self.db.delete_vacation_day(date)
+        await self.refreshAll()
