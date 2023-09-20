@@ -10,8 +10,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = {version = "0.18.1", features = ["extension-module","chrono"]}
-pyo3-asyncio = {version = "0.18.0", features=["attributes", "tokio-runtime"]}
-tokio = "1.26"
+pyo3-asyncio = {version = "0.18.0", features=["attributes", "tokio-runtime", "async-std-runtime"]}
 sqlx = {version = "0.6.2", features = ["runtime-tokio-native-tls", "sqlite"]}
 chrono = {version="0.4.23", features=["std"]}
 reqwest = "0.11.20"

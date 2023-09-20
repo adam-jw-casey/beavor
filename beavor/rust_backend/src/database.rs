@@ -1,12 +1,13 @@
 use std::str::FromStr;
-
-use tokio::runtime::Runtime;
+use std::sync::Arc;
 
 use pyo3::prelude::{
     pyclass,
     pymethods,
     PyResult,
-    PyErr
+    PyErr,
+    Python,
+    PyAny
 };
 
 use pyo3::exceptions::{
@@ -15,6 +16,9 @@ use pyo3::exceptions::{
 };
 
 use pyo3::types::PyType;
+
+use pyo3_asyncio::async_std::future_into_py;
+use pyo3_asyncio::tokio::re_exports::runtime::Runtime;
 
 use sqlx::sqlite::{
     SqlitePool,
@@ -82,209 +86,297 @@ struct Holiday{
     provinces: Vec<Province>,
     observedDate: String
 }
-
 #[pyclass]
-pub struct DatabaseManager{
-    pool: SqlitePool,
-    rt: Runtime,
+pub struct PyDatabaseManager{
+    db: Arc<DatabaseManager>,
 }
 
 #[allow(non_snake_case)]
 #[pymethods]
-impl DatabaseManager{
+impl PyDatabaseManager{
     #[new]
     fn new(database_path: String) -> PyResult<Self>{
-        let rt = Runtime::new().unwrap();
+        let rt = Runtime::new()?;
         Ok(Self{
-            pool: rt.block_on(SqlitePool::connect(database_path.as_str()))
-                .expect("Should be able to connect to database"),
-            rt,
+            db: rt.block_on(DatabaseManager::new(database_path)).into()
         })
     }
 
     #[classmethod]
-    fn create_new_database(_cls: &PyType, database_path: String){
-        let rt = Runtime::new().unwrap();
-        rt.block_on(async{
-            let mut conn = SqliteConnectOptions::from_str(&database_path)
-                .expect("This should work")
-                .create_if_missing(true)
-                .connect()
-                .await
-                .expect("Should be able to connect to database");
-
-            // This doesn't use query! because when creating a database, it doesn't make sense to
-            // check against an existing database
-            sqlx::query_file!("resources/schema.sql")
-                .execute(&mut conn)
-                .await
-                .expect("Should be able to create the schema");
-        });
+    fn create_new_database<'a>(_cls: &PyType, py: Python<'a>, database_path: String) -> PyResult<&'a PyAny>{
+        future_into_py(py, async move{
+            Ok(DatabaseManager::create_new_database(database_path).await)
+        })
     }
 
-    fn create_task(&self, task: Task) -> Task{
+    fn create_task<'a>(&self, py: Python<'a>, task: Task) -> PyResult<&'a PyAny>{
+        let me = Arc::clone(&self.db);
+        future_into_py(py, async move{
+            Ok(me.create_task(task).await)
+        })
+    }
+
+    fn update_task<'a>(&self, py: Python<'a>, task: Task) -> PyResult<&'a PyAny>{
+        let me = Arc::clone(&self.db);
+        Ok(future_into_py(py, async move{
+            Ok(me.update_task(task).await)
+        })?)
+    }
+
+    fn delete_task<'a>(&self, py: Python<'a>, task: Task) -> PyResult<&'a PyAny>{
+        let me = Arc::clone(&self.db);
+        Ok(future_into_py(py, async move{
+            Ok(me.delete_task(task).await)
+        })?)
+    }
+
+    fn get_open_tasks<'a>(&self, py: Python<'a>) -> PyResult<&'a PyAny>{
+        let me = Arc::clone(&self.db);
+        Ok(future_into_py(py, async move{
+            Ok(me.get_open_tasks().await)
+        })?)
+    }
+
+    fn get_categories<'a>(&self, py: Python<'a>) -> PyResult<&'a PyAny>{
+        let me = Arc::clone(&self.db);
+        Ok(future_into_py(py, async move{
+            Ok(me.get_categories().await)
+        })?)
+    }
+
+    fn try_update_holidays<'a>(&self, py: Python<'a>) -> PyResult<&'a PyAny>{
+        let me = Arc::clone(&self.db);
+        Ok(future_into_py(py, async move{
+            me.try_update_holidays().await
+        })?)
+    }
+
+    fn add_vacation_day<'a>(&self, py: Python<'a>, date: NaiveDate) -> PyResult<&'a PyAny>{
+        let me = Arc::clone(&self.db);
+        Ok(future_into_py(py, async move{
+            Ok(me.add_vacation_day(date).await)
+        })?)
+    }
+
+    fn delete_vacation_day<'a>(&self, py: Python<'a>, date: NaiveDate)-> PyResult<&'a PyAny>{
+        let me = Arc::clone(&self.db);
+        Ok(future_into_py(py, async move{
+            Ok(me.delete_vacation_day(date).await)
+        })?)
+    }
+
+    fn get_vacation_days<'a>(&self, py: Python<'a>) -> PyResult<&'a PyAny>{
+        let me = Arc::clone(&self.db);
+        Ok(future_into_py(py, async move{
+            Ok(me.get_vacation_days().await)
+        })?)
+    }
+
+    fn get_holidays<'a>(&self, py: Python<'a>) -> PyResult<&'a PyAny>{
+        let me = Arc::clone(&self.db);
+        Ok(future_into_py(py, async move{
+            Ok(me.get_holidays().await)
+        })?)
+    }
+
+    fn get_days_off<'a>(&self, py: Python<'a>) -> PyResult<&'a PyAny>{
+        let me = Arc::clone(&self.db);
+        Ok(future_into_py(py, async move{
+            Ok(me.get_days_off().await)
+        })?)
+    }
+
+    fn get_schedule<'a>(&self, py: Python<'a>) -> PyResult<&'a PyAny>{
+        let me = Arc::clone(&self.db);
+        Ok(future_into_py(py, async move{
+            Ok(me.get_schedule().await)
+        })?)
+    }
+}
+
+pub struct DatabaseManager{
+    pool: SqlitePool,
+}
+
+impl DatabaseManager{
+    async fn new(database_path: String) -> Self{
+        Self{pool: SqlitePool::connect(database_path.as_str())
+           .await
+           .expect("Should be able to connect to database")
+        }
+    }
+
+    async fn create_new_database(database_path: String){
+        let mut conn = SqliteConnectOptions::from_str(&database_path)
+            .expect("This should work")
+            .create_if_missing(true)
+            .connect()
+            .await
+            .expect("Should be able to connect to database");
+
+        // This doesn't use query! because when creating a database, it doesn't make sense to
+        // check against an existing database
+        sqlx::query_file!("resources/schema.sql")
+            .execute(&mut conn)
+            .await
+            .expect("Should be able to create the schema");
+    }
+
+    async fn create_task(&self, task: Task) -> Task{
         // These must be stored so that they are not dropped in-between
         // the calls to query! and .execute
         let due_date_str = task.due_date.to_string();
         let next_action_str = DueDate::Date(task.next_action_date).to_string();
         let date_added_str = DueDate::Date(task.date_added).to_string();
 
-        self.rt.block_on(async{
-            let new_rowid: i64 = sqlx::query!("
-                INSERT INTO tasks
-                    (
-                        Category,
-                        Finished,
-                        Name,
-                        Budget,
-                        Time,
-                        Used,
-                        NextAction,
-                        DueDate,
-                        Notes,
-                        DateAdded
-                    )
-                VALUES
-                    (
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?
-                    )
-            ",
-                task.category,
-                task.finished,
-                task.name,
-                task.time_needed, // When creating a new task, save the initial time_needed estimate as time_budgeted
-                task.time_needed,
-                task.time_used,
-                next_action_str,
-                due_date_str,
-                task.notes,
-                date_added_str,
-            )
-                .execute(&self.pool)
-                .await
-                .expect("Should be able to insert Task into database")
-                .last_insert_rowid();
+        let new_rowid: i64 = sqlx::query!("
+            INSERT INTO tasks
+                (
+                    Category,
+                    Finished,
+                    Name,
+                    Budget,
+                    Time,
+                    Used,
+                    NextAction,
+                    DueDate,
+                    Notes,
+                    DateAdded
+                )
+            VALUES
+                (
+                    ?,
+                    ?,
+                    ?,
+                    ?,
+                    ?,
+                    ?,
+                    ?,
+                    ?,
+                    ?,
+                    ?
+                )
+        ",
+            task.category,
+            task.finished,
+            task.name,
+            task.time_needed, // When creating a new task, save the initial time_needed estimate as time_budgeted
+            task.time_needed,
+            task.time_used,
+            next_action_str,
+            due_date_str,
+            task.notes,
+            date_added_str,
+        )
+            .execute(&self.pool)
+            .await
+            .expect("Should be able to insert Task into database")
+            .last_insert_rowid();
 
-            // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
-            // return type of query! to write an impl From<T> for Task
-            sqlx::query("
-                SELECT *, rowid
-                FROM tasks
-                WHERE rowid == ?
-            ")
-                .bind(new_rowid)
-                .fetch_one(&self.pool)
-                .await
-                .expect("Should have inserted and retrieved a task")
-                .try_into()
-                .expect("Database should contain valid Tasks only")
-        })
+        // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
+        // return type of query! to write an impl From<T> for Task
+        sqlx::query("
+            SELECT *, rowid
+            FROM tasks
+            WHERE rowid == ?
+        ")
+            .bind(new_rowid)
+            .fetch_one(&self.pool)
+            .await
+            .expect("Should have inserted and retrieved a task")
+            .try_into()
+            .expect("Database should contain valid Tasks only")
     }
 
-    fn update_task(&self, task: Task){
+    async fn update_task(&self, task: Task){
         // These must be stored so that they are not dropped in-between
         // the calls to query! and .execute
         let next_action_str = DueDate::Date(task.next_action_date).to_string();
         let due_date_str = task.due_date.to_string();
 
-        self.rt.block_on(async{
-            sqlx::query!("
-                UPDATE tasks
-                SET
-                    Category =    ?,
-                    Finished =    ?,
-                    Name =        ?,
-                    Time =        ?,
-                    Used =        ?,
-                    NextAction =  ?,
-                    DueDate =     ?,
-                    Notes =       ?
-                WHERE
-                    rowid == ?
-            ",
-                task.category,
-                task.finished,
-                task.name,
-                task.time_needed,
-                task.time_used,
-                next_action_str,
-                due_date_str,
-                task.notes,
-                task.id,
-            )
-                .execute(&self.pool)
-                .await
-                .expect("Should be able to update task");
-        })
+        sqlx::query!("
+            UPDATE tasks
+            SET
+                Category =    ?,
+                Finished =    ?,
+                Name =        ?,
+                Time =        ?,
+                Used =        ?,
+                NextAction =  ?,
+                DueDate =     ?,
+                Notes =       ?
+            WHERE
+                rowid == ?
+        ",
+            task.category,
+            task.finished,
+            task.name,
+            task.time_needed,
+            task.time_used,
+            next_action_str,
+            due_date_str,
+            task.notes,
+            task.id,
+        )
+            .execute(&self.pool)
+            .await
+            .expect("Should be able to update task");
     }
 
-    fn delete_task(&self, task: Task){
-        self.rt.block_on(async{
-            sqlx::query!("
-                DELETE
-                FROM tasks
-                WHERE rowid == ?
-            ",
-                task.id
-            )
-                .execute(&self.pool)
-                .await
-                .expect("Should be able do delete task");
-        });
+    async fn delete_task(&self, task: Task){
+        sqlx::query!("
+            DELETE
+            FROM tasks
+            WHERE rowid == ?
+        ",
+            task.id
+        )
+            .execute(&self.pool)
+            .await
+            .expect("Should be able do delete task");
     }
 
-    fn get_open_tasks(&self) -> Vec<Task>{
-        let mut tasks: Vec<Task> = self.rt.block_on(async{
-            // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
-            // return type of query! to write an impl From<T> for Task
-            sqlx::query("
-                SELECT *, rowid
-                FROM tasks
-                WHERE Finished == false
-                ORDER BY DueDate
-            ")
-                .fetch_all(&self.pool)
-                .await
-                .expect("Should be able to get tasks")
-                .into_iter()
-                .map(|r: SqliteRow| Task::try_from(r)
-                     .expect("Database should hold valid Tasks")
-                ).collect()
-        });
+    async fn get_open_tasks(&self) -> Vec<Task>{
+        // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
+        // return type of query! to write an impl From<T> for Task
+      let mut tasks: Vec<Task> = sqlx::query("
+            SELECT *, rowid
+            FROM tasks
+            WHERE Finished == false
+            ORDER BY DueDate
+        ")
+            .fetch_all(&self.pool)
+            .await
+            .expect("Should be able to get tasks")
+            .into_iter()
+            .map(|r: SqliteRow| Task::try_from(r)
+                 .expect("Database should hold valid Tasks")
+            ).collect();
 
         tasks.sort_by(|a,b| a.due_date.cmp(&b.due_date));
 
         tasks
     }
 
-    fn get_categories(&self) -> Vec<String>{
-        self.rt.block_on(async{
-            sqlx::query!("
-                SELECT DISTINCT Category
-                FROM tasks
-                ORDER BY Category
-            ")
-                .fetch_all(&self.pool)
-                .await
-                .expect("Should be able to get categories")
-                .into_iter()
-                .map(|r| r.Category.expect("Each category should be a string"))
-                .collect()
-        })
+    #[allow(non_snake_case)]
+    async fn get_categories(&self) -> Vec<String>{
+        sqlx::query!("
+            SELECT DISTINCT Category
+            FROM tasks
+            ORDER BY Category
+        ")
+            .fetch_all(&self.pool)
+            .await
+            .expect("Should be able to get categories")
+            .into_iter()
+            .map(|r| r.Category.expect("Each category should be a string"))
+            .collect()
     }
 
-    fn try_update_holidays(&self) -> PyResult<()>{
+    async fn try_update_holidays(&self) -> Result<(), PyErr>{
         // If database already has holidays from the current year, exit
         if self.get_holidays()
+                .await
                 .iter()
                 .filter(|h| h.year() == Local::now().year())
                 .peekable()
@@ -297,12 +389,12 @@ impl DatabaseManager{
 
         // If database doesn't have the holidays for this year, get them
         // and store them in the database
-        let response: String = self.rt.block_on(async{
-            reqwest::get("https://canada-holidays.ca/api/v1/holidays")
-                .await?
-                .text()
-                .await
-        }).map_err(|e: reqwest::Error| PyErr::new::<PyConnectionError, _>(e.to_string()))?;
+        let response: String = reqwest::get("https://canada-holidays.ca/api/v1/holidays")
+            .await
+            .map_err(|e: reqwest::Error| PyErr::new::<PyConnectionError, _>(e.to_string()))?
+            .text()
+            .await
+            .map_err(|e: reqwest::Error| PyErr::new::<PyConnectionError, _>(e.to_string()))?;
 
         let holiday_dates: Vec<NaiveDate> = serde_json::from_str::<Holidays>(&response)
             .map_err(|e| PyErr::new::<PyTypeError, _>(e.to_string()))?
@@ -313,36 +405,9 @@ impl DatabaseManager{
             .collect::<Result<Vec<NaiveDate>, _>>()
             .map_err(|e| PyErr::new::<PyTypeError, _>(e.to_string()))?;
 
-        self.rt.block_on(async{
-            for d in holiday_dates{
-                let date_string = d.to_string();
+        for d in holiday_dates{
+            let date_string = d.to_string();
 
-                sqlx::query!("
-                    INSERT INTO days_off
-                        (
-                            Day,
-                            Reason
-                        )
-                    VALUES
-                        (
-                            ?,
-                            'stat_holiday'
-                        )
-                    ",
-                    date_string
-                )
-                    .execute(&self.pool)
-                    .await
-                    .expect("Should be able to add the stat holiday");
-            }
-        });
-
-        Ok(())
-    }
-
-    fn add_vacation_day(&self, date: NaiveDate){
-        let date_string = date.to_string();
-        self.rt.block_on(async{
             sqlx::query!("
                 INSERT INTO days_off
                     (
@@ -352,88 +417,108 @@ impl DatabaseManager{
                 VALUES
                     (
                         ?,
-                        'vacation'
+                        'stat_holiday'
                     )
                 ",
                 date_string
             )
                 .execute(&self.pool)
                 .await
-                .expect("Should be able to add vacation day");
-        });
+                .expect("Should be able to add the stat holiday");
+        }
+
+        Ok(())
     }
 
-    fn delete_vacation_day(&self, date: NaiveDate){
+    async fn add_vacation_day(&self, date: NaiveDate){
         let date_string = date.to_string();
 
-        self.rt.block_on(async{
-            sqlx::query!("
-                DELETE
-                FROM days_off
-                WHERE Day == ? AND Reason=='vacation'
+        sqlx::query!("
+            INSERT INTO days_off
+                (
+                    Day,
+                    Reason
+                )
+            VALUES
+                (
+                    ?,
+                    'vacation'
+                )
             ",
-                date_string
+            date_string
+        )
+            .execute(&self.pool)
+            .await
+            .expect("Should be able to add vacation day");
+    }
+
+    async fn delete_vacation_day(&self, date: NaiveDate){
+        let date_string = date.to_string();
+
+        sqlx::query!("
+            DELETE
+            FROM days_off
+            WHERE Day == ? AND Reason=='vacation'
+        ",
+            date_string
+        )
+            .execute(&self.pool)
+            .await
+            .expect("Should be able do delete task");
+    }
+
+    #[allow(non_snake_case)]
+    async fn get_vacation_days(&self) -> Vec<NaiveDate>{
+        sqlx::query!("
+            SELECT Day
+            FROM days_off
+            WHERE Reason == 'vacation'
+            ORDER BY Day
+        ")
+            .fetch_all(&self.pool)
+            .await
+            .expect("Should be able to get vacation days")
+            .into_iter()
+            .map(|record|
+                 record.Day.expect("Day is a field in days_off")
+                 .parse::<NaiveDate>().expect("days_off should contain valid dates")
             )
-                .execute(&self.pool)
-                .await
-                .expect("Should be able do delete task");
-        });
+            .collect()
     }
 
-    fn get_vacation_days(&self) -> Vec<NaiveDate>{
-        self.rt.block_on(async{
-            sqlx::query!("
-                SELECT Day
-                FROM days_off
-                WHERE Reason == 'vacation'
-                ORDER BY Day
-            ")
-                .fetch_all(&self.pool)
-                .await
-                .expect("Should be able to get vacation days")
-                .into_iter()
-                .map(|record|
-                     record.Day.expect("Day is a field in days_off")
-                     .parse::<NaiveDate>().expect("days_off should contain valid dates")
-                )
-                .collect()
-        })
+    #[allow(non_snake_case)]
+    async fn get_holidays(&self) -> Vec<NaiveDate>{
+        sqlx::query!("
+            SELECT Day
+            FROM days_off
+            WHERE Reason == 'stat_holiday'
+            ORDER BY Day
+        ")
+            .fetch_all(&self.pool)
+            .await
+            .expect("Should be able to get stat holidays")
+            .into_iter()
+            .map(|record|
+                 record.Day.expect("Day is a field in days_off")
+                 .parse::<NaiveDate>().expect("days_off should contain valid dates")
+            )
+            .collect()
     }
 
-    fn get_holidays(&self) -> Vec<NaiveDate>{
-        self.rt.block_on(async{
-            sqlx::query!("
-                SELECT Day
-                FROM days_off
-                WHERE Reason == 'stat_holiday'
-                ORDER BY Day
-            ")
-                .fetch_all(&self.pool)
-                .await
-                .expect("Should be able to get stat holidays")
-                .into_iter()
-                .map(|record|
-                     record.Day.expect("Day is a field in days_off")
-                     .parse::<NaiveDate>().expect("days_off should contain valid dates")
-                )
-                .collect()
-        })
-    }
-
-    fn get_days_off(&self) -> Vec<NaiveDate> {
+    async fn get_days_off(&self) -> Vec<NaiveDate> {
         let mut days_off = Vec::new();
 
-        self.try_update_holidays().unwrap();
-        days_off.append(&mut self.get_holidays());
-        days_off.append(&mut self.get_vacation_days());
+        self.try_update_holidays().await.unwrap();
+        days_off.append(&mut self.get_holidays().await);
+        days_off.append(&mut self.get_vacation_days().await);
 
         days_off
     }
 
-    fn get_schedule(&self) -> Schedule{
+    async fn get_schedule(&self) -> Schedule{
         Schedule::new(
-            self.get_days_off(),
-            self.get_open_tasks(),
+            self.get_days_off().await,
+            self.get_open_tasks().await,
         )
     }
 }

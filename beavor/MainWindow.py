@@ -10,7 +10,7 @@ from typing import List, Optional
 import json
 import datetime
 
-from .backend import DatabaseManager, Task, Schedule
+from .backend import PyDatabaseManager, Task, Schedule
 from .widgets.SensibleReturnWidget import LabelSR
 from .widgets.Calendar import Calendar
 from .widgets.TaskScroller import TaskScroller
@@ -41,7 +41,7 @@ class MainWindow():
     def __init__(self, database_path: str, settings_path: str):
       self.os = sys.platform
 
-      self.db = DatabaseManager(database_path)
+      self.db = PyDatabaseManager(database_path)
 
       #Tkinter stuff
       self.root = tk.Tk()
@@ -68,8 +68,6 @@ class MainWindow():
         self.root.winfo_toplevel().title("WORKLIST Beta")
 
         # Frame to hold the tasklist display and associated frames and widgets
-
-        self.db.get_open_tasks()
 
         self.task_list_scroller = TaskScroller(
             self.root,

@@ -2,7 +2,7 @@
 
 import sys, os
 from beavor.MainWindow import MainWindow, Settings
-from beavor.backend import DatabaseManager
+from beavor.backend import PyDatabaseManager
 
 from tkinter import Tk
 import asyncio
@@ -30,7 +30,7 @@ def main():
         beavor = MainWindow(DEFAULT_DATABASE_PATH, DEFAULT_SETTINGS_PATH)
     else:
         print(f"No database found and none specified.\nCreating new {DEFAULT_DATABASE_PATH}")
-        DatabaseManager.create_new_database(DEFAULT_DATABASE_PATH)
+        PyDatabaseManager.create_new_database(DEFAULT_DATABASE_PATH)
         beavor = MainWindow(DEFAULT_DATABASE_PATH, DEFAULT_SETTINGS_PATH)
 
     # Get asyncio event loop
