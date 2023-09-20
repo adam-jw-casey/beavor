@@ -73,9 +73,9 @@ impl Schedule{
     }
 
     /// Calculates and returns the number of minutes per day you would have to work on the task to
-    /// complete it between the day it is available and the day it is due
+    /// complete it between the day it is available and the day it is due, if there is a due date
     fn workload_per_day(&self, task: &Task) -> Option<u32>{
-        Some(task.time_remaining() / max(1, self.num_days_to_work_on(task)))
+        Some(task.time_remaining() / max(1, self.num_days_to_work_on(task)?))
     }
 
     /// Returns an iterator over the working days between two dates, including both ends
@@ -86,20 +86,14 @@ impl Schedule{
 
     /// Returns an iterator over the days a task can be worked on, or nothing if the task has no due
     /// date (i.e., the range is undefined)
-    fn work_days_for_task(&self, task: &Task) -> Box<dyn Iterator<Item = NaiveDate> + '_> {
-        match self.last_available_date_for_task(task){
-            Some(due_date) => Box::new(self.work_days_from(
-                self.first_available_date_for_task(task),
-                due_date,
-            )),
-            None => Box::new(std::iter::empty::<NaiveDate>()),
-        }
-
+    fn work_days_for_task(&self, task: &Task) -> Option<Box<impl Iterator<Item = NaiveDate> + '_>> {
+        self.last_available_date_for_task(task)
+            .map(|due_date| Box::new(self.work_days_from(self.first_available_date_for_task(task), due_date)))
     }
 
-    /// Returns the number of days a task can be worked on, or 0 if the task has no due date
-    fn num_days_to_work_on(&self, task: &Task) -> u32 {
-        self.work_days_for_task(task).count().try_into().expect("This fails on huge numbers")
+    /// Returns the number of days a task can be worked on, if there is a due date
+    fn num_days_to_work_on(&self, task: &Task) -> Option<u32> {
+        Some(self.work_days_for_task(task)?.count().try_into().expect("This fails on huge numbers"))
     }
 
     /// Returns the date of the soonest work day, including today
@@ -133,7 +127,7 @@ impl Schedule{
 
         for task in tasks{
             if let Some(workload_per_day) = self.workload_per_day(&task){
-                for day in self.work_days_for_task(&task){
+                for day in self.work_days_for_task(&task).expect("We've already checked that workload_per_day is not None, so this will not be None"){
                     workloads
                         .entry(day)
                         .and_modify(|workload| *workload += workload_per_day)

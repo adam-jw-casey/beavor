@@ -141,7 +141,6 @@ class MainWindow():
       self.refreshTasks()
 
       schedule: Schedule = self.db.get_schedule()
-      schedule.calculate_workloads(self.loadedTasks)
 
       self.calendar.updateCalendar(schedule)
 
