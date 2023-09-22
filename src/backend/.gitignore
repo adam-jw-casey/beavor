@@ -1,3 +1,4 @@
+resources/schema.db
 target
 Cargo.lock
 .env

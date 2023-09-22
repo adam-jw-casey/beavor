@@ -2,7 +2,6 @@
 *.csv
 *.swp
 .git
-settings.json
 
 # Added by cargo
 
