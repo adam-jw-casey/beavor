@@ -1,3 +1,3 @@
 # beavor
 
-![beavor homescreen](.resources/beavor_homescreen.png)
+![beavor homescreen](resources/.beavor_homescreen.png)
