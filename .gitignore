@@ -1,8 +1,9 @@
 *.db
 *.csv
 *.swp
-*.so
-*.pyd
-__pycache__/
 .git
 settings.json
+
+# Added by cargo
+
+/target
