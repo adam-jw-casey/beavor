@@ -1,10 +1,5 @@
 use std::cmp::max;
 
-use pyo3::prelude::{
-    pyclass,
-    pymethods,
-};
-
 use chrono::{
     NaiveDate,
     Datelike,
@@ -52,11 +47,8 @@ impl Iterator for DateIterator{
     }
 }
 
-#[pyclass]
 pub struct Schedule{
-    #[pyo3(get)]
     days_off: Vec<NaiveDate>,
-    #[pyo3(get)]
     workloads: HashMap<NaiveDate, u32>,
 }
 
@@ -140,7 +132,6 @@ impl Schedule{
     }
 }
 
-#[pymethods]
 impl Schedule{
     /// Returns a boolean representing whether a given task can be worked on on a given date
     fn is_available_on_day(&self, task: Task, date: NaiveDate) -> bool{

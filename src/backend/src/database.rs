@@ -1,20 +1,7 @@
+use std::error::Error;
 use std::str::FromStr;
 
 use tokio::runtime::Runtime;
-
-use pyo3::prelude::{
-    pyclass,
-    pymethods,
-    PyResult,
-    PyErr
-};
-
-use pyo3::exceptions::{
-    PyTypeError,
-    PyConnectionError
-};
-
-use pyo3::types::PyType;
 
 use sqlx::sqlite::{
     SqlitePool,
@@ -83,27 +70,23 @@ struct Holiday{
     observedDate: String
 }
 
-#[pyclass]
 pub struct DatabaseManager{
     pool: SqlitePool,
     rt: Runtime,
 }
 
 #[allow(non_snake_case)]
-#[pymethods]
 impl DatabaseManager{
-    #[new]
-    fn new(database_path: String) -> PyResult<Self>{
+    fn new(database_path: String) -> Self{
         let rt = Runtime::new().unwrap();
-        Ok(Self{
+        Self{
             pool: rt.block_on(SqlitePool::connect(database_path.as_str()))
                 .expect("Should be able to connect to database"),
             rt,
-        })
+        }
     }
 
-    #[classmethod]
-    fn create_new_database(_cls: &PyType, database_path: String){
+    fn create_new_database(database_path: String){
         let rt = Runtime::new().unwrap();
         rt.block_on(async{
             let mut conn = SqliteConnectOptions::from_str(&database_path)
@@ -282,7 +265,7 @@ impl DatabaseManager{
         })
     }
 
-    fn try_update_holidays(&self) -> PyResult<()>{
+    fn try_update_holidays(&self) -> Result<(), Box<dyn Error>>{
         // If database already has holidays from the current year, exit
         if self.get_holidays()
                 .iter()
@@ -302,16 +285,14 @@ impl DatabaseManager{
                 .await?
                 .text()
                 .await
-        }).map_err(|e: reqwest::Error| PyErr::new::<PyConnectionError, _>(e.to_string()))?;
+        })?;
 
-        let holiday_dates: Vec<NaiveDate> = serde_json::from_str::<Holidays>(&response)
-            .map_err(|e| PyErr::new::<PyTypeError, _>(e.to_string()))?
+        let holiday_dates: Vec<NaiveDate> = serde_json::from_str::<Holidays>(&response)?
             .holidays
             .iter()
             .filter(|h| h.provinces.contains(&Province{id: "BC".to_string()}))
             .map(|h| h.observedDate.parse::<NaiveDate>())
-            .collect::<Result<Vec<NaiveDate>, _>>()
-            .map_err(|e| PyErr::new::<PyTypeError, _>(e.to_string()))?;
+            .collect::<Result<Vec<NaiveDate>, _>>()?;
 
         self.rt.block_on(async{
             for d in holiday_dates{
