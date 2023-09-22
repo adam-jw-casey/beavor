@@ -10,7 +10,10 @@ use iced::{
     Sandbox,
     Element,
     Settings,
+    Length,
 };
+
+use backend::DatabaseManager;
 
 fn main() {
     Beavor::run(Settings::default())
@@ -21,13 +24,17 @@ fn main() {
 enum Message{
 }
 
-struct Beavor;
+struct Beavor{
+    db: DatabaseManager,
+}
 
 impl Sandbox for Beavor {
     type Message = Message;
 
     fn new() -> Self {
-        Self{}
+        Self{
+            db: todo!(),
+        }
     }
 
     fn title(&self) -> String {
@@ -46,6 +53,8 @@ impl Sandbox for Beavor {
                     text("hello"),
                     text("world"),
                 ]
+                    .width(Length::Fill)
+                    .padding([40, 0, 40, 0])
             ).into();
 
         let content: Element<Message> = row![task_scroller].into();
