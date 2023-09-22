@@ -1,23 +1,13 @@
-mod database;
-use database::DatabaseManager;
+pub mod database;
+pub use database::DatabaseManager;
 
-mod due_date;
-use due_date::{
-    DueDate,
-    ParseDateError
-};
+pub mod due_date;
+pub use due_date::DueDate;
 
-mod task;
-use task::Task;
+pub mod task;
+pub use task::Task;
 
-mod utils;
-use utils::{
-    green_red_scale,
-    today_date,
-    today_string,
-    format_date,
-    parse_date,
-};
+pub mod utils;
 
-mod schedule;
-use schedule::Schedule;
+pub mod schedule;
+pub use schedule::Schedule;

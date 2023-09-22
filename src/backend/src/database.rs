@@ -15,8 +15,8 @@ use sqlx::{
 
 use crate::{
     Task,
-    ParseDateError,
-    parse_date,
+    due_date::ParseDateError,
+    utils::parse_date,
     DueDate,
     Schedule,
 };
@@ -77,7 +77,7 @@ pub struct DatabaseManager{
 
 #[allow(non_snake_case)]
 impl DatabaseManager{
-    fn new(database_path: String) -> Self{
+    pub fn new(database_path: String) -> Self{
         let rt = Runtime::new().unwrap();
         Self{
             pool: rt.block_on(SqlitePool::connect(database_path.as_str()))
@@ -86,7 +86,7 @@ impl DatabaseManager{
         }
     }
 
-    fn create_new_database(database_path: String){
+    pub fn create_new_database(database_path: String){
         let rt = Runtime::new().unwrap();
         rt.block_on(async{
             let mut conn = SqliteConnectOptions::from_str(&database_path)
@@ -105,7 +105,7 @@ impl DatabaseManager{
         });
     }
 
-    fn create_task(&self, task: Task) -> Task{
+    pub fn create_task(&self, task: Task) -> Task{
         // These must be stored so that they are not dropped in-between
         // the calls to query! and .execute
         let due_date_str = task.due_date.to_string();
@@ -173,7 +173,7 @@ impl DatabaseManager{
         })
     }
 
-    fn update_task(&self, task: Task){
+    pub fn update_task(&self, task: Task){
         // These must be stored so that they are not dropped in-between
         // the calls to query! and .execute
         let next_action_str = DueDate::Date(task.next_action_date).to_string();
@@ -210,7 +210,7 @@ impl DatabaseManager{
         })
     }
 
-    fn delete_task(&self, task: Task){
+    pub fn delete_task(&self, task: Task){
         self.rt.block_on(async{
             sqlx::query!("
                 DELETE
@@ -225,7 +225,7 @@ impl DatabaseManager{
         });
     }
 
-    fn get_open_tasks(&self) -> Vec<Task>{
+    pub fn get_open_tasks(&self) -> Vec<Task>{
         let mut tasks: Vec<Task> = self.rt.block_on(async{
             // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
             // return type of query! to write an impl From<T> for Task
@@ -249,7 +249,7 @@ impl DatabaseManager{
         tasks
     }
 
-    fn get_categories(&self) -> Vec<String>{
+    pub fn get_categories(&self) -> Vec<String>{
         self.rt.block_on(async{
             sqlx::query!("
                 SELECT DISTINCT Category
@@ -265,7 +265,7 @@ impl DatabaseManager{
         })
     }
 
-    fn try_update_holidays(&self) -> Result<(), Box<dyn Error>>{
+    pub fn try_update_holidays(&self) -> Result<(), Box<dyn Error>>{
         // If database already has holidays from the current year, exit
         if self.get_holidays()
                 .iter()
@@ -321,7 +321,7 @@ impl DatabaseManager{
         Ok(())
     }
 
-    fn add_vacation_day(&self, date: NaiveDate){
+    pub fn add_vacation_day(&self, date: NaiveDate){
         let date_string = date.to_string();
         self.rt.block_on(async{
             sqlx::query!("
@@ -344,7 +344,7 @@ impl DatabaseManager{
         });
     }
 
-    fn delete_vacation_day(&self, date: NaiveDate){
+    pub fn delete_vacation_day(&self, date: NaiveDate){
         let date_string = date.to_string();
 
         self.rt.block_on(async{
@@ -361,7 +361,7 @@ impl DatabaseManager{
         });
     }
 
-    fn get_vacation_days(&self) -> Vec<NaiveDate>{
+    pub fn get_vacation_days(&self) -> Vec<NaiveDate>{
         self.rt.block_on(async{
             sqlx::query!("
                 SELECT Day
@@ -381,7 +381,7 @@ impl DatabaseManager{
         })
     }
 
-    fn get_holidays(&self) -> Vec<NaiveDate>{
+    pub fn get_holidays(&self) -> Vec<NaiveDate>{
         self.rt.block_on(async{
             sqlx::query!("
                 SELECT Day
@@ -401,7 +401,7 @@ impl DatabaseManager{
         })
     }
 
-    fn get_days_off(&self) -> Vec<NaiveDate> {
+    pub fn get_days_off(&self) -> Vec<NaiveDate> {
         let mut days_off = Vec::new();
 
         self.try_update_holidays().unwrap();
@@ -411,7 +411,7 @@ impl DatabaseManager{
         days_off
     }
 
-    fn get_schedule(&self) -> Schedule{
+    pub fn get_schedule(&self) -> Schedule{
         Schedule::new(
             self.get_days_off(),
             self.get_open_tasks(),

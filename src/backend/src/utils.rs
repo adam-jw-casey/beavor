@@ -3,7 +3,7 @@ use chrono::{
     NaiveDate,
 };
 
-use crate::ParseDateError;
+use crate::due_date::ParseDateError;
 
 pub fn green_red_scale(low: f32, high: f32, val: f32) -> String {
     let frac = f32::max(0.0,f32::min(1.0,(val-low)/(high-low)));

@@ -1,6 +1,6 @@
 use chrono::NaiveDate;
 
-use crate::today_date;
+use crate::utils::today_date;
 
 use crate::due_date::DueDate;
 
@@ -23,9 +23,7 @@ impl Task{
     pub fn time_remaining(&self) -> u32{
         self.time_needed - self.time_used
     }
-}
 
-impl Task{
     pub fn default() -> Self{
         Task{
             category:         "Work".into(),
