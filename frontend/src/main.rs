@@ -1,5 +1,5 @@
 use iced::widget::{
-    column,
+    Column,
     container,
     row,
     scrollable,
@@ -33,7 +33,7 @@ impl Sandbox for Beavor {
 
     fn new() -> Self {
         Self{
-            db: todo!(),
+            db: DatabaseManager::new("worklist.db".into()),
         }
     }
 
@@ -49,10 +49,12 @@ impl Sandbox for Beavor {
     fn view(&self) -> Element<'_, Self::Message> {
         let task_scroller: Element<Message> =
             scrollable(
-                column![
-                    text("hello"),
-                    text("world"),
-                ]
+                Column::with_children(
+                    self.db.get_open_tasks()
+                        .iter()
+                        .map(|t| text(&t.name).into())
+                        .collect()
+                )
                     .width(Length::Fill)
                     .padding([40, 0, 40, 0])
             ).into();
