@@ -46,7 +46,7 @@ impl TryFrom<SqliteRow> for Task{
             next_action_date: parse_date(&row.get::<String, &str>("NextAction"))?,
             due_date:                     row.get::<String, &str>("DueDate").try_into()?,
             notes:                        row.get::<String, &str>("Notes"),
-            id:                           row.get::<Option<i32>, &str>("rowid"),
+            id:                           row.get::<Option<u32>, &str>("rowid"),
             date_added:       parse_date(&row.get::<String, &str>("DateAdded"))?,
         })
     }

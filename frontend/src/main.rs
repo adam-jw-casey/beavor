@@ -13,7 +13,7 @@ use iced::{
     Length,
 };
 
-use backend::DatabaseManager;
+use backend::{DatabaseManager, Task};
 
 fn main() {
     Beavor::run(Settings::default())
@@ -26,6 +26,7 @@ enum Message{
 
 struct Beavor{
     db: DatabaseManager,
+    selected_task: Option<usize>,
 }
 
 impl Sandbox for Beavor {
@@ -34,6 +35,7 @@ impl Sandbox for Beavor {
     fn new() -> Self {
         Self{
             db: DatabaseManager::new("worklist.db".into()),
+            selected_task: None,
         }
     }
 
@@ -47,20 +49,37 @@ impl Sandbox for Beavor {
     }
 
     fn view(&self) -> Element<'_, Self::Message> {
-        let task_scroller: Element<Message> =
-            scrollable(
-                Column::with_children(
-                    self.db.get_open_tasks()
-                        .iter()
-                        .map(|t| text(&t.name).into())
-                        .collect()
-                )
-                    .width(Length::Fill)
-                    .padding([40, 0, 40, 0])
-            ).into();
+        let task_scroller: Element<Message> = TaskScroller::new(self.db.get_open_tasks());
 
         let content: Element<Message> = row![task_scroller].into();
 
         container(content).into()
+    }
+}
+
+struct TaskScroller;
+
+impl TaskScroller{
+    #[allow(clippy::new_ret_no_self)]
+    fn new(tasks: Vec<Task>) -> Element<'static, Message>{
+        scrollable(
+            Column::with_children(
+                tasks
+                    .iter()
+                    .map(TaskRow::new)
+                    .collect()
+            )
+                .width(Length::Fill)
+                .padding([40, 0, 40, 0])
+        ).into()
+    }
+}
+
+struct TaskRow;
+
+impl TaskRow{
+    #[allow(clippy::new_ret_no_self)]
+    fn new(task: &Task) -> Element<'static, Message>{
+        text(&task.name).into()
     }
 }
