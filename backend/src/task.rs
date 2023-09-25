@@ -4,6 +4,8 @@ use crate::utils::today_date;
 
 use crate::due_date::DueDate;
 
+pub type Id = Option<u32>;
+
 #[derive(Clone)]
 pub struct Task{
     pub category:         String,
@@ -16,15 +18,18 @@ pub struct Task{
     pub date_added:       NaiveDate,
     pub next_action_date: NaiveDate,
     pub due_date:         DueDate,
-    pub id:               Option<i32>,
+    pub id:               Id,
 }
 
 impl Task{
     pub fn time_remaining(&self) -> u32{
         self.time_needed - self.time_used
     }
+}
 
-    pub fn default() -> Self{
+
+impl std::default::Default for Task{
+    fn default() -> Self{
         Task{
             category:         "Work".into(),
             finished:         false,
