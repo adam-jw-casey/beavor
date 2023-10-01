@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 iced = "0.10.0"
 backend = { path = "../backend"}
+chrono = "0.4.31"
