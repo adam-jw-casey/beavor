@@ -78,6 +78,7 @@ impl Sandbox for Beavor {
 
 #[allow(non_snake_case)]
 fn Calendar(tasks: &[Task]) -> Element<'static, Message>{
+    // Get the days of the week that contains the passed day
     fn week_of(d: NaiveDate) -> Vec<NaiveDate>{
         let w = d.week(Weekday::Mon);
 
@@ -94,6 +95,7 @@ fn Calendar(tasks: &[Task]) -> Element<'static, Message>{
     
 
     // TODO this is a pretty grungy implementation, but it should do for now
+    // Show this week and the following ones
     Column::with_children(
         [
         today,
@@ -111,7 +113,9 @@ fn Calendar(tasks: &[Task]) -> Element<'static, Message>{
 
 #[allow(non_snake_case)]
 fn CalDay(d: NaiveDate) -> Element<'static, Message>{
-    text(d).into()
+    text(
+        d.format("%d")
+    ).into()
 }
 
 #[allow(non_snake_case)]
