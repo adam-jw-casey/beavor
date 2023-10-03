@@ -27,6 +27,7 @@ use backend::{
     DatabaseManager,
     Task,
     utils::today_date,
+    Schedule,
 };
 
 fn main() {
@@ -36,12 +37,12 @@ fn main() {
 
 #[derive(Debug, Clone)]
 enum Message{
-    SelectTask(Option<Task>),
+    SelectTask(Task),
+    DeselectTask,
 }
 
 struct Beavor{
     db: DatabaseManager,
-    open_tasks: Vec<Task>,
     selected_task: Option<Task>,
 }
 
@@ -51,7 +52,6 @@ impl Sandbox for Beavor {
     fn new() -> Self {
         let db = DatabaseManager::new("worklist.db".into());
         Self{
-            open_tasks: db.get_open_tasks(),
             db,
             selected_task: None,
         }
@@ -63,14 +63,15 @@ impl Sandbox for Beavor {
 
     fn update(&mut self, message: Self::Message) {
         match message{
-            Message::SelectTask(task) => self.selected_task = task,
+            Message::SelectTask(task) => self.selected_task = Some(task),
+            Message::DeselectTask => self.selected_task = None,
         }
     }
 
     fn view(&self) -> Element<'_, Self::Message> {
         let content: Element<Message> = row![
-            TaskScroller(&self.open_tasks),
-            Calendar(&self.open_tasks),
+            TaskScroller(&self.db.get_open_tasks()),
+            Calendar(&self.db.get_schedule()),
         ].into();
 
         container(content).into()
@@ -78,7 +79,8 @@ impl Sandbox for Beavor {
 }
 
 #[allow(non_snake_case)]
-fn Calendar(tasks: &[Task]) -> Element<'static, Message>{
+fn Calendar(schedule: &Schedule) -> Element<'static, Message>{
+    // TODO this is a pretty grungy implementation, but it should do for now
     // Get the days of the week that contains the passed day
     fn week_of(d: NaiveDate) -> Vec<NaiveDate>{
         let w = d.week(Weekday::Mon);
@@ -93,7 +95,6 @@ fn Calendar(tasks: &[Task]) -> Element<'static, Message>{
     }
 
     let today = today_date();
-    
 
     // TODO this is a pretty grungy implementation, but it should do for now
     // Show this week and the following ones
@@ -142,6 +143,6 @@ fn TaskRow(task: &Task) -> Element<'static, Message>{
     Button::new(
         text(&task.name)
     )
-        .on_press(Message::SelectTask(Some(task.clone())))
+        .on_press(Message::SelectTask(task.clone()))
         .into()
 }
