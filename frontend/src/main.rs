@@ -108,7 +108,7 @@ fn Calendar(schedule: &Schedule) -> Element<'static, Message>{
             .iter()
             .map(|d| Row::with_children(
                 week_of(*d).iter().map(
-                    |d| Element::from(CalDay(*d).padding(4))
+                    |d| Element::from(CalDay(*d, 0.0).padding(4)) //TODO Correct the passed load
                 ).collect()
             ).into())
             .collect()
@@ -116,12 +116,15 @@ fn Calendar(schedule: &Schedule) -> Element<'static, Message>{
 }
 
 #[allow(non_snake_case)]
-fn CalDay(d: NaiveDate) -> Container<'static, Message>{
-    Container::new(
+fn CalDay(day: NaiveDate, load: f32) -> Column<'static, Message>{
+    column![
         text(
-            d.format("%b %d")
+            day.format("%b %d")
+        ),
+        text(
+            format!("{:.1}", load)
         )
-    )
+    ]
 }
 
 #[allow(non_snake_case)]
