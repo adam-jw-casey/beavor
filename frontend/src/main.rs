@@ -6,6 +6,7 @@ use iced::widget::{
     column,
     scrollable,
     text,
+    Container,
     Button,
 };
 
@@ -105,17 +106,21 @@ fn Calendar(tasks: &[Task]) -> Element<'static, Message>{
         ]
             .iter()
             .map(|d| Row::with_children(
-                week_of(*d).iter().map(|d| Element::into(CalDay(*d))).collect()
+                week_of(*d).iter().map(
+                    |d| Element::from(CalDay(*d).padding(4))
+                ).collect()
             ).into())
             .collect()
     ).into()
 }
 
 #[allow(non_snake_case)]
-fn CalDay(d: NaiveDate) -> Element<'static, Message>{
-    text(
-        d.format("%d")
-    ).into()
+fn CalDay(d: NaiveDate) -> Container<'static, Message>{
+    Container::new(
+        text(
+            d.format("%b %d")
+        )
+    )
 }
 
 #[allow(non_snake_case)]
