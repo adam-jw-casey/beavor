@@ -39,11 +39,14 @@ fn main() {
 enum Message{
     SelectTask(Task),
     DeselectTask,
+    SelectDate(NaiveDate),
+    DeselectDate,
 }
 
 struct Beavor{
     db: DatabaseManager,
     selected_task: Option<Task>,
+    selected_date: Option<NaiveDate>,
 }
 
 impl Sandbox for Beavor {
@@ -54,6 +57,7 @@ impl Sandbox for Beavor {
         Self{
             db,
             selected_task: None,
+            selected_date: None,
         }
     }
 
@@ -64,7 +68,9 @@ impl Sandbox for Beavor {
     fn update(&mut self, message: Self::Message) {
         match message{
             Message::SelectTask(task) => self.selected_task = Some(task),
-            Message::DeselectTask => self.selected_task = None,
+            Message::DeselectTask     => self.selected_task = None,
+            Message::SelectDate(date) => self.selected_date = Some(date),
+            Message::DeselectDate     => self.selected_date = None,
         }
     }
 
@@ -108,7 +114,7 @@ fn Calendar(schedule: &Schedule) -> Element<'static, Message>{
             .iter()
             .map(|d| Row::with_children(
                 week_of(*d).iter().map(
-                    |d| Element::from(CalDay(*d, schedule.workload_on_day(*d)).padding(4)) //TODO Correct the passed load
+                    |d| Element::from(CalDay(*d, schedule.workload_on_day(*d)).padding(4))
                 ).collect()
             ).into())
             .collect()
