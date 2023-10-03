@@ -1,34 +1,26 @@
 use iced::widget::{
-    Column,
     container,
-    Row,
     row,
-    column,
-    scrollable,
-    text,
-    Container,
-    Button,
 };
 
 use iced::{
     Sandbox,
     Element,
     Settings,
-    Length,
 };
 
-use chrono::{
-    Weekday,
-    NaiveDate,
-    naive::Days,
-};
+use chrono::NaiveDate;
 
 use backend::{
     DatabaseManager,
     Task,
-    utils::today_date,
-    Schedule,
 };
+
+mod calendar;
+use calendar::Calendar;
+
+mod task_scroller;
+use task_scroller::TaskScroller;
 
 fn main() {
     Beavor::run(Settings::default())
@@ -36,7 +28,7 @@ fn main() {
 }
 
 #[derive(Debug, Clone)]
-enum Message{
+pub enum Message{
     SelectTask(Task),
     DeselectTask,
     SelectDate(NaiveDate),
@@ -82,76 +74,4 @@ impl Sandbox for Beavor {
 
         container(content).into()
     }
-}
-
-#[allow(non_snake_case)]
-fn Calendar(schedule: &Schedule) -> Element<'static, Message>{
-    // TODO this is a pretty grungy implementation, but it should do for now
-    // Get the days of the week that contains the passed day
-    fn week_of(d: NaiveDate) -> Vec<NaiveDate>{
-        let w = d.week(Weekday::Mon);
-
-        vec![
-            w.first_day(),
-            w.first_day() + Days::new(1),
-            w.first_day() + Days::new(2),
-            w.first_day() + Days::new(3),
-            w.first_day() + Days::new(4),
-        ]
-    }
-
-    let today = today_date();
-
-    // TODO this is a pretty grungy implementation, but it should do for now
-    // Show this week and the following ones
-    Column::with_children(
-        [
-        today,
-        today + Days::new(7),
-        today + Days::new(14),
-        today + Days::new(21),
-        ]
-            .iter()
-            .map(|d| Row::with_children(
-                week_of(*d).iter().map(
-                    |d| Element::from(CalDay(*d, schedule.workload_on_day(*d)).padding(4))
-                ).collect()
-            ).into())
-            .collect()
-    ).into()
-}
-
-#[allow(non_snake_case)]
-fn CalDay(day: NaiveDate, load: u32) -> Column<'static, Message>{
-    column![
-        text(
-            day.format("%b %d")
-        ),
-        text(
-            format!("{}", load as f32/60.0)
-        )
-    ]
-}
-
-#[allow(non_snake_case)]
-fn TaskScroller(tasks: &[Task]) -> Element<'static, Message>{
-    scrollable(
-        Column::with_children(
-            tasks
-                .iter()
-                .map(TaskRow)
-                .collect()
-        )
-            .width(Length::Shrink)
-            .padding([40, 0, 40, 0])
-    ).into()
-}
-
-#[allow(non_snake_case)]
-fn TaskRow(task: &Task) -> Element<'static, Message>{
-    Button::new(
-        text(&task.name)
-    )
-        .on_press(Message::SelectTask(task.clone()))
-        .into()
 }
