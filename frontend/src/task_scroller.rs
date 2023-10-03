@@ -1,5 +1,6 @@
 use iced::widget::{
     Column,
+    column,
     scrollable,
     text,
     Button,
@@ -23,7 +24,7 @@ pub fn TaskScroller(tasks: &[Task]) -> Element<'static, Message>{
                 .map(TaskRow)
                 .collect()
         )
-            .width(Length::Shrink)
+            .width(Length::Shrink) // TODO make each row take a consistent width
             .padding([40, 0, 40, 0])
     ).into()
 }
@@ -31,7 +32,10 @@ pub fn TaskScroller(tasks: &[Task]) -> Element<'static, Message>{
 #[allow(non_snake_case)]
 fn TaskRow(task: &Task) -> Element<'static, Message>{
     Button::new(
-        text(&task.name)
+        column![
+            text(&task.name),
+            text(&task.category),
+        ]
     )
         .on_press(Message::SelectTask(task.clone()))
         .into()
