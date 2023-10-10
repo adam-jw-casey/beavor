@@ -16,11 +16,9 @@ use backend::{
     Task,
 };
 
-mod calendar;
-use calendar::Calendar;
-
-mod task_scroller;
-use task_scroller::TaskScroller;
+mod widgets;
+use widgets::Calendar;
+use widgets::TaskScroller;
 
 fn main() {
     Beavor::run(Settings::default())
