@@ -5,7 +5,10 @@ use iced::widget::{
     text,
 };
 
-use iced::Element;
+use iced::{
+    Element,
+    Length,
+};
 
 use chrono::{
     Weekday,
@@ -54,7 +57,9 @@ pub fn Calendar(schedule: &Schedule) -> Element<'static, Message>{
                 ).collect()
             ).into())
             .collect()
-    ).into()
+    )
+        .width(Length::Shrink)
+        .into()
 }
 
 #[allow(non_snake_case)]

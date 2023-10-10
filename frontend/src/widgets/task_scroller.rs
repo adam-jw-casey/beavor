@@ -26,7 +26,9 @@ pub fn TaskScroller(tasks: &[Task]) -> Element<'static, Message>{
         )
             .width(Length::Shrink) // TODO make each row take a consistent width
             .padding([40, 0, 40, 0])
-    ).into()
+    )
+        .width(Length::FillPortion(1))
+        .into()
 }
 
 #[allow(non_snake_case)]
@@ -37,6 +39,7 @@ fn TaskRow(task: &Task) -> Element<'static, Message>{
             text(&task.category),
         ]
     )
-        .on_press(Message::SelectTask(task.clone()))
+        .on_press(Message::SelectTask(Some(task.clone())))
+        .width(Length::Fill)
         .into()
 }
