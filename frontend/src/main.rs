@@ -95,7 +95,7 @@ impl Sandbox for Beavor {
                     UDT::DueDate(due_date) => t.due_date = due_date,
                     UDT::Notes(notes) => t.notes = notes,
                     UDT::Finished(finished) => t.finished = finished,
-                } // TODO ...else? This doesn't look like it will work nicely with new tasks
+                }
             },
             Message::SaveDraftTask => {
                 let t = &self.draft_task;
