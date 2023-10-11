@@ -70,9 +70,9 @@ impl Sandbox for Beavor {
     fn update(&mut self, message: Self::Message) {
         match message{
             Message::SelectTask(maybe_task) => {
-                self.selected_task = maybe_task.clone();
                 // Don't overwrite an existing draft task
                 if (self.selected_task.is_none() && self.draft_task == Task::default()) || self.draft_task == *self.selected_task.as_ref().unwrap(){
+                    self.selected_task = maybe_task.clone();
                     self.draft_task = match maybe_task{
                         Some(t) =>  t.clone(),
                         None => Task::default(),
@@ -101,8 +101,11 @@ impl Sandbox for Beavor {
                 let t = &self.draft_task;
                 match t.id{
                     Some(_) => self.db.update_task(t),
-                    None => {self.db.create_task(t);},
+                    None => {
+                        self.draft_task = self.db.create_task(t);
+                    },
                 }
+                self.selected_task = Some(self.draft_task.clone());
             },
             Message::NewTask => self.update(Message::SelectTask(None)),
             Message::DeleteTask => todo!(),
