@@ -68,20 +68,29 @@ impl Sandbox for Beavor {
         match message{
             Message::SelectTask(maybe_task) => {
                 self.selected_task = maybe_task.clone();
-                self.draft_task = maybe_task.clone(); // TODO I can see this causing an overwrite bug in
-                                                      // the future, when a task is being edited (draft)
-                                                      // and selecting a new one wipes the changes
+                // Don't overwrite an existing draft task
+                match self.draft_task{
+                    Some(_) => println!("Refusing to overwrite draft task"), // TODO allow case
+                                                                             // where the draft
+                                                                             // task is unmodified
+                                                                             // -> maybe a
+                                                                             // DraftTask type with
+                                                                             // that metadata?
+                    None => self.draft_task = maybe_task.clone(),
+                }
+                 
             },
             Message::SelectDate(maybe_date) => self.selected_date = maybe_date,
             Message::UpdateDraftTask(task_field_update) => if let Some(t) = self.draft_task.as_mut(){
+                use UpdateDraftTask as UDT;
                 match task_field_update{
-                    UpdateDraftTask::Category(category) => t.category = category,
-                    UpdateDraftTask::Name(name) => t.name = name,
-                    UpdateDraftTask::TimeNeeded(time_needed) => t.time_needed = time_needed,
-                    UpdateDraftTask::TimeUsed(time_used) => t.time_used = time_used,
-                    UpdateDraftTask::NextActionDate(next_action_date) => t.next_action_date = next_action_date,
-                    UpdateDraftTask::DueDate(due_date) => t.due_date = due_date,
-                    UpdateDraftTask::Notes(notes) => t.notes = notes,
+                    UDT::Category(category) => t.category = category,
+                    UDT::Name(name) => t.name = name,
+                    UDT::TimeNeeded(time_needed) => t.time_needed = time_needed,
+                    UDT::TimeUsed(time_used) => t.time_used = time_used,
+                    UDT::NextActionDate(next_action_date) => t.next_action_date = next_action_date,
+                    UDT::DueDate(due_date) => t.due_date = due_date,
+                    UDT::Notes(notes) => t.notes = notes,
                 }
             },
             Message::SaveDraftTask => todo!(),
