@@ -36,6 +36,9 @@ pub enum Message{
     SelectDate(Option<NaiveDate>),
     UpdateDraftTask(UpdateDraftTask),
     SaveDraftTask,
+    NewTask,
+    DeleteTask,
+    ToggleTimer,
 }
 
 struct Beavor{
@@ -43,7 +46,7 @@ struct Beavor{
     selected_task: Option<Task>, // TODO should this maybe just store task ID to minimize the state
                                  // lying around?
     selected_date: Option<NaiveDate>,
-    draft_task: Option<Task>,
+    draft_task: Task,
     
 }
 
@@ -56,7 +59,7 @@ impl Sandbox for Beavor {
             db,
             selected_task: None,
             selected_date: None,
-            draft_task:    None,
+            draft_task:    Task::default(),
         }
     }
 
@@ -69,19 +72,19 @@ impl Sandbox for Beavor {
             Message::SelectTask(maybe_task) => {
                 self.selected_task = maybe_task.clone();
                 // Don't overwrite an existing draft task
-                match self.draft_task{
-                    Some(_) => println!("Refusing to overwrite draft task"), // TODO allow case
-                                                                             // where the draft
-                                                                             // task is unmodified
-                                                                             // -> maybe a
-                                                                             // DraftTask type with
-                                                                             // that metadata?
-                    None => self.draft_task = maybe_task.clone(),
+                if (self.selected_task.is_none() && self.draft_task == Task::default()) || self.draft_task == *self.selected_task.as_ref().unwrap(){
+                    self.draft_task = match maybe_task{
+                        Some(t) =>  t.clone(),
+                        None => Task::default(),
+                    }
+                }else{
+                    println!("Refusing to overwrite draft task"); // TODO handle this case
+                                                                  // elegantly
                 }
-                 
             },
             Message::SelectDate(maybe_date) => self.selected_date = maybe_date,
-            Message::UpdateDraftTask(task_field_update) => if let Some(t) = self.draft_task.as_mut(){
+            Message::UpdateDraftTask(task_field_update) => {
+                let t = &mut self.draft_task;
                 use UpdateDraftTask as UDT;
                 match task_field_update{
                     UDT::Category(category) => t.category = category,
@@ -92,16 +95,25 @@ impl Sandbox for Beavor {
                     UDT::DueDate(due_date) => t.due_date = due_date,
                     UDT::Notes(notes) => t.notes = notes,
                     UDT::Finished(finished) => t.finished = finished,
+                } // TODO ...else? This doesn't look like it will work nicely with new tasks
+            },
+            Message::SaveDraftTask => {
+                let t = &self.draft_task;
+                match t.id{
+                    Some(_) => self.db.update_task(t),
+                    None => {self.db.create_task(t);},
                 }
             },
-            Message::SaveDraftTask => todo!(),
+            Message::NewTask => self.update(Message::SelectTask(None)),
+            Message::DeleteTask => todo!(),
+            Message::ToggleTimer => todo!(),
         }
     }
 
     fn view(&self) -> Element<'_, Self::Message> {
         let content: Element<Message> = row![
             TaskScroller(&self.db.get_open_tasks()),
-            TaskEditor(self.draft_task.as_ref()),
+            TaskEditor(&self.draft_task),
             Calendar(&self.db.get_schedule()),
         ].into();
 

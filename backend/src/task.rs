@@ -1,12 +1,11 @@
 use chrono::NaiveDate;
 
 use crate::utils::today_date;
-
 use crate::due_date::DueDate;
 
 pub type Id = Option<u32>;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Task{
     pub category:         String,
     pub finished:         bool,

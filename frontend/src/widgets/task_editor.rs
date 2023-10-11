@@ -34,7 +34,7 @@ pub enum UpdateDraftTask{
 }
 
 #[allow(non_snake_case)]
-pub fn TaskEditor(task: Option<&Task>) -> Element<'static, Message>{
+pub fn TaskEditor(task: &Task) -> Element<'static, Message>{
     use Message::UpdateDraftTask as Message_UDT;
     use UpdateDraftTask as UDT;
     // TODO this is a TON of boilerplate. Find a way to reduce this down
@@ -43,7 +43,7 @@ pub fn TaskEditor(task: Option<&Task>) -> Element<'static, Message>{
             text("Category"),
             text_input(
                 "Category...",
-               &task.unwrap_or(&Task::default()).category
+               &task.category
             )
                 .on_input(|s| Message_UDT(UDT::Category(s)))
                 .width(Length::Fill)
@@ -52,7 +52,7 @@ pub fn TaskEditor(task: Option<&Task>) -> Element<'static, Message>{
             text("Name"),
             text_input(
                 "Name...",
-               &task.unwrap_or(&Task::default()).name
+               &task.name
             )
                 .on_input(|s| Message_UDT(UDT::Name(s)))
 				.width(Length::Fill)
@@ -61,7 +61,7 @@ pub fn TaskEditor(task: Option<&Task>) -> Element<'static, Message>{
             text("Time needed"),
             text_input(
                 "Time needed...",
-               &task.unwrap_or(&Task::default()).time_needed.to_string()
+               &task.time_needed.to_string()
             )
                 .on_input(|u| Message_UDT(UDT::TimeNeeded(u.parse().expect("Should parse")))) // TODO I have a feeling all this parsing would be better handled at the application level so that an error modal can be shown or something
 				.width(Length::Fill)
@@ -70,7 +70,7 @@ pub fn TaskEditor(task: Option<&Task>) -> Element<'static, Message>{
             text("Time used"),
             text_input(
                 "Time used...",
-               &task.unwrap_or(&Task::default()).time_used.to_string()
+               &task.time_used.to_string()
             )
                 .on_input(|u| Message_UDT(UDT::TimeUsed(u.parse().expect("Should parse"))))
 				.width(Length::Fill)
@@ -79,7 +79,7 @@ pub fn TaskEditor(task: Option<&Task>) -> Element<'static, Message>{
             text("Next action"),
             text_input(
                 "Next action...",
-               &task.unwrap_or(&Task::default()).next_action_date.to_string()
+               &task.next_action_date.to_string()
             )
                 .on_input(|d| Message_UDT(UDT::NextActionDate(d.parse().expect("Should parse"))))
 				.width(Length::Fill)
@@ -88,7 +88,7 @@ pub fn TaskEditor(task: Option<&Task>) -> Element<'static, Message>{
             text("Due date"),
             text_input(
                 "Due date...",
-               &task.unwrap_or(&Task::default()).next_action_date.to_string()
+               &task.next_action_date.to_string()
             )
                 .on_input(|d| Message_UDT(UDT::DueDate(d.parse().expect("Should parse"))))
 				.width(Length::Fill)
@@ -97,7 +97,7 @@ pub fn TaskEditor(task: Option<&Task>) -> Element<'static, Message>{
             text("Notes"),
             text_input(
                 "Notes...",
-               &task.unwrap_or(&Task::default()).notes
+               &task.notes
             )
                 .on_input(|d| Message_UDT(UDT::Notes(d)))
 				.width(Length::Fill)
@@ -105,24 +105,28 @@ pub fn TaskEditor(task: Option<&Task>) -> Element<'static, Message>{
         row![
             checkbox(
                 "Done",
-                task.unwrap_or(&Task::default()).finished,
+                task.finished,
                 |b| Message_UDT(UDT::Finished(b)),
             ),
             button(
                 "Start",
-            ),
+            )
+                .on_press(Message::ToggleTimer),
             text(
                 "0:00:00"
             ),
             button(
                 "Save",
-            ),
+            )
+                .on_press(Message::SaveDraftTask),
             button(
                 "New",
-            ),
+            )
+                .on_press(Message::NewTask),
             button(
                 "Delete",
-            ),
+            )
+                .on_press(Message::DeleteTask),
         ]
     ]
         .width(Length::FillPortion(1))

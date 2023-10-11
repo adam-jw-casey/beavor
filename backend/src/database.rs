@@ -105,7 +105,7 @@ impl DatabaseManager{
         });
     }
 
-    pub fn create_task(&self, task: Task) -> Task{
+    pub fn create_task(&self, task: &Task) -> Task{
         // These must be stored so that they are not dropped in-between
         // the calls to query! and .execute
         let due_date_str = task.due_date.to_string();
@@ -173,7 +173,10 @@ impl DatabaseManager{
         })
     }
 
-    pub fn update_task(&self, task: Task){
+    // TODO I think this will silently fail if passed a task that is not already present in the
+    // database, e.g., if someone erroneously used this where create_task() was required. Perhaps
+    // this should return a Result<(), _>
+    pub fn update_task(&self, task: &Task){
         // These must be stored so that they are not dropped in-between
         // the calls to query! and .execute
         let next_action_str = DueDate::Date(task.next_action_date).to_string();
@@ -210,6 +213,8 @@ impl DatabaseManager{
         })
     }
 
+    // Note: this deliberately takes ownership of task, because it will be deleted afterward and
+    // this prevents references to it from surviving
     pub fn delete_task(&self, task: Task){
         self.rt.block_on(async{
             sqlx::query!("
@@ -321,7 +326,7 @@ impl DatabaseManager{
         Ok(())
     }
 
-    pub fn add_vacation_day(&self, date: NaiveDate){
+    pub fn add_vacation_day(&self, date: &NaiveDate){
         let date_string = date.to_string();
         self.rt.block_on(async{
             sqlx::query!("
@@ -344,7 +349,7 @@ impl DatabaseManager{
         });
     }
 
-    pub fn delete_vacation_day(&self, date: NaiveDate){
+    pub fn delete_vacation_day(&self, date: &NaiveDate){
         let date_string = date.to_string();
 
         self.rt.block_on(async{
