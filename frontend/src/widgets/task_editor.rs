@@ -5,6 +5,8 @@ use iced::widget::{
     row,
     text,
     text_input,
+    checkbox,
+    button,
 };
 
 use iced::{
@@ -28,6 +30,7 @@ pub enum UpdateDraftTask{
     NextActionDate  (NaiveDate),
     DueDate         (DueDate),
     Notes           (String),
+    Finished        (bool),
 }
 
 #[allow(non_snake_case)]
@@ -99,6 +102,28 @@ pub fn TaskEditor(task: Option<&Task>) -> Element<'static, Message>{
                 .on_input(|d| Message_UDT(UDT::Notes(d)))
 				.width(Length::Fill)
         ],
+        row![
+            checkbox(
+                "Done",
+                task.unwrap_or(&Task::default()).finished,
+                |b| Message_UDT(UDT::Finished(b)),
+            ),
+            button(
+                "Start",
+            ),
+            text(
+                "0:00:00"
+            ),
+            button(
+                "Save",
+            ),
+            button(
+                "New",
+            ),
+            button(
+                "Delete",
+            ),
+        ]
     ]
         .width(Length::FillPortion(1))
         .into()

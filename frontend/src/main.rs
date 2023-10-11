@@ -91,6 +91,7 @@ impl Sandbox for Beavor {
                     UDT::NextActionDate(next_action_date) => t.next_action_date = next_action_date,
                     UDT::DueDate(due_date) => t.due_date = due_date,
                     UDT::Notes(notes) => t.notes = notes,
+                    UDT::Finished(finished) => t.finished = finished,
                 }
             },
             Message::SaveDraftTask => todo!(),
