@@ -25,13 +25,16 @@ pub enum UpdateDraftTask{
     Name            (String),
     TimeNeeded      (u32),
     TimeUsed        (u32),
-    NextActionDate      (NaiveDate),
+    NextActionDate  (NaiveDate),
     DueDate         (DueDate),
     Notes           (String),
 }
 
 #[allow(non_snake_case)]
 pub fn TaskEditor(task: Option<&Task>) -> Element<'static, Message>{
+    use Message::UpdateDraftTask as Message_UDT;
+    use UpdateDraftTask as UDT;
+    // TODO this is a TON of boilerplate. Find a way to reduce this down
     column![
         row![
             text("Category"),
@@ -39,7 +42,7 @@ pub fn TaskEditor(task: Option<&Task>) -> Element<'static, Message>{
                 "Category...",
                &task.unwrap_or(&Task::default()).category
             )
-                .on_input(|s| Message::UpdateDraftTask(UpdateDraftTask::Category(s)))
+                .on_input(|s| Message_UDT(UDT::Category(s)))
                 .width(Length::Fill)
         ],
         row![
@@ -48,7 +51,7 @@ pub fn TaskEditor(task: Option<&Task>) -> Element<'static, Message>{
                 "Name...",
                &task.unwrap_or(&Task::default()).name
             )
-                .on_input(|s| Message::UpdateDraftTask(UpdateDraftTask::Name(s)))
+                .on_input(|s| Message_UDT(UDT::Name(s)))
 				.width(Length::Fill)
         ],
         row![
@@ -57,7 +60,7 @@ pub fn TaskEditor(task: Option<&Task>) -> Element<'static, Message>{
                 "Time needed...",
                &task.unwrap_or(&Task::default()).time_needed.to_string()
             )
-                .on_input(|u| Message::UpdateDraftTask(UpdateDraftTask::TimeNeeded(u.parse().expect("Should parse")))) // TODO I have a feeling all this parsing would be better handled at the application level so that an error modal can be shown or something
+                .on_input(|u| Message_UDT(UDT::TimeNeeded(u.parse().expect("Should parse")))) // TODO I have a feeling all this parsing would be better handled at the application level so that an error modal can be shown or something
 				.width(Length::Fill)
         ],
         row![
@@ -66,7 +69,7 @@ pub fn TaskEditor(task: Option<&Task>) -> Element<'static, Message>{
                 "Time used...",
                &task.unwrap_or(&Task::default()).time_used.to_string()
             )
-                .on_input(|u| Message::UpdateDraftTask(UpdateDraftTask::TimeUsed(u.parse().expect("Should parse"))))
+                .on_input(|u| Message_UDT(UDT::TimeUsed(u.parse().expect("Should parse"))))
 				.width(Length::Fill)
         ],
         row![
@@ -75,7 +78,7 @@ pub fn TaskEditor(task: Option<&Task>) -> Element<'static, Message>{
                 "Next action...",
                &task.unwrap_or(&Task::default()).next_action_date.to_string()
             )
-                .on_input(|d| Message::UpdateDraftTask(UpdateDraftTask::NextActionDate(d.parse().expect("Should parse"))))
+                .on_input(|d| Message_UDT(UDT::NextActionDate(d.parse().expect("Should parse"))))
 				.width(Length::Fill)
         ],
         row![
@@ -84,7 +87,7 @@ pub fn TaskEditor(task: Option<&Task>) -> Element<'static, Message>{
                 "Due date...",
                &task.unwrap_or(&Task::default()).next_action_date.to_string()
             )
-                .on_input(|d| Message::UpdateDraftTask(UpdateDraftTask::DueDate(d.parse().expect("Should parse"))))
+                .on_input(|d| Message_UDT(UDT::DueDate(d.parse().expect("Should parse"))))
 				.width(Length::Fill)
         ],
         row![
@@ -93,7 +96,7 @@ pub fn TaskEditor(task: Option<&Task>) -> Element<'static, Message>{
                 "Notes...",
                &task.unwrap_or(&Task::default()).notes
             )
-                .on_input(|d| Message::UpdateDraftTask(UpdateDraftTask::Notes(d)))
+                .on_input(|d| Message_UDT(UDT::Notes(d)))
 				.width(Length::Fill)
         ],
     ]
