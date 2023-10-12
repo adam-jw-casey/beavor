@@ -30,10 +30,10 @@ use crate::Message;
 pub enum UpdateDraftTask{
     Category        (String),
     Name            (String),
-    TimeNeeded      (u32),
-    TimeUsed        (u32),
-    NextActionDate  (NaiveDate),
-    DueDate         (DueDate),
+    TimeNeeded      (Result<u32, ()>),
+    TimeUsed        (Result<u32, ()>),
+    NextActionDate  (Result<NaiveDate, ()>),
+    DueDate         (Result<DueDate, ()>),
     Notes           (String),
     Finished        (bool),
 }
@@ -77,7 +77,7 @@ pub fn TaskEditor(task: &Task, timer_start_utc: Option<&DateTime<Utc>>) -> Eleme
                 "Time needed...",
                &task.time_needed.to_string()
             )
-                .on_input(|u| Message_UDT(UDT::TimeNeeded(u.parse().expect("Should parse")))) // TODO I have a feeling all this parsing would be better handled at the application level so that an error modal can be shown or something
+                .on_input(|u| Message_UDT(UDT::TimeNeeded(u.parse().map_err(|_| ())))) // TODO I have a feeling all this parsing would be better handled at the application level so that an error modal can be shown or something
 				.width(Length::Fill)
         ],
         row![
@@ -86,7 +86,7 @@ pub fn TaskEditor(task: &Task, timer_start_utc: Option<&DateTime<Utc>>) -> Eleme
                 "Time used...",
                &format!("{}", display_time_used/60),
             )
-                .on_input(|u| Message_UDT(UDT::TimeUsed(u.parse().expect("Should parse"))))
+                .on_input(|u| Message_UDT(UDT::TimeUsed(u.parse().map_err(|_| ()))))
 				.width(Length::Fill)
         ],
         row![
@@ -95,7 +95,7 @@ pub fn TaskEditor(task: &Task, timer_start_utc: Option<&DateTime<Utc>>) -> Eleme
                 "Next action...",
                &task.next_action_date.to_string()
             )
-                .on_input(|d| Message_UDT(UDT::NextActionDate(d.parse().expect("Should parse"))))
+                .on_input(|d| Message_UDT(UDT::NextActionDate(d.parse().map_err(|_| ()))))
 				.width(Length::Fill)
         ],
         row![
@@ -104,7 +104,7 @@ pub fn TaskEditor(task: &Task, timer_start_utc: Option<&DateTime<Utc>>) -> Eleme
                 "Due date...",
                &task.next_action_date.to_string()
             )
-                .on_input(|d| Message_UDT(UDT::DueDate(d.parse().expect("Should parse"))))
+                .on_input(|d| Message_UDT(UDT::DueDate(d.parse().map_err(|_| ()))))
 				.width(Length::Fill)
         ],
         row![

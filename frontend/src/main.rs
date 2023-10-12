@@ -118,10 +118,10 @@ impl Application for Beavor {
                 match task_field_update{
                     UDT::Category(category) => t.category = category,
                     UDT::Name(name) => t.name = name,
-                    UDT::TimeNeeded(time_needed) => t.time_needed = time_needed,
-                    UDT::TimeUsed(time_used) => t.time_used = time_used,
-                    UDT::NextActionDate(next_action_date) => t.next_action_date = next_action_date,
-                    UDT::DueDate(due_date) => t.due_date = due_date,
+                    UDT::TimeNeeded(time_needed) => if let Ok(time_needed) = time_needed {t.time_needed = time_needed},
+                    UDT::TimeUsed(time_used) => if let Ok(time_used) = time_used {t.time_used = time_used},
+                    UDT::NextActionDate(next_action_date) => if let Ok(next_action_date) = next_action_date {t.next_action_date = next_action_date},
+                    UDT::DueDate(due_date) => if let Ok(due_date) = due_date {t.due_date = due_date},
                     UDT::Notes(notes) => t.notes = notes,
                     UDT::Finished(finished) => t.finished = finished,
                 }
