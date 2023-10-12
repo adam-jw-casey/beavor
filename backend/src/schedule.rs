@@ -1,10 +1,5 @@
 use std::cmp::max;
 
-use pyo3::prelude::{
-    pyclass,
-    pymethods,
-};
-
 use chrono::{
     NaiveDate,
     Datelike,
@@ -14,7 +9,7 @@ use chrono::{
 use crate::{
     Task,
     DueDate,
-    today_date,
+    utils::today_date,
 };
 
 use std::collections::HashMap;
@@ -52,11 +47,8 @@ impl Iterator for DateIterator{
     }
 }
 
-#[pyclass]
 pub struct Schedule{
-    #[pyo3(get)]
     days_off: Vec<NaiveDate>,
-    #[pyo3(get)]
     workloads: HashMap<NaiveDate, u32>,
 }
 
@@ -138,12 +130,9 @@ impl Schedule{
 
         self.workloads = workloads;
     }
-}
 
-#[pymethods]
-impl Schedule{
     /// Returns a boolean representing whether a given task can be worked on on a given date
-    fn is_available_on_day(&self, task: Task, date: NaiveDate) -> bool{
+    pub fn is_available_on_day(&self, task: Task, date: NaiveDate) -> bool{
         let before_end = self.last_available_date_for_task(&task).map(|available_date| date <= available_date).unwrap_or(true);
 
         let after_beginning = task.next_action_date <= date;
@@ -152,13 +141,13 @@ impl Schedule{
     }
 
     /// Returns the number of minutes of work that need to be done on a given date
-    fn workload_on_day(&self, date: NaiveDate) -> u32{
+    pub fn workload_on_day(&self, date: NaiveDate) -> u32{
         *self.workloads.get(&date)
             .unwrap_or(&0)
     }
 
     /// Returns a boolean representing whether a given date is a work day
-    fn is_work_day(&self, date: NaiveDate) -> bool{
+    pub fn is_work_day(&self, date: NaiveDate) -> bool{
         !self.days_off.contains(&date) && ![Weekday::Sun, Weekday::Sat].contains(&date.weekday())
     }
 }
