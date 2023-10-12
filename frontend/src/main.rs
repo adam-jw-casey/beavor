@@ -9,7 +9,11 @@ use iced::{
     Settings,
 };
 
-use chrono::NaiveDate;
+use chrono::{
+    NaiveDate,
+    offset::Utc,
+    DateTime,
+};
 
 use backend::{
     DatabaseManager,
@@ -38,7 +42,7 @@ pub enum Message{
     SaveDraftTask,
     NewTask,
     DeleteTask,
-    ToggleTimer,
+    ToggleTimer, // Consider having seperate start/stop/toggle messages
 }
 
 // TODO need a better way of keeping track of whether the shown task:
@@ -55,7 +59,10 @@ struct Beavor{
                                  // lying around?
     selected_date: Option<NaiveDate>,
     draft_task: Task,
-    
+    timer_start_utc: Option<DateTime<Utc>>, // This should really be a custom enum like TimerState
+                                            // or somesuch
+                                            // It should also have a method to compute the time
+                                            // since started, since this is done in several places
 }
 
 impl Sandbox for Beavor {
@@ -68,6 +75,7 @@ impl Sandbox for Beavor {
             selected_task: None,
             selected_date: None,
             draft_task:    Task::default(),
+            timer_start_utc: None,
         }
     }
 
@@ -122,14 +130,21 @@ impl Sandbox for Beavor {
                 self.selected_task = None;
                 self.update(Message::NewTask);
             },
-            Message::ToggleTimer => todo!(),
+            Message::ToggleTimer => match self.timer_start_utc{
+                Some(timer_start_utc) => {
+                    self.draft_task.time_used += (Utc::now() - timer_start_utc).num_minutes() as u32;
+                    self.timer_start_utc = None;
+                    self.update(Message::SaveDraftTask)
+                },
+                None => self.timer_start_utc = Some(Utc::now()),
+            },
         }
     }
 
     fn view(&self) -> Element<'_, Self::Message> {
         let content: Element<Message> = row![
             TaskScroller(&self.db.get_open_tasks()),
-            TaskEditor(&self.draft_task),
+            TaskEditor(&self.draft_task, self.timer_start_utc.as_ref()),
             Calendar(&self.db.get_schedule()),
         ].into();
 

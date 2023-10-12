@@ -14,6 +14,11 @@ use iced::{
     Length,
 };
 
+use chrono::{
+    offset::Utc,
+    DateTime,
+};
+
 use backend::{
     Task,
     DueDate,
@@ -34,9 +39,19 @@ pub enum UpdateDraftTask{
 }
 
 #[allow(non_snake_case)]
-pub fn TaskEditor(task: &Task) -> Element<'static, Message>{
+pub fn TaskEditor(task: &Task, timer_start_utc: Option<&DateTime<Utc>>) -> Element<'static, Message>{
     use Message::UpdateDraftTask as Message_UDT;
     use UpdateDraftTask as UDT;
+
+    let display_time_used: u32 = task.time_used * 60 + match timer_start_utc{
+        Some(timer_start_utc) => (Utc::now() - timer_start_utc).num_seconds() as u32, 
+            // This should work because the timer presumably started in the past, which will
+            // yield a positive number, and presumably has not been running long enough to
+            // overflow a u32 (136 years by my math)
+        None => 0,
+    };
+    println!("{}", display_time_used);
+
     // TODO this is a TON of boilerplate. Find a way to reduce this down
     column![
         row![
@@ -70,7 +85,7 @@ pub fn TaskEditor(task: &Task) -> Element<'static, Message>{
             text("Time used"),
             text_input(
                 "Time used...",
-               &task.time_used.to_string()
+               &format!("{}", display_time_used/60),
             )
                 .on_input(|u| Message_UDT(UDT::TimeUsed(u.parse().expect("Should parse"))))
 				.width(Length::Fill)
@@ -109,11 +124,14 @@ pub fn TaskEditor(task: &Task) -> Element<'static, Message>{
                 |b| Message_UDT(UDT::Finished(b)),
             ),
             button(
-                "Start",
+                match timer_start_utc{
+                    Some(_) => "Stop",
+                    None => "Start",
+                }
             )
                 .on_press(Message::ToggleTimer),
             text(
-                "0:00:00"
+                 format!("{:02}:{:02}:{:02}", display_time_used/3600, (display_time_used % 3600)/60, display_time_used % 60)
             ),
             button(
                 "Save",
