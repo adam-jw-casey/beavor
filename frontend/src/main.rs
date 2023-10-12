@@ -41,6 +41,14 @@ pub enum Message{
     ToggleTimer,
 }
 
+// TODO need a better way of keeping track of whether the shown task:
+//          a. Already exists in the database, as shown,
+//          b. Exists in the database, but is shown with unsaved user modifications,
+//          c. Is the default, placeholder task, or
+//          d. Is a new task with some or all information already entered
+//  TODO Whatever type draft_task ends of having, it should have a take/replace/swap like in
+//       std::mem to get an owned copy and overwrite the original in an "atomic" operation, to
+//       help ease state management
 struct Beavor{
     db:            DatabaseManager,
     selected_task: Option<Task>, // TODO should this maybe just store task ID to minimize the state
@@ -108,7 +116,12 @@ impl Sandbox for Beavor {
                 self.selected_task = Some(self.draft_task.clone());
             },
             Message::NewTask => self.update(Message::SelectTask(None)),
-            Message::DeleteTask => todo!(),
+            Message::DeleteTask => {
+                let t = std::mem::take(&mut self.draft_task);
+                self.db.delete_task(t);
+                self.selected_task = None;
+                self.update(Message::NewTask);
+            },
             Message::ToggleTimer => todo!(),
         }
     }
