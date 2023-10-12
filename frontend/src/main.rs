@@ -3,10 +3,16 @@ use iced::widget::{
     row,
 };
 
+
 use iced::{
-    Sandbox,
+    Application,
     Element,
     Settings,
+    Subscription,
+    Command,
+    executor,
+    Theme,
+    time::Instant,
 };
 
 use chrono::{
@@ -36,6 +42,7 @@ fn main() {
 
 #[derive(Debug, Clone)]
 pub enum Message{
+    Tick(Instant),
     SelectTask(Option<Task>),
     SelectDate(Option<NaiveDate>),
     UpdateDraftTask(UpdateDraftTask),
@@ -65,25 +72,31 @@ struct Beavor{
                                             // since started, since this is done in several places
 }
 
-impl Sandbox for Beavor {
+impl Application for Beavor {
+    type Executor = executor::Default;
     type Message = Message;
+    type Theme = Theme;
+    type Flags = ();
 
-    fn new() -> Self {
+    fn new(_flags: Self::Flags) -> (Beavor, iced::Command<Message>) {
         let db = DatabaseManager::new("worklist.db".into());
-        Self{
-            db,
-            selected_task: None,
-            selected_date: None,
-            draft_task:    Task::default(),
-            timer_start_utc: None,
-        }
+        (
+            Self{
+                db,
+                selected_task: None,
+                selected_date: None,
+                draft_task:    Task::default(),
+                timer_start_utc: None,
+            },
+            Command::none()
+        )
     }
 
     fn title(&self) -> String {
         String::from("Beavor")
     }
 
-    fn update(&mut self, message: Self::Message) {
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message{
             Message::SelectTask(maybe_task) => {
                 // Don't overwrite an existing draft task
@@ -123,22 +136,24 @@ impl Sandbox for Beavor {
                 }
                 self.selected_task = Some(self.draft_task.clone());
             },
-            Message::NewTask => self.update(Message::SelectTask(None)),
+            Message::NewTask => {let _ = self.update(Message::SelectTask(None));},
             Message::DeleteTask => {
                 let t = std::mem::take(&mut self.draft_task);
                 self.db.delete_task(t);
                 self.selected_task = None;
-                self.update(Message::NewTask);
+                let _ = self.update(Message::NewTask);
             },
             Message::ToggleTimer => match self.timer_start_utc{
                 Some(timer_start_utc) => {
                     self.draft_task.time_used += (Utc::now() - timer_start_utc).num_minutes() as u32;
                     self.timer_start_utc = None;
-                    self.update(Message::SaveDraftTask)
+                    let _ = self.update(Message::SaveDraftTask);
                 },
                 None => self.timer_start_utc = Some(Utc::now()),
             },
-        }
+            Message::Tick(_) => {},
+        };
+        Command::none()
     }
 
     fn view(&self) -> Element<'_, Self::Message> {
@@ -149,5 +164,9 @@ impl Sandbox for Beavor {
         ].into();
 
         container(content).into()
+    }
+
+    fn subscription(&self) -> Subscription<Self::Message>{
+        iced::time::every(iced::time::Duration::from_secs(1)).map(Message::Tick)
     }
 }

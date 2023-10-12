@@ -50,7 +50,6 @@ pub fn TaskEditor(task: &Task, timer_start_utc: Option<&DateTime<Utc>>) -> Eleme
             // overflow a u32 (136 years by my math)
         None => 0,
     };
-    println!("{}", display_time_used);
 
     // TODO this is a TON of boilerplate. Find a way to reduce this down
     column![
