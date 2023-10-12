@@ -1,20 +1,7 @@
+use std::error::Error;
 use std::str::FromStr;
 
 use tokio::runtime::Runtime;
-
-use pyo3::prelude::{
-    pyclass,
-    pymethods,
-    PyResult,
-    PyErr
-};
-
-use pyo3::exceptions::{
-    PyTypeError,
-    PyConnectionError
-};
-
-use pyo3::types::PyType;
 
 use sqlx::sqlite::{
     SqlitePool,
@@ -28,8 +15,8 @@ use sqlx::{
 
 use crate::{
     Task,
-    ParseDateError,
-    parse_date,
+    due_date::ParseDateError,
+    utils::parse_date,
     DueDate,
     Schedule,
 };
@@ -59,7 +46,7 @@ impl TryFrom<SqliteRow> for Task{
             next_action_date: parse_date(&row.get::<String, &str>("NextAction"))?,
             due_date:                     row.get::<String, &str>("DueDate").try_into()?,
             notes:                        row.get::<String, &str>("Notes"),
-            id:                           row.get::<Option<i32>, &str>("rowid"),
+            id:                           row.get::<Option<u32>, &str>("rowid"),
             date_added:       parse_date(&row.get::<String, &str>("DateAdded"))?,
         })
     }
@@ -83,27 +70,23 @@ struct Holiday{
     observedDate: String
 }
 
-#[pyclass]
 pub struct DatabaseManager{
     pool: SqlitePool,
     rt: Runtime,
 }
 
 #[allow(non_snake_case)]
-#[pymethods]
 impl DatabaseManager{
-    #[new]
-    fn new(database_path: String) -> PyResult<Self>{
+    pub fn new(database_path: String) -> Self{
         let rt = Runtime::new().unwrap();
-        Ok(Self{
+        Self{
             pool: rt.block_on(SqlitePool::connect(database_path.as_str()))
                 .expect("Should be able to connect to database"),
             rt,
-        })
+        }
     }
 
-    #[classmethod]
-    fn create_new_database(_cls: &PyType, database_path: String){
+    pub fn create_new_database(database_path: String){
         let rt = Runtime::new().unwrap();
         rt.block_on(async{
             let mut conn = SqliteConnectOptions::from_str(&database_path)
@@ -122,7 +105,7 @@ impl DatabaseManager{
         });
     }
 
-    fn create_task(&self, task: Task) -> Task{
+    pub fn create_task(&self, task: &Task) -> Task{
         // These must be stored so that they are not dropped in-between
         // the calls to query! and .execute
         let due_date_str = task.due_date.to_string();
@@ -190,7 +173,10 @@ impl DatabaseManager{
         })
     }
 
-    fn update_task(&self, task: Task){
+    // TODO I think this will silently fail if passed a task that is not already present in the
+    // database, e.g., if someone erroneously used this where create_task() was required. Perhaps
+    // this should return a Result<(), _>
+    pub fn update_task(&self, task: &Task){
         // These must be stored so that they are not dropped in-between
         // the calls to query! and .execute
         let next_action_str = DueDate::Date(task.next_action_date).to_string();
@@ -227,7 +213,9 @@ impl DatabaseManager{
         })
     }
 
-    fn delete_task(&self, task: Task){
+    // Note: this deliberately takes ownership of task, because it will be deleted afterward and
+    // this prevents references to it from surviving
+    pub fn delete_task(&self, task: Task){
         self.rt.block_on(async{
             sqlx::query!("
                 DELETE
@@ -242,7 +230,7 @@ impl DatabaseManager{
         });
     }
 
-    fn get_open_tasks(&self) -> Vec<Task>{
+    pub fn get_open_tasks(&self) -> Vec<Task>{
         let mut tasks: Vec<Task> = self.rt.block_on(async{
             // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
             // return type of query! to write an impl From<T> for Task
@@ -266,7 +254,7 @@ impl DatabaseManager{
         tasks
     }
 
-    fn get_categories(&self) -> Vec<String>{
+    pub fn get_categories(&self) -> Vec<String>{
         self.rt.block_on(async{
             sqlx::query!("
                 SELECT DISTINCT Category
@@ -282,7 +270,7 @@ impl DatabaseManager{
         })
     }
 
-    fn try_update_holidays(&self) -> PyResult<()>{
+    pub fn try_update_holidays(&self) -> Result<(), Box<dyn Error>>{
         // If database already has holidays from the current year, exit
         if self.get_holidays()
                 .iter()
@@ -302,16 +290,14 @@ impl DatabaseManager{
                 .await?
                 .text()
                 .await
-        }).map_err(|e: reqwest::Error| PyErr::new::<PyConnectionError, _>(e.to_string()))?;
+        })?;
 
-        let holiday_dates: Vec<NaiveDate> = serde_json::from_str::<Holidays>(&response)
-            .map_err(|e| PyErr::new::<PyTypeError, _>(e.to_string()))?
+        let holiday_dates: Vec<NaiveDate> = serde_json::from_str::<Holidays>(&response)?
             .holidays
             .iter()
             .filter(|h| h.provinces.contains(&Province{id: "BC".to_string()}))
             .map(|h| h.observedDate.parse::<NaiveDate>())
-            .collect::<Result<Vec<NaiveDate>, _>>()
-            .map_err(|e| PyErr::new::<PyTypeError, _>(e.to_string()))?;
+            .collect::<Result<Vec<NaiveDate>, _>>()?;
 
         self.rt.block_on(async{
             for d in holiday_dates{
@@ -340,7 +326,7 @@ impl DatabaseManager{
         Ok(())
     }
 
-    fn add_vacation_day(&self, date: NaiveDate){
+    pub fn add_vacation_day(&self, date: &NaiveDate){
         let date_string = date.to_string();
         self.rt.block_on(async{
             sqlx::query!("
@@ -363,7 +349,7 @@ impl DatabaseManager{
         });
     }
 
-    fn delete_vacation_day(&self, date: NaiveDate){
+    pub fn delete_vacation_day(&self, date: &NaiveDate){
         let date_string = date.to_string();
 
         self.rt.block_on(async{
@@ -380,7 +366,7 @@ impl DatabaseManager{
         });
     }
 
-    fn get_vacation_days(&self) -> Vec<NaiveDate>{
+    pub fn get_vacation_days(&self) -> Vec<NaiveDate>{
         self.rt.block_on(async{
             sqlx::query!("
                 SELECT Day
@@ -400,7 +386,7 @@ impl DatabaseManager{
         })
     }
 
-    fn get_holidays(&self) -> Vec<NaiveDate>{
+    pub fn get_holidays(&self) -> Vec<NaiveDate>{
         self.rt.block_on(async{
             sqlx::query!("
                 SELECT Day
@@ -420,7 +406,7 @@ impl DatabaseManager{
         })
     }
 
-    fn get_days_off(&self) -> Vec<NaiveDate> {
+    pub fn get_days_off(&self) -> Vec<NaiveDate> {
         let mut days_off = Vec::new();
 
         self.try_update_holidays().unwrap();
@@ -430,7 +416,7 @@ impl DatabaseManager{
         days_off
     }
 
-    fn get_schedule(&self) -> Schedule{
+    pub fn get_schedule(&self) -> Schedule{
         Schedule::new(
             self.get_days_off(),
             self.get_open_tasks(),
