@@ -1,4 +1,9 @@
-use chrono::NaiveDate;
+use chrono::{
+    NaiveDate,
+    Local,
+    offset::Utc,
+    DateTime,
+};
 
 use iced::widget::{
     column,
@@ -9,6 +14,7 @@ use iced::widget::{
     checkbox,
     button,
     Space,
+    container,
 };
 
 use iced::{
@@ -16,10 +22,7 @@ use iced::{
     Alignment,
 };
 
-use chrono::{
-    offset::Utc,
-    DateTime,
-};
+use iced_aw::helpers::date_picker;
 
 use backend::{
     Task,
@@ -34,14 +37,14 @@ pub enum UpdateDraftTask{
     Name            (String),
     TimeNeeded      (Result<u32, ()>),
     TimeUsed        (Result<u32, ()>),
-    NextActionDate  (Result<NaiveDate, ()>),
+    NextActionDate  (NaiveDate),
     DueDate         (Result<DueDate, ()>),
     Notes           (String),
     Finished        (bool),
 }
 
 #[allow(non_snake_case)]
-pub fn TaskEditor<'a>(task: &'a Task, timer_start_utc: Option<&'a DateTime<Utc>>) -> Column<'a, Message>{
+pub fn TaskEditor<'a>(task: &'a Task, timer_start_utc: Option<&'a DateTime<Utc>>, show_date_picker: bool) -> Column<'a, Message>{
     use Message::UpdateDraftTask as Message_UDT;
     use UpdateDraftTask as UDT;
 
@@ -80,7 +83,7 @@ pub fn TaskEditor<'a>(task: &'a Task, timer_start_utc: Option<&'a DateTime<Utc>>
                 "Time needed...",
                &task.time_needed.to_string()
             )
-                .on_input(|u| Message_UDT(UDT::TimeNeeded(u.parse().map_err(|_| ())))) // TODO I have a feeling all this parsing would be better handled at the application level so that an error modal can be shown or something
+                .on_input(|u| Message_UDT(UDT::TimeNeeded(u.parse().map_err(|_| ()))))
 				.width(Length::FillPortion(3))
         ],
         row![
@@ -93,13 +96,19 @@ pub fn TaskEditor<'a>(task: &'a Task, timer_start_utc: Option<&'a DateTime<Utc>>
 				.width(Length::FillPortion(3))
         ],
         row![
-            text("Next action").width(Length::FillPortion(1)),
-            text_input(
-                "Next action...",
-               &task.next_action_date.to_string()
+            text("Next action")
+                .width(Length::FillPortion(1)),
+            container(
+                date_picker(
+                    show_date_picker,
+                    Local::now().date_naive(), // TODO this should actually use the currently set due date, and
+                                               // disable if set to None or ASAP
+                    button(text(&task.next_action_date.to_string())).on_press(Message::PickNextActionDate),
+                    Message::CancelPickNextActionDate,
+                    |d| Message_UDT(UDT::NextActionDate(d.into()))
+                )
             )
-                .on_input(|d| Message_UDT(UDT::NextActionDate(d.parse().map_err(|_| ()))))
-				.width(Length::FillPortion(3))
+                .width(Length::FillPortion(3)),
         ],
         row![
             text("Due date").width(Length::FillPortion(1)),

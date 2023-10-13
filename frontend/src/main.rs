@@ -52,6 +52,8 @@ pub enum Message{
     NewTask,
     DeleteTask,
     ToggleTimer, // Consider having seperate start/stop/toggle messages
+    PickNextActionDate,
+    CancelPickNextActionDate,
 }
 
 // TODO need a better way of keeping track of whether the shown task:
@@ -72,6 +74,7 @@ struct Beavor{
                                             // or somesuch
                                             // It should also have a method to compute the time
                                             // since started, since this is done in several places
+    next_action_date_picker_showing: bool,
 }
 
 impl Application for Beavor {
@@ -91,6 +94,7 @@ impl Application for Beavor {
                 selected_date: None,
                 draft_task:    Task::default(),
                 timer_start_utc: None,
+                next_action_date_picker_showing: false,
             },
             Command::none()
         )
@@ -124,7 +128,10 @@ impl Application for Beavor {
                     UDT::Name(name) => t.name = name,
                     UDT::TimeNeeded(time_needed) => if let Ok(time_needed) = time_needed {t.time_needed = time_needed},
                     UDT::TimeUsed(time_used) => if let Ok(time_used) = time_used {t.time_used = time_used},
-                    UDT::NextActionDate(next_action_date) => if let Ok(next_action_date) = next_action_date {t.next_action_date = next_action_date},
+                    UDT::NextActionDate(next_action_date) => {
+                        t.next_action_date = next_action_date;
+                        self.next_action_date_picker_showing = false;
+                    },
                     UDT::DueDate(due_date) => if let Ok(due_date) = due_date {t.due_date = due_date},
                     UDT::Notes(notes) => t.notes = notes,
                     UDT::Finished(finished) => t.finished = finished,
@@ -156,6 +163,8 @@ impl Application for Beavor {
                 None => self.timer_start_utc = Some(Utc::now()),
             },
             Message::Tick(_) => {},
+            Message::PickNextActionDate => self.next_action_date_picker_showing = true,
+            Message::CancelPickNextActionDate => self.next_action_date_picker_showing = false,
         };
         Command::none()
     }
@@ -165,7 +174,7 @@ impl Application for Beavor {
             TaskScroller(&self.db.get_open_tasks())
                 .width(Length::FillPortion(2))
                 .height(Length::FillPortion(1)),
-            TaskEditor(&self.draft_task, self.timer_start_utc.as_ref())
+            TaskEditor(&self.draft_task, self.timer_start_utc.as_ref(), self.next_action_date_picker_showing)
                 .padding(8)
                 .width(Length::FillPortion(3))
                 .height(Length::FillPortion(1)),
