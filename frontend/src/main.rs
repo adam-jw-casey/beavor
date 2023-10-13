@@ -164,6 +164,7 @@ impl Application for Beavor {
                 .width(Length::FillPortion(2))
                 .height(Length::FillPortion(1)),
             TaskEditor(&self.draft_task, self.timer_start_utc.as_ref())
+                .padding(8)
                 .width(Length::FillPortion(3))
                 .height(Length::FillPortion(1)),
             Calendar(&self.db.get_schedule()),

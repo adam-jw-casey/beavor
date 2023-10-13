@@ -25,8 +25,9 @@ pub fn TaskScroller(tasks: &[Task]) -> Scrollable<'static, Message>{
                 .map(TaskRow)
                 .collect()
         )
-            .width(Length::Shrink) // TODO make each row take a consistent width
-            .padding([40, 0, 40, 0])
+            .width(Length::Shrink)
+            .spacing(2)
+            .padding(4)
     )
         .height(Length::Fill)
 }

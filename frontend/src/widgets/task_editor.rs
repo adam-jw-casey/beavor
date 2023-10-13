@@ -148,6 +148,9 @@ pub fn TaskEditor<'a>(task: &'a Task, timer_start_utc: Option<&'a DateTime<Utc>>
             )
                 .on_press(Message::DeleteTask),
         ]
+            .align_items(Alignment::Center)
+            .spacing(4),
     ]
+        .spacing(4)
         .align_items(Alignment::Center)
 }
