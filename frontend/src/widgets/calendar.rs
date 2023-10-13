@@ -59,6 +59,8 @@ pub fn Calendar(schedule: &Schedule) -> Element<'static, Message>{
             .collect()
     )
         .width(Length::Shrink)
+        .height(Length::Shrink)
+        .padding(8)
         .into()
 }
 
@@ -72,4 +74,5 @@ fn CalDay(day: NaiveDate, load: u32) -> Column<'static, Message>{
             format!("{:.1}", load as f32/60.0)
         )
     ]
+        .padding(4)
 }

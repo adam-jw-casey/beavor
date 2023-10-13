@@ -13,6 +13,8 @@ use iced::{
     executor,
     Theme,
     time::Instant,
+    Length,
+    Alignment,
 };
 
 use chrono::{
@@ -158,10 +160,19 @@ impl Application for Beavor {
 
     fn view(&self) -> Element<'_, Self::Message> {
         let content: Element<Message> = row![
-            TaskScroller(&self.db.get_open_tasks()),
-            TaskEditor(&self.draft_task, self.timer_start_utc.as_ref()),
+            TaskScroller(&self.db.get_open_tasks())
+                .width(Length::FillPortion(2))
+                .height(Length::FillPortion(1)),
+            TaskEditor(&self.draft_task, self.timer_start_utc.as_ref())
+                .padding(8)
+                .width(Length::FillPortion(3))
+                .height(Length::FillPortion(1)),
             Calendar(&self.db.get_schedule()),
-        ].into();
+        ]
+            .align_items(Alignment::End)
+            .height(Length::Fill)
+            .width(Length::Fill)
+            .into();
 
         container(content).into()
     }
