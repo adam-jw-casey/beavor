@@ -54,67 +54,67 @@ pub fn TaskEditor(task: &Task, timer_start_utc: Option<&DateTime<Utc>>) -> Eleme
     // TODO this is a TON of boilerplate. Find a way to reduce this down
     column![
         row![
-            text("Category"),
+            text("Category").width(Length::FillPortion(1)),
             text_input(
                 "Category...",
                &task.category
             )
                 .on_input(|s| Message_UDT(UDT::Category(s)))
-                .width(Length::Fill)
+                .width(Length::FillPortion(3))
         ],
         row![
-            text("Name"),
+            text("Name").width(Length::FillPortion(1)),
             text_input(
                 "Name...",
                &task.name
             )
                 .on_input(|s| Message_UDT(UDT::Name(s)))
-				.width(Length::Fill)
+				.width(Length::FillPortion(3))
         ],
         row![
-            text("Time needed"),
+            text("Time needed").width(Length::FillPortion(1)),
             text_input(
                 "Time needed...",
                &task.time_needed.to_string()
             )
                 .on_input(|u| Message_UDT(UDT::TimeNeeded(u.parse().map_err(|_| ())))) // TODO I have a feeling all this parsing would be better handled at the application level so that an error modal can be shown or something
-				.width(Length::Fill)
+				.width(Length::FillPortion(3))
         ],
         row![
-            text("Time used"),
+            text("Time used").width(Length::FillPortion(1)),
             text_input(
                 "Time used...",
                &format!("{}", display_time_used/60),
             )
                 .on_input(|u| Message_UDT(UDT::TimeUsed(u.parse().map_err(|_| ()))))
-				.width(Length::Fill)
+				.width(Length::FillPortion(3))
         ],
         row![
-            text("Next action"),
+            text("Next action").width(Length::FillPortion(1)),
             text_input(
                 "Next action...",
                &task.next_action_date.to_string()
             )
                 .on_input(|d| Message_UDT(UDT::NextActionDate(d.parse().map_err(|_| ()))))
-				.width(Length::Fill)
+				.width(Length::FillPortion(3))
         ],
         row![
-            text("Due date"),
+            text("Due date").width(Length::FillPortion(1)),
             text_input(
                 "Due date...",
                &task.next_action_date.to_string()
             )
                 .on_input(|d| Message_UDT(UDT::DueDate(d.parse().map_err(|_| ()))))
-				.width(Length::Fill)
+				.width(Length::FillPortion(3))
         ],
         row![
-            text("Notes"),
+            text("Notes").width(Length::FillPortion(1)),
             text_input(
                 "Notes...",
                &task.notes
             )
                 .on_input(|d| Message_UDT(UDT::Notes(d)))
-				.width(Length::Fill)
+				.width(Length::FillPortion(3))
         ],
         row![
             checkbox(
