@@ -2,6 +2,7 @@ use iced::widget::{
     Column,
     column,
     scrollable,
+    Scrollable,
     text,
     Button,
 };
@@ -16,7 +17,7 @@ use backend::Task;
 use crate::Message;
 
 #[allow(non_snake_case)]
-pub fn TaskScroller(tasks: &[Task]) -> Element<'static, Message>{
+pub fn TaskScroller(tasks: &[Task]) -> Scrollable<'static, Message>{
     scrollable(
         Column::with_children(
             tasks
@@ -24,11 +25,11 @@ pub fn TaskScroller(tasks: &[Task]) -> Element<'static, Message>{
                 .map(TaskRow)
                 .collect()
         )
-            .width(Length::Shrink) // TODO make each row take a consistent width
-            .padding([40, 0, 40, 0])
+            .width(Length::Shrink)
+            .spacing(2)
+            .padding(4)
     )
-        .width(Length::FillPortion(1))
-        .into()
+        .height(Length::Fill)
 }
 
 #[allow(non_snake_case)]
