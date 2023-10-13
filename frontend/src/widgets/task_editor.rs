@@ -105,7 +105,7 @@ pub fn TaskEditor<'a>(task: &'a Task, timer_start_utc: Option<&'a DateTime<Utc>>
             text("Due date").width(Length::FillPortion(1)),
             text_input(
                 "Due date...",
-               &task.next_action_date.to_string()
+               &task.due_date.to_string()
             )
                 .on_input(|d| Message_UDT(UDT::DueDate(d.parse().map_err(|_| ()))))
 				.width(Length::FillPortion(3))
