@@ -2,6 +2,7 @@ use chrono::NaiveDate;
 
 use iced::widget::{
     column,
+    Column,
     row,
     text,
     text_input,
@@ -10,8 +11,8 @@ use iced::widget::{
 };
 
 use iced::{
-    Element,
     Length,
+    Alignment,
 };
 
 use chrono::{
@@ -39,7 +40,7 @@ pub enum UpdateDraftTask{
 }
 
 #[allow(non_snake_case)]
-pub fn TaskEditor(task: &Task, timer_start_utc: Option<&DateTime<Utc>>) -> Element<'static, Message>{
+pub fn TaskEditor<'a>(task: &'a Task, timer_start_utc: Option<&'a DateTime<Utc>>) -> Column<'a, Message>{
     use Message::UpdateDraftTask as Message_UDT;
     use UpdateDraftTask as UDT;
 
@@ -146,6 +147,5 @@ pub fn TaskEditor(task: &Task, timer_start_utc: Option<&DateTime<Utc>>) -> Eleme
                 .on_press(Message::DeleteTask),
         ]
     ]
-        .width(Length::FillPortion(1))
-        .into()
+        .align_items(Alignment::Center)
 }
