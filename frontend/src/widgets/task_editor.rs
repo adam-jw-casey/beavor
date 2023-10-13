@@ -8,6 +8,7 @@ use iced::widget::{
     text_input,
     checkbox,
     button,
+    Space,
 };
 
 use iced::{
@@ -54,6 +55,7 @@ pub fn TaskEditor<'a>(task: &'a Task, timer_start_utc: Option<&'a DateTime<Utc>>
 
     // TODO this is a TON of boilerplate. Find a way to reduce this down
     column![
+        Space::new(Length::Fill, Length::Fill),
         row![
             text("Category").width(Length::FillPortion(1)),
             text_input(

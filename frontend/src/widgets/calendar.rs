@@ -59,6 +59,7 @@ pub fn Calendar(schedule: &Schedule) -> Element<'static, Message>{
             .collect()
     )
         .width(Length::Shrink)
+        .height(Length::Shrink)
         .into()
 }
 
