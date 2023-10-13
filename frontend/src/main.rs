@@ -161,10 +161,10 @@ impl Application for Beavor {
     fn view(&self) -> Element<'_, Self::Message> {
         let content: Element<Message> = row![
             TaskScroller(&self.db.get_open_tasks())
-                .width(Length::FillPortion(1))
+                .width(Length::FillPortion(2))
                 .height(Length::FillPortion(1)),
             TaskEditor(&self.draft_task, self.timer_start_utc.as_ref())
-                .width(Length::FillPortion(1))
+                .width(Length::FillPortion(3))
                 .height(Length::FillPortion(1)),
             Calendar(&self.db.get_schedule()),
         ]
