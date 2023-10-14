@@ -77,16 +77,16 @@ pub struct DatabaseManager{
 
 #[allow(non_snake_case)]
 impl DatabaseManager{
-    pub fn new(database_path: String) -> Self{
+    // TODO all these methods that take Strings should take &str instead
+    pub fn new(database_path: String) -> Result<Self, sqlx::Error>{
         let rt = Runtime::new().unwrap();
-        Self{
-            pool: rt.block_on(SqlitePool::connect(database_path.as_str()))
-                .expect("Should be able to connect to database"),
+        Ok(Self{
+            pool: rt.block_on(SqlitePool::connect(database_path.as_str()))?,
             rt,
-        }
+        })
     }
 
-    pub fn create_new_database(database_path: String){
+    pub fn create_new_database(database_path: String) -> Result<Self, sqlx::Error>{
         let rt = Runtime::new().unwrap();
         rt.block_on(async{
             let mut conn = SqliteConnectOptions::from_str(&database_path)
@@ -103,6 +103,8 @@ impl DatabaseManager{
                 .await
                 .expect("Should be able to create the schema");
         });
+
+        Self::new(database_path)
     }
 
     pub fn create_task(&self, task: &Task) -> Task{
