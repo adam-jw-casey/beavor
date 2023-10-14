@@ -1,3 +1,4 @@
+#![warn(clippy::pedantic)]
 use iced::widget::{
     container,
     row,
@@ -126,8 +127,9 @@ impl Application for Beavor {
             },
             Message::SelectDate(maybe_date) => self.selected_date = maybe_date,
             Message::UpdateDraftTask(task_field_update) => {
-                let t = &mut self.draft_task;
                 use UpdateDraftTask as UDT;
+
+                let t = &mut self.draft_task;
                 match task_field_update{
                     UDT::Category(category) => t.category = category,
                     UDT::Name(name) => t.name = name,

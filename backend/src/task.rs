@@ -21,7 +21,7 @@ pub struct Task{
 }
 
 impl Task{
-    pub fn time_remaining(&self) -> u32{
+    #[must_use] pub fn time_remaining(&self) -> u32{
         self.time_needed - self.time_used
     }
 }
@@ -32,13 +32,13 @@ impl std::default::Default for Task{
         Task{
             category:         "Work".into(),
             finished:         false,
-            name:             "".into(),
+            name:             String::new(),
             _time_budgeted:   0,
             time_needed:      0,
             time_used:        0,
             next_action_date: today_date(),
             due_date:         DueDate::Date(today_date()),
-            notes:            "".into(),
+            notes:            String::new(),
             id:               None,
             date_added:       today_date(),
         }

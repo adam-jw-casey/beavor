@@ -210,7 +210,7 @@ impl DatabaseManager{
                 .execute(&self.pool)
                 .await
                 .expect("Should be able to update task");
-        })
+        });
     }
 
     // Note: this deliberately takes ownership of task, because it will be deleted afterward and

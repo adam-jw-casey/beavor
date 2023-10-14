@@ -53,7 +53,7 @@ pub struct Schedule{
 }
 
 impl Schedule{
-    pub fn new(days_off: Vec<NaiveDate>, tasks: Vec<Task>) -> Self{
+    #[must_use] pub fn new(days_off: Vec<NaiveDate>, tasks: Vec<Task>) -> Self{
         let mut schedule = Schedule{
             days_off,
             workloads: HashMap::<NaiveDate, u32>::new(),
@@ -99,12 +99,12 @@ impl Schedule{
     }
 
     /// Returns first date that a task can be worked on
-    pub fn first_available_date_for_task(&self, task: &Task) -> NaiveDate{
+    #[must_use] pub fn first_available_date_for_task(&self, task: &Task) -> NaiveDate{
         max(task.next_action_date, self.next_work_day())
     }
 
     /// Returns the last date that a task can be worked on
-    pub fn last_available_date_for_task(&self, task: &Task) -> Option<NaiveDate>{
+    #[must_use] pub fn last_available_date_for_task(&self, task: &Task) -> Option<NaiveDate>{
         match task.due_date{
             DueDate::Never => None,
             DueDate::Date(due_date) => Some(max(due_date, self.next_work_day())),
@@ -132,8 +132,8 @@ impl Schedule{
     }
 
     /// Returns a boolean representing whether a given task can be worked on on a given date
-    pub fn is_available_on_day(&self, task: Task, date: NaiveDate) -> bool{
-        let before_end = self.last_available_date_for_task(&task).map(|available_date| date <= available_date).unwrap_or(true);
+    #[must_use] pub fn is_available_on_day(&self, task: Task, date: NaiveDate) -> bool{
+        let before_end = self.last_available_date_for_task(&task).map_or(true, |available_date| date <= available_date);
 
         let after_beginning = task.next_action_date <= date;
 
@@ -141,13 +141,13 @@ impl Schedule{
     }
 
     /// Returns the number of minutes of work that need to be done on a given date
-    pub fn workload_on_day(&self, date: NaiveDate) -> u32{
+    #[must_use] pub fn workload_on_day(&self, date: NaiveDate) -> u32{
         *self.workloads.get(&date)
             .unwrap_or(&0)
     }
 
     /// Returns a boolean representing whether a given date is a work day
-    pub fn is_work_day(&self, date: NaiveDate) -> bool{
+    #[must_use] pub fn is_work_day(&self, date: NaiveDate) -> bool{
         !self.days_off.contains(&date) && ![Weekday::Sun, Weekday::Sat].contains(&date.weekday())
     }
 }
