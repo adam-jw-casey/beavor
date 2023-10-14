@@ -12,6 +12,7 @@ use crate::utils::{
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+#[cfg_attr(feature="serde", derive(Serialize, Deserialize))]
 pub enum DueDate{
     Never,
     Date(NaiveDate),
