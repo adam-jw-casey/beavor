@@ -86,9 +86,7 @@ impl Display for DueDate{
 }
 
 #[cfg(test)]
-#[allow(deprecated)]
 #[allow(clippy::zero_prefixed_literal)]
-#[allow(non_snake_case)]
 mod tests{
     use super::*;
 
@@ -96,22 +94,22 @@ mod tests{
     fn test_cmp_due_date(){
         assert!(DueDate::Never == DueDate::Never);
         assert!(DueDate::Never > DueDate::Asap);
-        assert!(DueDate::Never > DueDate::Date(NaiveDate::from_ymd(1971,01,01)));
+        assert!(DueDate::Never > DueDate::Date(NaiveDate::from_ymd_opt(1971,01,01).unwrap()));
 
         assert!(DueDate::Asap < DueDate::Never);
         assert!(DueDate::Asap == DueDate::Asap);
-        assert!(DueDate::Asap < DueDate::Date(NaiveDate::from_ymd(1971,01,01)));
+        assert!(DueDate::Asap < DueDate::Date(NaiveDate::from_ymd_opt(1971,01,01).unwrap()));
 
-        assert!(DueDate::Date(NaiveDate::from_ymd(1971,01,01)) < DueDate::Never);
-        assert!(DueDate::Date(NaiveDate::from_ymd(1971,01,01)) > DueDate::Asap);
-        assert!(DueDate::Date(NaiveDate::from_ymd(1971,01,01)) == DueDate::Date(NaiveDate::from_ymd(1971,01,01)));
-        assert!(DueDate::Date(NaiveDate::from_ymd(1971,01,01)) < DueDate::Date(NaiveDate::from_ymd(1971,01,02)));
-        assert!(DueDate::Date(NaiveDate::from_ymd(1971,01,01)) > DueDate::Date(NaiveDate::from_ymd(1970,12,31)));
+        assert!(DueDate::Date(NaiveDate::from_ymd_opt(1971,01,01).unwrap()) < DueDate::Never);
+        assert!(DueDate::Date(NaiveDate::from_ymd_opt(1971,01,01).unwrap()) > DueDate::Asap);
+        assert!(DueDate::Date(NaiveDate::from_ymd_opt(1971,01,01).unwrap()) == DueDate::Date(NaiveDate::from_ymd_opt(1971,01,01).unwrap()));
+        assert!(DueDate::Date(NaiveDate::from_ymd_opt(1971,01,01).unwrap()) < DueDate::Date(NaiveDate::from_ymd_opt(1971,01,02).unwrap()));
+        assert!(DueDate::Date(NaiveDate::from_ymd_opt(1971,01,01).unwrap()) > DueDate::Date(NaiveDate::from_ymd_opt(1970,12,31).unwrap()));
     }
 
     #[test]
     fn test_due_date_string_parse(){
-        for dd in [DueDate::Asap, DueDate::Never, DueDate::Date(NaiveDate::from_ymd(1971,01,01))]{
+        for dd in [DueDate::Asap, DueDate::Never, DueDate::Date(NaiveDate::from_ymd_opt(1971,01,01).unwrap())]{
             assert_eq!(DueDate::from_str(&dd.to_string()).unwrap(), dd);
         }
     }

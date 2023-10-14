@@ -64,10 +64,9 @@ struct Holidays{
 }
 
 #[derive(Serialize, Deserialize)]
-#[allow(non_snake_case)]
 struct Holiday{
     provinces: Vec<Province>,
-    observedDate: String
+    observed_date: String
 }
 
 pub struct DatabaseManager{
@@ -75,7 +74,6 @@ pub struct DatabaseManager{
     rt: Runtime,
 }
 
-#[allow(non_snake_case)]
 impl DatabaseManager{
     // TODO all these methods that take Strings should take &str instead
     pub fn new(database_path: String) -> Result<Self, sqlx::Error>{
@@ -298,7 +296,7 @@ impl DatabaseManager{
             .holidays
             .iter()
             .filter(|h| h.provinces.contains(&Province{id: "BC".to_string()}))
-            .map(|h| h.observedDate.parse::<NaiveDate>())
+            .map(|h| h.observed_date.parse::<NaiveDate>())
             .collect::<Result<Vec<NaiveDate>, _>>()?;
 
         self.rt.block_on(async{

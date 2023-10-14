@@ -152,29 +152,31 @@ impl Schedule{
     }
 }
 
-#[cfg(test)]
-#[allow(deprecated)]
 #[allow(clippy::zero_prefixed_literal)]
+#[cfg(test)]
 mod tests{
     use super::*;
 
     #[test]
     fn test_schedule(){
-        let mut task = Task::default();
-        task.next_action_date = NaiveDate::from_ymd(3000, 01, 01);
-        task.due_date = DueDate::Date(NaiveDate::from_ymd(3000, 01, 03));
-        task.time_needed = 60;
-        let schedule = Schedule::new(vec![NaiveDate::from_ymd(3000,01,08)], vec![task.clone()]);
+        let task = Task{
+            next_action_date: NaiveDate::from_ymd_opt(3000, 01, 01).unwrap(),
+            due_date: DueDate::Date(NaiveDate::from_ymd_opt(3000, 01, 03).unwrap()),
+            time_needed: 60,
+            ..Default::default()
+        };
 
-        assert!(schedule.is_available_on_day(task.clone(), NaiveDate::from_ymd(3000,01,01)));
-        assert!(schedule.is_available_on_day(task.clone(), NaiveDate::from_ymd(3000,01,02)));
-        assert!(schedule.is_available_on_day(task.clone(), NaiveDate::from_ymd(3000,01,03)));
-        assert!(!schedule.is_available_on_day(task.clone(), NaiveDate::from_ymd(3000,01,04)));
+        let schedule = Schedule::new(vec![NaiveDate::from_ymd_opt(3000,01,08).unwrap()], vec![task.clone()]);
 
-        assert!(schedule.is_work_day(NaiveDate::from_ymd(3000,01,06)));
-        assert!(!schedule.is_work_day(NaiveDate::from_ymd(3000,01,05)));
-        assert!(!schedule.is_work_day(NaiveDate::from_ymd(3000,01,08)));
+        assert!(schedule.is_available_on_day(task.clone(), NaiveDate::from_ymd_opt(3000,01,01).unwrap()));
+        assert!(schedule.is_available_on_day(task.clone(), NaiveDate::from_ymd_opt(3000,01,02).unwrap()));
+        assert!(schedule.is_available_on_day(task.clone(), NaiveDate::from_ymd_opt(3000,01,03).unwrap()));
+        assert!(!schedule.is_available_on_day(task.clone(), NaiveDate::from_ymd_opt(3000,01,04).unwrap()));
 
-        assert_eq!(schedule.workload_on_day(NaiveDate::from_ymd(3000,01,02)), 20);
+        assert!(schedule.is_work_day(NaiveDate::from_ymd_opt(3000,01,06).unwrap()));
+        assert!(!schedule.is_work_day(NaiveDate::from_ymd_opt(3000,01,05).unwrap()));
+        assert!(!schedule.is_work_day(NaiveDate::from_ymd_opt(3000,01,08).unwrap()));
+
+        assert_eq!(schedule.workload_on_day(NaiveDate::from_ymd_opt(3000,01,02).unwrap()), 20);
     }
 }
