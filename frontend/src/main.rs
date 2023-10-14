@@ -89,7 +89,7 @@ impl Application for Beavor {
     fn new(_flags: Self::Flags) -> (Beavor, iced::Command<Message>) {
         // TODO database path should be a flag
         let db = DatabaseManager::new("worklist.db".into())
-            .unwrap_or_else(|_| DatabaseManager::create_new_database("worklist.db".into()).expect("Should be able to create database"));
+            .unwrap_or_else(|_| DatabaseManager::with_new_database("worklist.db".into()).expect("Should be able to create database"));
         (
             Self{
                 db,

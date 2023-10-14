@@ -84,7 +84,7 @@ impl DatabaseManager{
         })
     }
 
-    pub fn create_new_database(database_path: String) -> Result<Self, sqlx::Error>{
+    pub fn with_new_database(database_path: String) -> Result<Self, sqlx::Error>{
         let rt = Runtime::new().unwrap();
         rt.block_on(async{
             let mut conn = SqliteConnectOptions::from_str(&database_path)
@@ -254,6 +254,7 @@ impl DatabaseManager{
         tasks
     }
 
+    #[allow(non_snake_case)]
     pub fn get_categories(&self) -> Vec<String>{
         self.rt.block_on(async{
             sqlx::query!("
@@ -366,6 +367,7 @@ impl DatabaseManager{
         });
     }
 
+    #[allow(non_snake_case)]
     pub fn get_vacation_days(&self) -> Vec<NaiveDate>{
         self.rt.block_on(async{
             sqlx::query!("
@@ -386,6 +388,7 @@ impl DatabaseManager{
         })
     }
 
+    #[allow(non_snake_case)]
     pub fn get_holidays(&self) -> Vec<NaiveDate>{
         self.rt.block_on(async{
             sqlx::query!("
