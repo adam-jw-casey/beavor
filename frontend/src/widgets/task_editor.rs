@@ -1,4 +1,9 @@
-use chrono::NaiveDate;
+use chrono::{
+    NaiveDate,
+    offset::Utc,
+    Local,
+    DateTime,
+};
 
 use iced::widget::{
     column,
@@ -9,6 +14,8 @@ use iced::widget::{
     checkbox,
     button,
     Space,
+    container,
+    pick_list,
 };
 
 use iced::{
@@ -16,10 +23,7 @@ use iced::{
     Alignment,
 };
 
-use chrono::{
-    offset::Utc,
-    DateTime,
-};
+use iced_aw::helpers::date_picker;
 
 use backend::{
     Task,
@@ -34,14 +38,15 @@ pub enum UpdateDraftTask{
     Name            (String),
     TimeNeeded      (Result<u32, ()>),
     TimeUsed        (Result<u32, ()>),
-    NextActionDate  (Result<NaiveDate, ()>),
-    DueDate         (Result<DueDate, ()>),
+    NextActionDate  (NaiveDate),
+    DueDate         (DueDate),
     Notes           (String),
     Finished        (bool),
 }
 
+// TODO should have a dedicated State object to pass in so don't have to keep updating arguments
 #[allow(non_snake_case)]
-pub fn TaskEditor<'a>(task: &'a Task, timer_start_utc: Option<&'a DateTime<Utc>>) -> Column<'a, Message>{
+pub fn TaskEditor<'a>(task: &'a Task, timer_start_utc: Option<&'a DateTime<Utc>>, show_next_action_date_picker: bool, show_due_date_picker: bool) -> Column<'a, Message>{
     use Message::UpdateDraftTask as Message_UDT;
     use UpdateDraftTask as UDT;
 
@@ -80,7 +85,7 @@ pub fn TaskEditor<'a>(task: &'a Task, timer_start_utc: Option<&'a DateTime<Utc>>
                 "Time needed...",
                &task.time_needed.to_string()
             )
-                .on_input(|u| Message_UDT(UDT::TimeNeeded(u.parse().map_err(|_| ())))) // TODO I have a feeling all this parsing would be better handled at the application level so that an error modal can be shown or something
+                .on_input(|u| Message_UDT(UDT::TimeNeeded(u.parse().map_err(|_| ()))))
 				.width(Length::FillPortion(3))
         ],
         row![
@@ -93,22 +98,55 @@ pub fn TaskEditor<'a>(task: &'a Task, timer_start_utc: Option<&'a DateTime<Utc>>
 				.width(Length::FillPortion(3))
         ],
         row![
-            text("Next action").width(Length::FillPortion(1)),
-            text_input(
-                "Next action...",
-               &task.next_action_date.to_string()
+            text("Next action")
+                .width(Length::FillPortion(1)),
+            container(
+                date_picker(
+                    show_next_action_date_picker,
+                    task.next_action_date,
+                    button(text(&task.next_action_date.to_string())).on_press(Message::PickNextActionDate),
+                    Message::CancelPickNextActionDate,
+                    |d| Message_UDT(UDT::NextActionDate(d.into()))
+                )
             )
-                .on_input(|d| Message_UDT(UDT::NextActionDate(d.parse().map_err(|_| ()))))
-				.width(Length::FillPortion(3))
+                .width(Length::FillPortion(3)),
         ],
         row![
             text("Due date").width(Length::FillPortion(1)),
-            text_input(
-                "Due date...",
-               &task.due_date.to_string()
+            container(
+                date_picker(
+                    show_due_date_picker,
+                    match task.due_date{
+                        DueDate::Date(date) => date,
+                        _ => Local::now().date_naive(), // This will not be shown, so arbitray
+                    },
+                    button(text(&task.due_date.to_string()))
+                        .on_press_maybe(match task.due_date{
+                            DueDate::Date(_) => Some(Message::PickDueDate),
+                            _ => None,
+                        }),
+                    Message::CancelPickDueDate,
+                    |d| Message_UDT(UDT::DueDate(DueDate::Date(d.into())))
+                )
             )
-                .on_input(|d| Message_UDT(UDT::DueDate(d.parse().map_err(|_| ()))))
-				.width(Length::FillPortion(3))
+                .width(Length::FillPortion(2)),
+            pick_list( // TODO this whole section would be easier if DueDateType had to_string()
+                vec!["Date", "None", "ASAP"],
+                Some(match task.due_date{
+                    DueDate::NONE => "None",
+                    DueDate::Date(_) => "Date",
+                    DueDate::ASAP => "ASAP",
+                }),
+                |selection| {
+                    Message_UDT(UDT::DueDate(match selection{
+                        "None" => DueDate::NONE,
+                        "ASAP" => DueDate::ASAP,
+                        "Date" => DueDate::Date(Local::now().date_naive()),
+                        _ => panic!("This will never happen")
+                    }))
+                }
+            )
+                .width(Length::FillPortion(1)),
         ],
         row![
             text("Notes").width(Length::FillPortion(1)),

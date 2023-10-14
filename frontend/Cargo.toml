@@ -1,11 +1,13 @@
 [package]
 name = "frontend"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-iced = { version = "0.10.0", features = ["tokio"] }
 backend = { path = "../backend" }
+
+iced = { version = "0.10.0", features = ["tokio"] }
+iced_aw = { version = "0.7.0" }
 chrono = { version = "0.4.31", features = ["clock"] }
