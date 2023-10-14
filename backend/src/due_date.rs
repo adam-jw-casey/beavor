@@ -28,9 +28,8 @@ impl Ord for DueDate {
     fn cmp(&self, other: &Self) -> Ordering {
         match self {
             DueDate::Never => match other{
-                DueDate::Never    => Ordering::Equal,
-                DueDate::Date(_) => Ordering::Greater,
-                DueDate::Asap    => Ordering::Greater,
+                DueDate::Never  => Ordering::Equal,
+                DueDate::Date(_) | DueDate::Asap => Ordering::Greater,
             },
             DueDate::Asap => match other{
                 DueDate::Never    => other.cmp(self).reverse(),
@@ -38,9 +37,8 @@ impl Ord for DueDate {
                 DueDate::Asap    => Ordering::Equal,
             },
             DueDate::Date(self_date) => match other{
-                DueDate::Never             => other.cmp(self).reverse(),
                 DueDate::Date(other_date) => self_date.cmp(other_date),
-                DueDate::Asap             => other.cmp(self).reverse(),
+                DueDate::Never | DueDate::Asap => other.cmp(self).reverse(),
             },
         }
     }

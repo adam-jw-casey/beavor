@@ -69,7 +69,7 @@ fn cal_day(day: NaiveDate, load: u32) -> Column<'static, Message>{
             day.format("%b %d")
         ),
         text(
-            format!("{:.1}", load as f32/60.0)
+            format!("{:.1}", f64::from(load)/60.0)
         )
     ]
         .padding(4)
