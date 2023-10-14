@@ -232,7 +232,7 @@ impl Connection{
         });
     }
 
-    pub fn get_open_tasks(&self) -> Vec<Task>{
+    pub fn open_tasks(&self) -> Vec<Task>{
         let mut tasks: Vec<Task> = self.rt.block_on(async{
             // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
             // return type of query! to write an impl From<T> for Task
@@ -257,7 +257,7 @@ impl Connection{
     }
 
     #[allow(non_snake_case)]
-    pub fn get_categories(&self) -> Vec<String>{
+    pub fn categories(&self) -> Vec<String>{
         self.rt.block_on(async{
             sqlx::query!("
                 SELECT DISTINCT Category
@@ -275,7 +275,7 @@ impl Connection{
 
     pub fn try_update_holidays(&self) -> Result<(), Box<dyn Error>>{
         // If database already has holidays from the current year, exit
-        if self.get_holidays()
+        if self.holidays()
                 .iter()
                 .filter(|h| h.year() == Local::now().year())
                 .peekable()
@@ -370,7 +370,7 @@ impl Connection{
     }
 
     #[allow(non_snake_case)]
-    pub fn get_vacation_days(&self) -> Vec<NaiveDate>{
+    pub fn vacation_days(&self) -> Vec<NaiveDate>{
         self.rt.block_on(async{
             sqlx::query!("
                 SELECT Day
@@ -391,7 +391,7 @@ impl Connection{
     }
 
     #[allow(non_snake_case)]
-    pub fn get_holidays(&self) -> Vec<NaiveDate>{
+    pub fn holidays(&self) -> Vec<NaiveDate>{
         self.rt.block_on(async{
             sqlx::query!("
                 SELECT Day
@@ -411,20 +411,20 @@ impl Connection{
         })
     }
 
-    pub fn get_days_off(&self) -> Vec<NaiveDate> {
+    pub fn days_off(&self) -> Vec<NaiveDate> {
         let mut days_off = Vec::new();
 
         self.try_update_holidays().unwrap();
-        days_off.append(&mut self.get_holidays());
-        days_off.append(&mut self.get_vacation_days());
+        days_off.append(&mut self.holidays());
+        days_off.append(&mut self.vacation_days());
 
         days_off
     }
 
-    pub fn get_schedule(&self) -> Schedule{
+    pub fn schedule(&self) -> Schedule{
         Schedule::new(
-            self.get_days_off(),
-            self.get_open_tasks(),
+            self.days_off(),
+            self.open_tasks(),
         )
     }
 }

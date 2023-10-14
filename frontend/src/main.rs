@@ -183,14 +183,14 @@ impl Application for Beavor {
 
     fn view(&self) -> Element<'_, Self::Message> {
         let content: Element<Message> = row![
-            task_scroller(&self.db.get_open_tasks())
+            task_scroller(&self.db.open_tasks())
                 .width(Length::FillPortion(2))
                 .height(Length::FillPortion(1)),
             task_editor(&self.draft_task, self.timer_start_utc.as_ref(), self.next_action_date_picker_showing, self.due_date_picker_showing)
                 .padding(8)
                 .width(Length::FillPortion(3))
                 .height(Length::FillPortion(1)),
-            calendar(&self.db.get_schedule()),
+            calendar(&self.db.schedule()),
         ]
             .align_items(Alignment::End)
             .height(Length::Fill)
