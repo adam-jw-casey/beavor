@@ -5,7 +5,7 @@ use crate::due_date::DueDate;
 
 pub type Id = Option<u32>;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Task{
     pub category:         String,
     pub finished:         bool,
@@ -21,26 +21,29 @@ pub struct Task{
 }
 
 impl Task{
+    #[must_use] pub fn new() -> Self{
+        Self::default()
+    }
+
     #[must_use] pub fn time_remaining(&self) -> u32{
         self.time_needed - self.time_used
     }
 }
 
-
 impl std::default::Default for Task{
     fn default() -> Self{
         Task{
-            category:         "Work".into(),
-            finished:         false,
-            name:             String::new(),
-            _time_budgeted:   0,
-            time_needed:      0,
-            time_used:        0,
-            next_action_date: today_date(),
-            due_date:         DueDate::Date(today_date()),
-            notes:            String::new(),
-            id:               None,
-            date_added:       today_date(),
+            category:           "Work".into(),
+            next_action_date:   today_date(),
+            date_added:         today_date(),
+            finished:           false,
+            name:               String::new(),
+            _time_budgeted:     0,
+            time_needed:        0,
+            time_used:          0,
+            notes:              String::new(),
+            due_date:           DueDate::Asap,
+            id:                 None,
         }
     }
 }

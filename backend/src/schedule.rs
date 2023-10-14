@@ -47,6 +47,7 @@ impl Iterator for DateIterator{
     }
 }
 
+#[derive(Clone, Default, Debug)]
 pub struct Schedule{
     days_off: Vec<NaiveDate>,
     workloads: HashMap<NaiveDate, u32>,
@@ -158,6 +159,8 @@ mod tests{
     use super::*;
 
     #[test]
+    // TODO These all use the year 3000 as being arbitrarily far in the future. This is probably
+    // fine, but is still ugly
     fn test_schedule(){
         let task = Task{
             next_action_date: NaiveDate::from_ymd_opt(3000, 01, 01).unwrap(),

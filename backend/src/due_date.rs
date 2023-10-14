@@ -11,11 +11,23 @@ use crate::utils::{
     parse_date,
 };
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub enum DueDate{
     Never,
     Date(NaiveDate),
     Asap,
+}
+
+impl DueDate{
+    #[must_use] pub fn new() -> Self{
+        Self::default()
+    }
+}
+
+impl Default for DueDate{
+    fn default() -> Self {
+        Self::Asap
+    }
 }
 
 impl PartialOrd for DueDate {
@@ -80,6 +92,18 @@ impl From<&DueDate> for String{
 impl Display for DueDate{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", String::from(self))
+    }
+}
+
+impl From<&NaiveDate> for DueDate{
+    fn from(value: &NaiveDate) -> Self {
+        Self::Date(*value)
+    }
+}
+
+impl From<NaiveDate> for DueDate{
+    fn from(value: NaiveDate) -> Self {
+        Self::from(&value)
     }
 }
 
