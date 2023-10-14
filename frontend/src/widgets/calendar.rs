@@ -23,8 +23,7 @@ use backend::{
 
 use crate::Message;
 
-#[allow(non_snake_case)]
-pub fn Calendar(schedule: &Schedule) -> Element<'static, Message>{
+pub fn calendar(schedule: &Schedule) -> Element<'static, Message>{
     // TODO this is a pretty grungy implementation, but it should do for now
     // Get the days of the week that contains the passed day
     fn week_of(d: NaiveDate) -> Vec<NaiveDate>{
@@ -53,7 +52,7 @@ pub fn Calendar(schedule: &Schedule) -> Element<'static, Message>{
             .iter()
             .map(|d| Row::with_children(
                 week_of(*d).iter().map(
-                    |d| Element::from(CalDay(*d, schedule.workload_on_day(*d)).padding(4))
+                    |d| Element::from(cal_day(*d, schedule.workload_on_day(*d)).padding(4))
                 ).collect()
             ).into())
             .collect()
@@ -64,8 +63,7 @@ pub fn Calendar(schedule: &Schedule) -> Element<'static, Message>{
         .into()
 }
 
-#[allow(non_snake_case)]
-fn CalDay(day: NaiveDate, load: u32) -> Column<'static, Message>{
+fn cal_day(day: NaiveDate, load: u32) -> Column<'static, Message>{
     column![
         text(
             day.format("%b %d")

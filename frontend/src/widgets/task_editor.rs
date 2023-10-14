@@ -45,8 +45,7 @@ pub enum UpdateDraftTask{
 }
 
 // TODO should have a dedicated State object to pass in so don't have to keep updating arguments
-#[allow(non_snake_case)]
-pub fn TaskEditor<'a>(task: &'a Task, timer_start_utc: Option<&'a DateTime<Utc>>, show_next_action_date_picker: bool, show_due_date_picker: bool) -> Column<'a, Message>{
+pub fn task_editor<'a>(task: &'a Task, timer_start_utc: Option<&'a DateTime<Utc>>, show_next_action_date_picker: bool, show_due_date_picker: bool) -> Column<'a, Message>{
     use Message::UpdateDraftTask as Message_UDT;
     use UpdateDraftTask as UDT;
 

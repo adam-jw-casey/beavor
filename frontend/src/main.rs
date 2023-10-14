@@ -30,9 +30,9 @@ use backend::{
 
 mod widgets;
 use widgets::{
-    Calendar,
-    TaskScroller,
-    TaskEditor,
+    calendar,
+    task_scroller,
+    task_editor::task_editor,
 };
 
 use widgets::task_editor::UpdateDraftTask;
@@ -181,14 +181,14 @@ impl Application for Beavor {
 
     fn view(&self) -> Element<'_, Self::Message> {
         let content: Element<Message> = row![
-            TaskScroller(&self.db.get_open_tasks())
+            task_scroller(&self.db.get_open_tasks())
                 .width(Length::FillPortion(2))
                 .height(Length::FillPortion(1)),
-            TaskEditor(&self.draft_task, self.timer_start_utc.as_ref(), self.next_action_date_picker_showing, self.due_date_picker_showing)
+            task_editor(&self.draft_task, self.timer_start_utc.as_ref(), self.next_action_date_picker_showing, self.due_date_picker_showing)
                 .padding(8)
                 .width(Length::FillPortion(3))
                 .height(Length::FillPortion(1)),
-            Calendar(&self.db.get_schedule()),
+            calendar(&self.db.get_schedule()),
         ]
             .align_items(Alignment::End)
             .height(Length::Fill)

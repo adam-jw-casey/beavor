@@ -16,13 +16,12 @@ use backend::Task;
 
 use crate::Message;
 
-#[allow(non_snake_case)]
-pub fn TaskScroller(tasks: &[Task]) -> Scrollable<'static, Message>{
+pub fn task_scroller(tasks: &[Task]) -> Scrollable<'static, Message>{
     scrollable(
         Column::with_children(
             tasks
                 .iter()
-                .map(TaskRow)
+                .map(task_row)
                 .collect()
         )
             .width(Length::Shrink)
@@ -32,8 +31,7 @@ pub fn TaskScroller(tasks: &[Task]) -> Scrollable<'static, Message>{
         .height(Length::Fill)
 }
 
-#[allow(non_snake_case)]
-fn TaskRow(task: &Task) -> Element<'static, Message>{
+fn task_row(task: &Task) -> Element<'static, Message>{
     Button::new(
         column![
             text(&task.name),
