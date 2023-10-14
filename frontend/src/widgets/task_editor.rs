@@ -1,7 +1,6 @@
 use chrono::{
     NaiveDate,
     offset::Utc,
-    Local,
     DateTime,
 };
 
@@ -28,6 +27,7 @@ use iced_aw::helpers::date_picker;
 use backend::{
     Task,
     DueDate,
+    utils::today_date,
 };
 
 use crate::Message;
@@ -118,7 +118,7 @@ pub fn TaskEditor<'a>(task: &'a Task, timer_start_utc: Option<&'a DateTime<Utc>>
                     show_due_date_picker,
                     match task.due_date{
                         DueDate::Date(date) => date,
-                        _ => Local::now().date_naive(), // This will not be shown, so arbitray
+                        _ => today_date(), // This will not be shown, so arbitray
                     },
                     button(text(&task.due_date.to_string()))
                         .on_press_maybe(match task.due_date{
@@ -133,15 +133,15 @@ pub fn TaskEditor<'a>(task: &'a Task, timer_start_utc: Option<&'a DateTime<Utc>>
             pick_list( // TODO this whole section would be easier if DueDateType had to_string()
                 vec!["Date", "None", "ASAP"],
                 Some(match task.due_date{
-                    DueDate::NONE => "None",
+                    DueDate::Never => "None",
                     DueDate::Date(_) => "Date",
-                    DueDate::ASAP => "ASAP",
+                    DueDate::Asap => "ASAP",
                 }),
                 |selection| {
                     Message_UDT(UDT::DueDate(match selection{
-                        "None" => DueDate::NONE,
-                        "ASAP" => DueDate::ASAP,
-                        "Date" => DueDate::Date(Local::now().date_naive()),
+                        "None" => DueDate::Never,
+                        "ASAP" => DueDate::Asap,
+                        "Date" => DueDate::Date(today_date()),
                         _ => panic!("This will never happen")
                     }))
                 }

@@ -12,11 +12,10 @@ use crate::utils::{
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-#[allow(clippy::upper_case_acronyms)]
 pub enum DueDate{
-    NONE,
+    Never,
     Date(NaiveDate),
-    ASAP,
+    Asap,
 }
 
 impl PartialOrd for DueDate {
@@ -28,20 +27,20 @@ impl PartialOrd for DueDate {
 impl Ord for DueDate {
     fn cmp(&self, other: &Self) -> Ordering {
         match self {
-            DueDate::NONE => match other{
-                DueDate::NONE    => Ordering::Equal,
+            DueDate::Never => match other{
+                DueDate::Never    => Ordering::Equal,
                 DueDate::Date(_) => Ordering::Greater,
-                DueDate::ASAP    => Ordering::Greater,
+                DueDate::Asap    => Ordering::Greater,
             },
-            DueDate::ASAP => match other{
-                DueDate::NONE    => other.cmp(self).reverse(),
+            DueDate::Asap => match other{
+                DueDate::Never    => other.cmp(self).reverse(),
                 DueDate::Date(_) => Ordering::Less,
-                DueDate::ASAP    => Ordering::Equal,
+                DueDate::Asap    => Ordering::Equal,
             },
             DueDate::Date(self_date) => match other{
-                DueDate::NONE             => other.cmp(self).reverse(),
+                DueDate::Never             => other.cmp(self).reverse(),
                 DueDate::Date(other_date) => self_date.cmp(other_date),
-                DueDate::ASAP             => other.cmp(self).reverse(),
+                DueDate::Asap             => other.cmp(self).reverse(),
             },
         }
     }
@@ -55,8 +54,8 @@ impl FromStr for DueDate{
 
     fn from_str(date_string: &str) -> Result<Self, Self::Err> {
         Ok(match date_string{
-            "None" => DueDate::NONE,
-            "ASAP" => DueDate::ASAP,
+            "None" => DueDate::Never,
+            "Asap" => DueDate::Asap,
             date_string => DueDate::Date(parse_date(date_string)?),
         })
     }
@@ -73,8 +72,8 @@ impl TryFrom<String> for DueDate{
 impl From<&DueDate> for String{
     fn from(value: &DueDate) -> Self {
         match value{
-            DueDate::NONE => "None".into(),
-            DueDate::ASAP => "ASAP".into(),
+            DueDate::Never => "None".into(),
+            DueDate::Asap => "Asap".into(),
             DueDate::Date(date) => format_date_borrowed(date),
         }
     }
@@ -95,16 +94,16 @@ mod tests{
 
     #[test]
     fn test_cmp_due_date(){
-        assert!(DueDate::NONE == DueDate::NONE);
-        assert!(DueDate::NONE > DueDate::ASAP);
-        assert!(DueDate::NONE > DueDate::Date(NaiveDate::from_ymd(1971,01,01)));
+        assert!(DueDate::Never == DueDate::Never);
+        assert!(DueDate::Never > DueDate::Asap);
+        assert!(DueDate::Never > DueDate::Date(NaiveDate::from_ymd(1971,01,01)));
 
-        assert!(DueDate::ASAP < DueDate::NONE);
-        assert!(DueDate::ASAP == DueDate::ASAP);
-        assert!(DueDate::ASAP < DueDate::Date(NaiveDate::from_ymd(1971,01,01)));
+        assert!(DueDate::Asap < DueDate::Never);
+        assert!(DueDate::Asap == DueDate::Asap);
+        assert!(DueDate::Asap < DueDate::Date(NaiveDate::from_ymd(1971,01,01)));
 
-        assert!(DueDate::Date(NaiveDate::from_ymd(1971,01,01)) < DueDate::NONE);
-        assert!(DueDate::Date(NaiveDate::from_ymd(1971,01,01)) > DueDate::ASAP);
+        assert!(DueDate::Date(NaiveDate::from_ymd(1971,01,01)) < DueDate::Never);
+        assert!(DueDate::Date(NaiveDate::from_ymd(1971,01,01)) > DueDate::Asap);
         assert!(DueDate::Date(NaiveDate::from_ymd(1971,01,01)) == DueDate::Date(NaiveDate::from_ymd(1971,01,01)));
         assert!(DueDate::Date(NaiveDate::from_ymd(1971,01,01)) < DueDate::Date(NaiveDate::from_ymd(1971,01,02)));
         assert!(DueDate::Date(NaiveDate::from_ymd(1971,01,01)) > DueDate::Date(NaiveDate::from_ymd(1970,12,31)));
@@ -112,7 +111,7 @@ mod tests{
 
     #[test]
     fn test_due_date_string_parse(){
-        for dd in [DueDate::ASAP, DueDate::NONE, DueDate::Date(NaiveDate::from_ymd(1971,01,01))]{
+        for dd in [DueDate::Asap, DueDate::Never, DueDate::Date(NaiveDate::from_ymd(1971,01,01))]{
             assert_eq!(DueDate::from_str(&dd.to_string()).unwrap(), dd);
         }
     }

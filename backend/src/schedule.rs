@@ -106,9 +106,9 @@ impl Schedule{
     /// Returns the last date that a task can be worked on
     pub fn last_available_date_for_task(&self, task: &Task) -> Option<NaiveDate>{
         match task.due_date{
-            DueDate::NONE => None,
+            DueDate::Never => None,
             DueDate::Date(due_date) => Some(max(due_date, self.next_work_day())),
-            DueDate::ASAP => Some(self.first_available_date_for_task(task)),
+            DueDate::Asap => Some(self.first_available_date_for_task(task)),
         }
     }
 
