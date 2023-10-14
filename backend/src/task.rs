@@ -6,6 +6,7 @@ use crate::due_date::DueDate;
 pub type Id = Option<u32>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature="serde", derive(Serialize, Deserialize))]
 pub struct Task{
     pub category:         String,
     pub finished:         bool,
