@@ -125,15 +125,15 @@ impl Schedule{
                         .and_modify(|workload| *workload += workload_per_day)
                         .or_insert(workload_per_day);
                 }
-            }else{continue};
+            };
         }
 
         self.workloads = workloads;
     }
 
     /// Returns a boolean representing whether a given task can be worked on on a given date
-    #[must_use] pub fn is_available_on_day(&self, task: Task, date: NaiveDate) -> bool{
-        let before_end = self.last_available_date_for_task(&task).map_or(true, |available_date| date <= available_date);
+    #[must_use] pub fn is_available_on_day(&self, task: &Task, date: NaiveDate) -> bool{
+        let before_end = self.last_available_date_for_task(task).map_or(true, |available_date| date <= available_date);
 
         let after_beginning = task.next_action_date <= date;
 
@@ -168,10 +168,10 @@ mod tests{
 
         let schedule = Schedule::new(vec![NaiveDate::from_ymd_opt(3000,01,08).unwrap()], vec![task.clone()]);
 
-        assert!(schedule.is_available_on_day(task.clone(), NaiveDate::from_ymd_opt(3000,01,01).unwrap()));
-        assert!(schedule.is_available_on_day(task.clone(), NaiveDate::from_ymd_opt(3000,01,02).unwrap()));
-        assert!(schedule.is_available_on_day(task.clone(), NaiveDate::from_ymd_opt(3000,01,03).unwrap()));
-        assert!(!schedule.is_available_on_day(task.clone(), NaiveDate::from_ymd_opt(3000,01,04).unwrap()));
+        assert!(schedule.is_available_on_day(&task, NaiveDate::from_ymd_opt(3000,01,01).unwrap()));
+        assert!(schedule.is_available_on_day(&task, NaiveDate::from_ymd_opt(3000,01,02).unwrap()));
+        assert!(schedule.is_available_on_day(&task, NaiveDate::from_ymd_opt(3000,01,03).unwrap()));
+        assert!(!schedule.is_available_on_day(&task, NaiveDate::from_ymd_opt(3000,01,04).unwrap()));
 
         assert!(schedule.is_work_day(NaiveDate::from_ymd_opt(3000,01,06).unwrap()));
         assert!(!schedule.is_work_day(NaiveDate::from_ymd_opt(3000,01,05).unwrap()));

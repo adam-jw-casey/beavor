@@ -89,8 +89,8 @@ impl Application for Beavor {
 
     fn new(_flags: Self::Flags) -> (Beavor, iced::Command<Message>) {
         // TODO database path should be a flag
-        let db = DatabaseManager::new("worklist.db".into())
-            .unwrap_or_else(|_| DatabaseManager::with_new_database("worklist.db".into()).expect("Should be able to create database"));
+        let db = DatabaseManager::new("worklist.db")
+            .unwrap_or_else(|_| DatabaseManager::with_new_database("worklist.db").expect("Should be able to create database"));
         (
             Self{
                 db,
@@ -160,13 +160,13 @@ impl Application for Beavor {
             Message::NewTask => {let _ = self.update(Message::SelectTask(None));},
             Message::DeleteTask => {
                 let t = std::mem::take(&mut self.draft_task);
-                self.db.delete_task(t);
+                self.db.delete_task(&t);
                 self.selected_task = None;
                 let _ = self.update(Message::NewTask);
             },
             Message::ToggleTimer => match self.timer_start_utc{
                 Some(timer_start_utc) => {
-                    self.draft_task.time_used += (Utc::now() - timer_start_utc).num_minutes() as u32;
+                    self.draft_task.time_used += u32::try_from((Utc::now() - timer_start_utc).num_minutes()).expect("This will be positive and small enough to fit");
                     self.timer_start_utc = None;
                     let _ = self.update(Message::SaveDraftTask);
                 },

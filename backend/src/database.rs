@@ -69,25 +69,25 @@ struct Holiday{
     observed_date: String
 }
 
-pub struct DatabaseManager{
+pub struct Connection{
     pool: SqlitePool,
     rt: Runtime,
 }
 
-impl DatabaseManager{
+impl Connection{
     // TODO all these methods that take Strings should take &str instead
-    pub fn new(database_path: String) -> Result<Self, sqlx::Error>{
+    pub fn new(database_path: &str) -> Result<Self, sqlx::Error>{
         let rt = Runtime::new().unwrap();
         Ok(Self{
-            pool: rt.block_on(SqlitePool::connect(database_path.as_str()))?,
+            pool: rt.block_on(SqlitePool::connect(database_path))?,
             rt,
         })
     }
 
-    pub fn with_new_database(database_path: String) -> Result<Self, sqlx::Error>{
+    pub fn with_new_database(database_path: &str) -> Result<Self, sqlx::Error>{
         let rt = Runtime::new().unwrap();
         rt.block_on(async{
-            let mut conn = SqliteConnectOptions::from_str(&database_path)
+            let mut conn = SqliteConnectOptions::from_str(database_path)
                 .expect("This should work")
                 .create_if_missing(true)
                 .connect()
@@ -215,7 +215,7 @@ impl DatabaseManager{
 
     // Note: this deliberately takes ownership of task, because it will be deleted afterward and
     // this prevents references to it from surviving
-    pub fn delete_task(&self, task: Task){
+    pub fn delete_task(&self, task: &Task){
         self.rt.block_on(async{
             sqlx::query!("
                 DELETE

@@ -1,6 +1,6 @@
 #![warn(clippy::all, clippy::pedantic)]
 pub mod database;
-pub use database::DatabaseManager;
+pub use database::Connection as DatabaseManager;
 
 pub mod due_date;
 pub use due_date::DueDate;

@@ -50,7 +50,7 @@ pub fn task_editor<'a>(task: &'a Task, timer_start_utc: Option<&'a DateTime<Utc>
     use UpdateDraftTask as UDT;
 
     let display_time_used: u32 = task.time_used * 60 + match timer_start_utc{
-        Some(timer_start_utc) => (Utc::now() - timer_start_utc).num_seconds() as u32, 
+        Some(timer_start_utc) => u32::try_from((Utc::now() - timer_start_utc).num_seconds()).expect("This should be positive and small enough to fit"), 
             // This should work because the timer presumably started in the past, which will
             // yield a positive number, and presumably has not been running long enough to
             // overflow a u32 (136 years by my math)
