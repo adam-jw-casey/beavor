@@ -75,7 +75,9 @@ pub struct Connection{
 }
 
 impl Connection{
-    // TODO all these methods that take Strings should take &str instead
+    /// # Errors
+    /// Will fail a connection to the database cannot be established. This is generally if the
+    /// database file does not exist or is corrupted
     pub fn new(database_path: &str) -> Result<Self, sqlx::Error>{
         let rt = Runtime::new().unwrap();
         Ok(Self{
