@@ -113,7 +113,6 @@ impl Application for Beavor {
 
     // TODO database path should be a flag
     fn new(_flags: Self::Flags) -> (Beavor, iced::Command<Message>) {
-        println!("new");
         (
             Self::Loading,
             Command::perform(async{
@@ -121,7 +120,6 @@ impl Application for Beavor {
                     Ok(db) => db,
                     Err(_) => DatabaseManager::with_new_database("worklist.db").await.expect("Should be able to create database"),
                 };
-                println!("Created database");
                 State{
                     selected_task: None,
                     selected_date: None,
@@ -145,12 +143,10 @@ impl Application for Beavor {
 
     // TODO break each match case out into seperate functions (or at least into groups). This is getting ridiculous.
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
-        println!("Update");
         match self{
             Beavor::Loading => {
                 match message{
                     Message::Loaded(state) => {
-                        println!("Loaded");
                         *self = Self::Loaded(state);
                         Command::none()
                     },
@@ -177,6 +173,7 @@ impl Application for Beavor {
                             },
                             Mutate::DeleteTask => {
                                 let t = std::mem::take(&mut state.draft_task);
+                                state.selected_task = None;
                                 Command::perform(async move {
                                     db_clone1.delete_task(&t).await;
                                 }, |()| Message::NewTask)
@@ -246,7 +243,6 @@ impl Application for Beavor {
     }
 
     fn view(&self) -> Element<'_, Self::Message> {
-        println!("view");
         let content: Element<Message> = match self{
             Beavor::Loading => text("Loading...").into(),
             Beavor::Loaded(state) => 
@@ -266,7 +262,6 @@ impl Application for Beavor {
                     .into()
         };
 
-        println!("done view");
         container(content).into()
     }
 
