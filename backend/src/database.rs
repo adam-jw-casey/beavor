@@ -74,6 +74,9 @@ pub struct Connection{
     pool: SqlitePool,
 }
 
+// TODO these methods should selectively take a &mut self when they modify the database, with some
+// sort of "dirty" flag. This would both allow caching (for a slight performance boost) AND let the
+// borrow checker monitor the state of the database itself, not just the connection to it
 impl Connection{
     /// # Errors
     /// Will fail a connection to the database cannot be established. This is generally if the
