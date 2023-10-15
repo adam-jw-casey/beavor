@@ -38,6 +38,7 @@ use widgets::{
     task_editor::{
         task_editor,
         TimerState,
+        DatePickerState,
     },
 };
 
@@ -89,8 +90,7 @@ pub struct State{
     selected_date: Option<NaiveDate>,
     draft_task: Task,
     timer_state: TimerState,
-    next_action_date_picker_showing: bool,
-    due_date_picker_showing: bool,
+    date_picker_state: DatePickerState,
     cache: Cache,
 }
 
@@ -125,8 +125,7 @@ impl Application for Beavor {
                     selected_date: None,
                     draft_task:    Task::default(),
                     timer_state: TimerState::Stopped,
-                    next_action_date_picker_showing: false,
-                    due_date_picker_showing: false,
+                    date_picker_state: DatePickerState::None,
                     cache: Cache{
                         loaded_tasks: db.open_tasks().await.into(),
                         loaded_schedule: db.schedule().await,
@@ -235,10 +234,11 @@ impl Application for Beavor {
                     },
                     Message::Tick(_) | Message::None(()) => {},
                     Message::Refresh(cache) => state.cache = cache,
-                    Message::PickNextActionDate => state.next_action_date_picker_showing = true,
-                    Message::CancelPickNextActionDate => state.next_action_date_picker_showing = false,
-                    Message::PickDueDate => state.due_date_picker_showing = true,
-                    Message::CancelPickDueDate => state.due_date_picker_showing = false,
+                    // TODO These three should be grouped together somehow maybe a Modal type
+                    // message? so only one modal at a time can ever be showing?
+                    Message::PickNextActionDate => state.date_picker_state = DatePickerState::NextAction,
+                    Message::CancelPickNextActionDate | Message::CancelPickDueDate => state.date_picker_state = DatePickerState::None,
+                    Message::PickDueDate => state.date_picker_state = DatePickerState::DueDate,
                     Message::Loaded(_) => panic!("Should never happen"),
                 }Command::none()}
             },
@@ -253,7 +253,11 @@ impl Application for Beavor {
                     task_scroller(&state.cache.loaded_tasks)
                         .width(Length::FillPortion(2))
                         .height(Length::FillPortion(1)),
-                    task_editor(&state.draft_task, &state.timer_state, state.next_action_date_picker_showing, state.due_date_picker_showing)
+                    task_editor(
+                        &state.draft_task,
+                        &state.timer_state,
+                        &state.date_picker_state,
+                    )
                         .padding(8)
                         .width(Length::FillPortion(3))
                         .height(Length::FillPortion(1)),

@@ -57,6 +57,13 @@ impl TimerState{
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum DatePickerState{
+    None,
+    NextAction,
+    DueDate,
+}
+
 #[derive(Debug, Clone)]
 pub enum UpdateDraftTask{
     Category        (String),
@@ -73,7 +80,7 @@ use Message::UpdateDraftTask as Message_UDT;
 use UpdateDraftTask as UDT;
 
 // TODO should have a dedicated State object to pass in so don't have to keep updating arguments
-pub fn task_editor<'a>(task: &'a Task, timer_state: &TimerState, show_next_action_date_picker: bool, show_due_date_picker: bool) -> Column<'a, Message>{
+pub fn task_editor<'a>(task: &'a Task, timer_state: &TimerState, date_picker_state: &DatePickerState) -> Column<'a, Message>{
 
     let display_time_used: u32 = task.time_used * 60 + match timer_state.time_running(){
         Some(time_running) => u32::try_from(time_running.num_seconds()).expect("This should be positive and less than 136 years to avoid over/underflow"),
@@ -122,12 +129,12 @@ pub fn task_editor<'a>(task: &'a Task, timer_state: &TimerState, show_next_actio
         row![
             text("Next action")
                 .width(Length::FillPortion(1)),
-            next_action_date_picker(show_next_action_date_picker, task)
+            next_action_date_picker(date_picker_state, task)
                 .width(Length::FillPortion(3)),
         ],
         row![
             text("Due date").width(Length::FillPortion(1)),
-            due_date_picker(show_due_date_picker, task)
+            due_date_picker(date_picker_state, task)
                 .width(Length::FillPortion(3)),
         ],
         row![
@@ -163,10 +170,10 @@ pub fn task_editor<'a>(task: &'a Task, timer_state: &TimerState, show_next_actio
         .align_items(Alignment::Center)
 }
 
-fn next_action_date_picker(show_next_action_date_picker: bool, task: &Task) -> Container<Message>{
+fn next_action_date_picker<'a>(date_picker_state: &DatePickerState, task: &'a Task) -> Container<'a, Message>{
     container(
         date_picker(
-            show_next_action_date_picker,
+            *date_picker_state == DatePickerState::NextAction,
             task.next_action_date,
             button(text(&task.next_action_date.to_string())).on_press(Message::PickNextActionDate),
             Message::CancelPickNextActionDate,
@@ -175,11 +182,11 @@ fn next_action_date_picker(show_next_action_date_picker: bool, task: &Task) -> C
     )
 }
 
-fn due_date_picker(show_due_date_picker: bool, task: &Task) -> Row<Message>{
+fn due_date_picker<'a>(date_picker_state: &DatePickerState, task: &'a Task) -> Row<'a, Message>{
     row![
         container(
             date_picker(
-                show_due_date_picker,
+                *date_picker_state == DatePickerState::DueDate,
                 match task.due_date{
                     DueDate::Date(date) => date,
                     _ => today_date(), // This will not be shown, so arbitray
