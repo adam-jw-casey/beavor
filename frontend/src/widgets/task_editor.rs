@@ -35,7 +35,8 @@ use backend::{
 
 use crate::{
     Message,
-    Mutate,
+    MutateMessage,
+    ModalMessage,
 };
 
 // TODO this still doesn't sit quite right, since why match over TimerState when you can match over
@@ -159,9 +160,9 @@ pub fn task_editor<'a>(draft_task: &'a Task, timer_state: &TimerState, date_pick
                 }
             ) .on_press(Message::ToggleTimer),
             text( format!("{:02}:{:02}:{:02}", display_time_used/3600, (display_time_used % 3600)/60, display_time_used % 60)),
-            button("Save").on_press(Message::Mutate(Mutate::SaveDraftTask)),
+            button("Save").on_press(Message::Mutate(MutateMessage::SaveDraftTask)),
             button("New").on_press(Message::NewTask),
-            button("Delete").on_press(Message::Mutate(Mutate::DeleteTask)),
+            button("Delete").on_press(Message::Mutate(MutateMessage::DeleteTask)),
         ]
             .align_items(Alignment::Center)
             .spacing(4),
@@ -175,8 +176,8 @@ fn next_action_date_picker<'a>(date_picker_state: &DatePickerState, draft_task: 
         date_picker(
             *date_picker_state == DatePickerState::NextAction,
             draft_task.next_action_date,
-            button(text(&draft_task.next_action_date.to_string())).on_press(Message::PickNextActionDate),
-            Message::CancelPickNextActionDate,
+            button(text(&draft_task.next_action_date.to_string())).on_press(Message::Modal(ModalMessage::PickNextActionDate)),
+            Message::Modal(ModalMessage::Close),
             |d| Message_UDT(UDT::NextActionDate(d.into()))
         )
     )
@@ -193,10 +194,10 @@ fn due_date_picker<'a>(date_picker_state: &DatePickerState, draft_task: &'a Task
                 },
                 button(text(&draft_task.due_date.to_string()))
                     .on_press_maybe(match draft_task.due_date{
-                        DueDate::Date(_) => Some(Message::PickDueDate),
+                        DueDate::Date(_) => Some(Message::Modal(ModalMessage::PickDueDate)),
                         _ => None,
                     }),
-                Message::CancelPickDueDate,
+                Message::Modal(ModalMessage::Close),
                 |d| Message_UDT(UDT::DueDate(DueDate::Date(d.into())))
             )
         ).width(Length::FillPortion(1)),

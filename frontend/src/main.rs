@@ -50,7 +50,14 @@ fn main() {
 }
 
 #[derive(Debug, Clone)]
-pub enum Mutate{
+pub enum ModalMessage{
+    PickNextActionDate,
+    PickDueDate,
+    Close,
+}
+
+#[derive(Debug, Clone)]
+pub enum MutateMessage{
     SaveDraftTask,
     DeleteTask,
 }
@@ -63,13 +70,10 @@ pub enum Message{
     TrySelectTask(Option<Task>),
     SelectDate(Option<NaiveDate>),
     UpdateDraftTask(UpdateDraftTask),
-    ToggleTimer, // Consider having seperate start/stop/toggle messages
-    PickNextActionDate,
-    CancelPickNextActionDate,
-    PickDueDate,
-    CancelPickDueDate,
+    ToggleTimer, // Consider having separate start/stop/toggle messages
+    Modal(ModalMessage),
     NewTask,
-    Mutate(Mutate),
+    Mutate(MutateMessage),
     Loaded(State),
     None(()),
 }
@@ -161,7 +165,7 @@ impl Application for Beavor {
                     Command::batch(
                     [
                         match mutate{
-                            Mutate::SaveDraftTask => match t1.id{
+                            MutateMessage::SaveDraftTask => match t1.id{
                                 Some(_) => Command::perform(async move {
                                     db_clone1.update_task(&t1).await;
                                 }, |()| Message::SelectTask(Some(t2))),
@@ -169,7 +173,7 @@ impl Application for Beavor {
                                     db_clone1.create_task(&t1).await;
                                 }, |()| Message::SelectTask(Some(t2))),
                             },
-                            Mutate::DeleteTask => {
+                            MutateMessage::DeleteTask => {
                                 let t = std::mem::take(&mut state.draft_task);
                                 state.selected_task = None;
                                 Command::perform(async move {
@@ -213,11 +217,11 @@ impl Application for Beavor {
                             UDT::TimeUsed(time_used) => if let Ok(time_used) = time_used {t.time_used = time_used},
                             UDT::NextActionDate(next_action_date) => {
                                 t.next_action_date = next_action_date;
-                                let _ = self.update(Message::CancelPickNextActionDate);
+                                let _ = self.update(Message::Modal(ModalMessage::Close));
                             },
                             UDT::DueDate(due_date) => {
                                 t.due_date = due_date;
-                                let _ = self.update(Message::CancelPickDueDate);
+                                let _ = self.update(Message::Modal(ModalMessage::Close));
                             },
                             UDT::Notes(notes) => t.notes = notes,
                             UDT::Finished(finished) => t.finished = finished,
@@ -227,7 +231,7 @@ impl Application for Beavor {
                         Some(duration) => {
                             state.draft_task.time_used += u32::try_from(duration.num_minutes()).expect("This will be positive and small enough to fit");
                             state.timer_state = TimerState::Stopped;
-                            let _ = self.update(Message::Mutate(Mutate::SaveDraftTask));
+                            let _ = self.update(Message::Mutate(MutateMessage::SaveDraftTask));
                         },
                         None => state.timer_state = TimerState::Timing{start_time: Utc::now()},
                     },
@@ -235,9 +239,11 @@ impl Application for Beavor {
                     Message::Refresh(cache) => state.cache = cache,
                     // TODO These three should be grouped together somehow maybe a Modal type
                     // message? so only one modal at a time can ever be showing?
-                    Message::PickNextActionDate => state.date_picker_state = DatePickerState::NextAction,
-                    Message::CancelPickNextActionDate | Message::CancelPickDueDate => state.date_picker_state = DatePickerState::None,
-                    Message::PickDueDate => state.date_picker_state = DatePickerState::DueDate,
+                    Message::Modal(modal_message) => match modal_message{
+                        ModalMessage::PickNextActionDate => state.date_picker_state = DatePickerState::NextAction,
+                        ModalMessage::PickDueDate => state.date_picker_state = DatePickerState::DueDate,
+                        ModalMessage::Close => state.date_picker_state = DatePickerState::None,
+                    },
                     Message::Loaded(_) => panic!("Should never happen"),
                 }Command::none()}
             },
