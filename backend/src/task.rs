@@ -27,7 +27,7 @@ impl Task{
     }
 
     #[must_use] pub fn time_remaining(&self) -> u32{
-        self.time_needed - self.time_used
+        self.time_needed.saturating_sub(self.time_used)
     }
 }
 
