@@ -80,6 +80,8 @@ pub enum UpdateDraftTask{
 use Message::UpdateDraftTask as Message_UDT;
 use UpdateDraftTask as UDT;
 
+// TODO Should buttons be disabled while a date modal is open? Or should clicking one of them
+// close the modal?
 // TODO should have a dedicated State object to pass in so don't have to keep updating arguments
 pub fn task_editor<'a>(draft_task: &'a Task, timer_state: &TimerState, date_picker_state: &DatePickerState) -> Column<'a, Message>{
 
@@ -162,6 +164,8 @@ pub fn task_editor<'a>(draft_task: &'a Task, timer_state: &TimerState, date_pick
             text( format!("{:02}:{:02}:{:02}", display_time_used/3600, (display_time_used % 3600)/60, display_time_used % 60)),
             button("Save").on_press(Message::Mutate(MutateMessage::SaveDraftTask)),
             button("New").on_press(Message::NewTask),
+            // TODO this should be disabled if the current task is a new one (i.e., does not exist
+            // in the database
             button("Delete").on_press(Message::Mutate(MutateMessage::DeleteTask)),
         ]
             .align_items(Alignment::Center)
