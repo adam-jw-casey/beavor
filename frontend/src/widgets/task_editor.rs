@@ -80,9 +80,9 @@ use Message::UpdateDraftTask as Message_UDT;
 use UpdateDraftTask as UDT;
 
 // TODO should have a dedicated State object to pass in so don't have to keep updating arguments
-pub fn task_editor<'a>(task: &'a Task, timer_state: &TimerState, date_picker_state: &DatePickerState) -> Column<'a, Message>{
+pub fn task_editor<'a>(draft_task: &'a Task, timer_state: &TimerState, date_picker_state: &DatePickerState) -> Column<'a, Message>{
 
-    let display_time_used: u32 = task.time_used * 60 + match timer_state.time_running(){
+    let display_time_used: u32 = draft_task.time_used * 60 + match timer_state.time_running(){
         Some(time_running) => u32::try_from(time_running.num_seconds()).expect("This should be positive and less than 136 years to avoid over/underflow"),
         None => 0,
     };
@@ -94,7 +94,7 @@ pub fn task_editor<'a>(task: &'a Task, timer_state: &TimerState, date_picker_sta
             text("Category").width(Length::FillPortion(1)),
             text_input(
                 "Category...",
-               &task.category
+               &draft_task.category
             )
                 .on_input(|s| Message_UDT(UDT::Category(s)))
                 .width(Length::FillPortion(3))
@@ -103,7 +103,7 @@ pub fn task_editor<'a>(task: &'a Task, timer_state: &TimerState, date_picker_sta
             text("Name").width(Length::FillPortion(1)),
             text_input(
                 "Name...",
-               &task.name
+               &draft_task.name
             )
                 .on_input(|s| Message_UDT(UDT::Name(s)))
 				.width(Length::FillPortion(3))
@@ -112,7 +112,7 @@ pub fn task_editor<'a>(task: &'a Task, timer_state: &TimerState, date_picker_sta
             text("Time needed").width(Length::FillPortion(1)),
             text_input(
                 "Time needed...",
-               &task.time_needed.to_string()
+               &draft_task.time_needed.to_string()
             )
                 .on_input(|u| Message_UDT(UDT::TimeNeeded(u.parse().map_err(|_| ()))))
 				.width(Length::FillPortion(3))
@@ -129,19 +129,19 @@ pub fn task_editor<'a>(task: &'a Task, timer_state: &TimerState, date_picker_sta
         row![
             text("Next action")
                 .width(Length::FillPortion(1)),
-            next_action_date_picker(date_picker_state, task)
+            next_action_date_picker(date_picker_state, draft_task)
                 .width(Length::FillPortion(3)),
         ],
         row![
             text("Due date").width(Length::FillPortion(1)),
-            due_date_picker(date_picker_state, task)
+            due_date_picker(date_picker_state, draft_task)
                 .width(Length::FillPortion(3)),
         ],
         row![
             text("Notes").width(Length::FillPortion(1)),
             text_input(
                 "Notes...",
-               &task.notes
+               &draft_task.notes
             )
                 .on_input(|d| Message_UDT(UDT::Notes(d)))
 				.width(Length::FillPortion(3))
@@ -149,7 +149,7 @@ pub fn task_editor<'a>(task: &'a Task, timer_state: &TimerState, date_picker_sta
         row![
             checkbox(
                 "Done",
-                task.finished,
+                draft_task.finished,
                 |b| Message_UDT(UDT::Finished(b)),
             ),
             button(
@@ -170,29 +170,29 @@ pub fn task_editor<'a>(task: &'a Task, timer_state: &TimerState, date_picker_sta
         .align_items(Alignment::Center)
 }
 
-fn next_action_date_picker<'a>(date_picker_state: &DatePickerState, task: &'a Task) -> Container<'a, Message>{
+fn next_action_date_picker<'a>(date_picker_state: &DatePickerState, draft_task: &'a Task) -> Container<'a, Message>{
     container(
         date_picker(
             *date_picker_state == DatePickerState::NextAction,
-            task.next_action_date,
-            button(text(&task.next_action_date.to_string())).on_press(Message::PickNextActionDate),
+            draft_task.next_action_date,
+            button(text(&draft_task.next_action_date.to_string())).on_press(Message::PickNextActionDate),
             Message::CancelPickNextActionDate,
             |d| Message_UDT(UDT::NextActionDate(d.into()))
         )
     )
 }
 
-fn due_date_picker<'a>(date_picker_state: &DatePickerState, task: &'a Task) -> Row<'a, Message>{
+fn due_date_picker<'a>(date_picker_state: &DatePickerState, draft_task: &'a Task) -> Row<'a, Message>{
     row![
         container(
             date_picker(
                 *date_picker_state == DatePickerState::DueDate,
-                match task.due_date{
+                match draft_task.due_date{
                     DueDate::Date(date) => date,
                     _ => today_date(), // This will not be shown, so arbitray
                 },
-                button(text(&task.due_date.to_string()))
-                    .on_press_maybe(match task.due_date{
+                button(text(&draft_task.due_date.to_string()))
+                    .on_press_maybe(match draft_task.due_date{
                         DueDate::Date(_) => Some(Message::PickDueDate),
                         _ => None,
                     }),
@@ -202,7 +202,7 @@ fn due_date_picker<'a>(date_picker_state: &DatePickerState, task: &'a Task) -> R
         ).width(Length::FillPortion(1)),
         pick_list( // TODO this whole section would be easier if DueDateType had to_string()
             vec!["Date", "None", "ASAP"],
-            Some(match task.due_date{
+            Some(match draft_task.due_date{
                 DueDate::Never => "None",
                 DueDate::Date(_) => "Date",
                 DueDate::Asap => "ASAP",

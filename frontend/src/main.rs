@@ -85,8 +85,7 @@ pub enum Message{
 #[derive(Debug, Clone)]
 pub struct State{
     db:            Arc<DatabaseManager>,
-    selected_task: Option<Task>, // TODO should this maybe just store task ID to minimize the state
-                                 // lying around?
+    selected_task: Option<Task>,
     selected_date: Option<NaiveDate>,
     draft_task: Task,
     timer_state: TimerState,
