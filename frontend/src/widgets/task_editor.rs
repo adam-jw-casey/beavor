@@ -30,7 +30,10 @@ use backend::{
     utils::today_date,
 };
 
-use crate::Message;
+use crate::{
+    Message,
+    Mutate,
+};
 
 #[derive(Debug, Clone)]
 pub enum UpdateDraftTask{
@@ -175,7 +178,7 @@ pub fn task_editor<'a>(task: &'a Task, timer_start_utc: Option<&'a DateTime<Utc>
             button(
                 "Save",
             )
-                .on_press(Message::SaveDraftTask),
+                .on_press(Message::Mutate(Mutate::SaveDraftTask)),
             button(
                 "New",
             )
@@ -183,7 +186,7 @@ pub fn task_editor<'a>(task: &'a Task, timer_start_utc: Option<&'a DateTime<Utc>
             button(
                 "Delete",
             )
-                .on_press(Message::DeleteTask),
+                .on_press(Message::Mutate(Mutate::DeleteTask)),
         ]
             .align_items(Alignment::Center)
             .spacing(4),
