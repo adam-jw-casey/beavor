@@ -23,7 +23,6 @@ use iced::{
 use chrono::{
     NaiveDate,
     offset::Utc,
-    DateTime,
 };
 
 use backend::{
@@ -36,7 +35,10 @@ mod widgets;
 use widgets::{
     calendar,
     task_scroller,
-    task_editor::task_editor,
+    task_editor::{
+        task_editor,
+        TimerState,
+    },
 };
 
 use widgets::task_editor::UpdateDraftTask;
@@ -86,10 +88,7 @@ pub struct State{
                                  // lying around?
     selected_date: Option<NaiveDate>,
     draft_task: Task,
-    timer_start_utc: Option<DateTime<Utc>>, // This should really be a custom enum like TimerState
-                                            // or somesuch
-                                            // It should also have a method to compute the time
-                                            // since started, since this is done in several places
+    timer_state: TimerState,
     next_action_date_picker_showing: bool,
     due_date_picker_showing: bool,
     cache: Cache,
@@ -125,7 +124,7 @@ impl Application for Beavor {
                     selected_task: None,
                     selected_date: None,
                     draft_task:    Task::default(),
-                    timer_start_utc: None,
+                    timer_state: TimerState::Stopped,
                     next_action_date_picker_showing: false,
                     due_date_picker_showing: false,
                     cache: Cache{
@@ -226,13 +225,13 @@ impl Application for Beavor {
                             UDT::Finished(finished) => t.finished = finished,
                         }
                     },
-                    Message::ToggleTimer => match state.timer_start_utc{
-                        Some(timer_start_utc) => {
-                            state.draft_task.time_used += u32::try_from((Utc::now() - timer_start_utc).num_minutes()).expect("This will be positive and small enough to fit");
-                            state.timer_start_utc = None;
+                    Message::ToggleTimer => match state.timer_state.time_running(){
+                        Some(duration) => {
+                            state.draft_task.time_used += u32::try_from(duration.num_minutes()).expect("This will be positive and small enough to fit");
+                            state.timer_state = TimerState::Stopped;
                             let _ = self.update(Message::Mutate(Mutate::SaveDraftTask));
                         },
-                        None => state.timer_start_utc = Some(Utc::now()),
+                        None => state.timer_state = TimerState::Timing{start_time: Utc::now()},
                     },
                     Message::Tick(_) | Message::None(()) => {},
                     Message::Refresh(cache) => state.cache = cache,
@@ -254,7 +253,7 @@ impl Application for Beavor {
                     task_scroller(&state.cache.loaded_tasks)
                         .width(Length::FillPortion(2))
                         .height(Length::FillPortion(1)),
-                    task_editor(&state.draft_task, state.timer_start_utc.as_ref(), state.next_action_date_picker_showing, state.due_date_picker_showing)
+                    task_editor(&state.draft_task, &state.timer_state, state.next_action_date_picker_showing, state.due_date_picker_showing)
                         .padding(8)
                         .width(Length::FillPortion(3))
                         .height(Length::FillPortion(1)),

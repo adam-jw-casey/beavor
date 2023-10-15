@@ -2,6 +2,7 @@ use chrono::{
     NaiveDate,
     offset::Utc,
     DateTime,
+    Duration,
 };
 
 use iced::widget::{
@@ -37,6 +38,25 @@ use crate::{
     Mutate,
 };
 
+// TODO this still doesn't sit quite right, since why match over TimerState when you can match over
+// time_running and immediately get the time?
+#[derive(Debug, Clone)]
+pub enum TimerState{
+    Timing{
+        start_time: DateTime<Utc>,
+    },
+    Stopped,
+}
+
+impl TimerState{
+    pub fn time_running(&self) -> Option<Duration>{
+        match self{
+            TimerState::Timing { start_time } => Some(Utc::now() - start_time),
+            TimerState::Stopped => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum UpdateDraftTask{
     Category        (String),
@@ -53,10 +73,10 @@ use Message::UpdateDraftTask as Message_UDT;
 use UpdateDraftTask as UDT;
 
 // TODO should have a dedicated State object to pass in so don't have to keep updating arguments
-pub fn task_editor<'a>(task: &'a Task, timer_start_utc: Option<&'a DateTime<Utc>>, show_next_action_date_picker: bool, show_due_date_picker: bool) -> Column<'a, Message>{
+pub fn task_editor<'a>(task: &'a Task, timer_state: &TimerState, show_next_action_date_picker: bool, show_due_date_picker: bool) -> Column<'a, Message>{
 
-    let display_time_used: u32 = task.time_used * 60 + match timer_start_utc{
-        Some(timer_start_utc) => u32::try_from((Utc::now() - timer_start_utc).num_seconds()).expect("This should be positive and small enough to fit"), // 136 years to overflow
+    let display_time_used: u32 = task.time_used * 60 + match timer_state.time_running(){
+        Some(time_running) => u32::try_from(time_running.num_seconds()).expect("This should be positive and less than 136 years to avoid over/underflow"),
         None => 0,
     };
 
@@ -126,9 +146,9 @@ pub fn task_editor<'a>(task: &'a Task, timer_start_utc: Option<&'a DateTime<Utc>
                 |b| Message_UDT(UDT::Finished(b)),
             ),
             button(
-                match timer_start_utc{
-                    Some(_) => "Stop",
-                    None => "Start",
+                match timer_state{
+                    TimerState::Timing{..} => "Stop",
+                    TimerState::Stopped => "Start",
                 }
             ) .on_press(Message::ToggleTimer),
             text( format!("{:02}:{:02}:{:02}", display_time_used/3600, (display_time_used % 3600)/60, display_time_used % 60)),
