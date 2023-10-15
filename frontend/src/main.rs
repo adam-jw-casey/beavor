@@ -57,6 +57,7 @@ pub enum Message{
     Refresh(Cache),
     Tick(Instant),
     SelectTask(Option<Task>),
+    TrySelectTask(Option<Task>),
     SelectDate(Option<NaiveDate>),
     UpdateDraftTask(UpdateDraftTask),
     ToggleTimer, // Consider having seperate start/stop/toggle messages
@@ -189,13 +190,16 @@ impl Application for Beavor {
                     Message::Mutate(_) => panic!("Unreachable"),
                     Message::NewTask => {let _ = self.update(Message::SelectTask(None));},
                     Message::SelectTask(maybe_task) => {
+                        state.selected_task = maybe_task.clone();
+                        state.draft_task = match maybe_task{
+                            Some(t) =>  t.clone(),
+                            None => Task::default(),
+                        }
+                    },
+                    Message::TrySelectTask(maybe_task) => {
                         // Don't overwrite an existing draft task
-                        if (state.selected_task.is_none() && state.draft_task == Task::default()) || state.draft_task == *state.selected_task.as_ref().unwrap(){
-                            state.selected_task = maybe_task.clone();
-                            state.draft_task = match maybe_task{
-                                Some(t) =>  t.clone(),
-                                None => Task::default(),
-                            }
+                        if (state.selected_task.is_none() && state.draft_task == Task::default()) || state.selected_task.as_ref().is_some_and(|t| *t == state.draft_task){
+                            let _ = self.update(Message::SelectTask(maybe_task));
                         }else{
                             println!("Refusing to overwrite draft task"); // TODO handle this case elegantly
                         }
