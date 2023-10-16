@@ -159,7 +159,7 @@ impl Application for Beavor {
                 // Mutate messages modify the database
                 Message::Mutate(mutate_message) => Beavor::mutate(state, &mutate_message),
                 other => {match other{
-                    Message::NewTask => {let _ = self.update(Message::SelectTask(None));},
+                    Message::NewTask => {let _ = self.update(Message::TrySelectTask(None));},
                     Message::SelectTask(maybe_task) => {
                         state.selected_task = maybe_task.clone();
                         state.draft_task = match maybe_task{
