@@ -76,7 +76,6 @@ pub enum Message{
     NewTask,
     Mutate(MutateMessage),
     Loaded(State),
-    None(()),
 }
 
 // TODO need a better way of keeping track of whether the shown task:
@@ -206,7 +205,7 @@ impl Application for Beavor {
                         },
                         None => state.timer_state = TimerState::Timing{start_time: Utc::now()},
                     },
-                    Message::Tick(_) | Message::None(()) => {},
+                    Message::Tick(_) => {},
                     Message::Refresh(cache) => state.cache = cache,
                     Message::Modal(modal_message) => match modal_message{
                         // TODO would it be better to have a single message that holds date_picker_state?
