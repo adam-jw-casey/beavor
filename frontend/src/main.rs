@@ -168,8 +168,11 @@ impl Application for Beavor {
                         }
                     },
                     Message::TrySelectTask(maybe_task) => {
-                        // Don't overwrite an existing draft task
-                        if (state.selected_task.is_none() && state.draft_task == Task::default()) || state.selected_task.as_ref().is_some_and(|t| *t == state.draft_task){
+                        // Don't overwrite a modified task
+                        if match &state.selected_task{
+                            Some(t) => *t == state.draft_task,
+                            None => state.draft_task == Task::default(),
+                        }{
                             let _ = self.update(Message::SelectTask(maybe_task));
                         }else{
                             println!("Refusing to overwrite draft task"); // TODO handle this case elegantly
@@ -220,7 +223,6 @@ impl Application for Beavor {
     }
 
     fn view(&self) -> Element<'_, Self::Message> {
-        println!("Reloading UI");
         let content: Element<Message> = match self{
             Beavor::Loading => text("Loading...").into(),
             Beavor::Loaded(state) => 
@@ -285,7 +287,7 @@ impl Beavor{
                         }, |()| Message::NewTask)
                     }
                 },
-                Command::perform(async move {println!("Updating cache");
+                Command::perform(async move {
                     rx.await.unwrap();
                     Cache{
                         loaded_tasks:    db_clone2.open_tasks().await.into(),
