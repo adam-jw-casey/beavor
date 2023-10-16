@@ -1,5 +1,4 @@
 #![warn(clippy::pedantic)]
-use std::sync::Arc;
 
 use iced::widget::{
     container,
@@ -90,7 +89,7 @@ pub enum Message{
 //       help ease state management
 #[derive(Debug, Clone)]
 pub struct State{
-    db:            Arc<DatabaseManager>,
+    db:            DatabaseManager,
     selected_task: Option<Task>,
     selected_date: Option<NaiveDate>,
     draft_task: Task,
@@ -135,7 +134,7 @@ impl Application for Beavor {
                         loaded_tasks: db.open_tasks().await.into(),
                         loaded_schedule: db.schedule().await,
                     },
-                    db: db.into(),
+                    db,
                 }
             }, Message::Loaded),
         )
