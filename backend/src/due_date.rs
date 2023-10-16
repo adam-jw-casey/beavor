@@ -66,7 +66,7 @@ impl FromStr for DueDate{
     fn from_str(date_string: &str) -> Result<Self, Self::Err> {
         Ok(match date_string{
             "None" => DueDate::Never,
-            "Asap" => DueDate::Asap,
+            "ASAP" => DueDate::Asap,
             date_string => DueDate::Date(parse_date(date_string)?),
         })
     }
@@ -84,7 +84,7 @@ impl From<&DueDate> for String{
     fn from(value: &DueDate) -> Self {
         match value{
             DueDate::Never => "None".into(),
-            DueDate::Asap => "Asap".into(),
+            DueDate::Asap => "ASAP".into(),
             DueDate::Date(date) => format_date_borrowed(date),
         }
     }
