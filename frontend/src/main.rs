@@ -135,7 +135,6 @@ impl Application for Beavor {
         String::from("Beavor")
     }
 
-    // TODO break each match case out into separate functions (or at least into groups). This is getting ridiculous.
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match self{
             Beavor::Loading => {
