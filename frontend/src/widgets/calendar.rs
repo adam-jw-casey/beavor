@@ -29,7 +29,7 @@ pub fn calendar(schedule: &Schedule) -> Element<'static, Message>{
         let w = d.week(Weekday::Mon);
 
         // Monday to Friday
-        (0..4)
+        (0..=4)
             .map(|n| w.first_day() + Days::new(n))
             .collect()
     }
