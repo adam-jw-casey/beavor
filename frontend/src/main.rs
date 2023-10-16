@@ -78,14 +78,6 @@ pub enum Message{
     Loaded(State),
 }
 
-// TODO need a better way of keeping track of whether the shown task:
-//          a. Already exists in the database, as shown,
-//          b. Exists in the database, but is shown with unsaved user modifications,
-//          c. Is the default, placeholder task, or
-//          d. Is a new task with some or all information already entered
-//  TODO Whatever type draft_task ends of having, it should have a take/replace/swap like in
-//       std::mem to get an owned copy and overwrite the original in an "atomic" operation, to
-//       help ease state management
 #[derive(Debug, Clone)]
 pub struct State{
     db:            DatabaseManager,
@@ -114,7 +106,6 @@ impl Application for Beavor {
     type Theme = Theme;
     type Flags = ();
 
-    // TODO database path should be a flag
     fn new(_flags: Self::Flags) -> (Beavor, iced::Command<Message>) {
         (
             Self::Loading,
@@ -143,7 +134,7 @@ impl Application for Beavor {
         String::from("Beavor")
     }
 
-    // TODO break each match case out into seperate functions (or at least into groups). This is getting ridiculous.
+    // TODO break each match case out into separate functions (or at least into groups). This is getting ridiculous.
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match self{
             Beavor::Loading => {
@@ -175,7 +166,7 @@ impl Application for Beavor {
                         }{
                             let _ = self.update(Message::SelectTask(maybe_task));
                         }else{
-                            println!("Refusing to overwrite draft task"); // TODO handle this case elegantly
+                            println!("Refusing to overwrite draft task");
                         }
                     },
                     Message::SelectDate(maybe_date) => state.selected_date = maybe_date,
@@ -209,7 +200,6 @@ impl Application for Beavor {
                         None => state.timer_state = TimerState::Timing{start_time: Utc::now()},
                     },
                     Message::Modal(modal_message) => match modal_message{
-                        // TODO would it be better to have a single message that holds date_picker_state?
                         ModalMessage::PickNextActionDate => state.date_picker_state = DatePickerState::NextAction,
                         ModalMessage::PickDueDate =>        state.date_picker_state = DatePickerState::DueDate,
                         ModalMessage::Close =>              state.date_picker_state = DatePickerState::None,
