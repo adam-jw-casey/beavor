@@ -76,6 +76,7 @@ pub enum Message{
     NewTask,
     Mutate(MutateMessage),
     Loaded(State),
+    None,
 }
 
 #[derive(Debug, Clone)]
@@ -150,13 +151,14 @@ impl Application for Beavor {
                 // Mutate messages modify the database
                 Message::Mutate(mutate_message) => Beavor::mutate(state, &mutate_message),
                 other => {match other{
-                    Message::NewTask => {let _ = self.update(Message::TrySelectTask(None));},
+                    Message::NewTask => self.update(Message::TrySelectTask(None)),
                     Message::SelectTask(maybe_task) => {
                         state.selected_task = maybe_task.clone();
                         state.draft_task = match maybe_task{
                             Some(t) =>  t.clone(),
                             None => Task::default(),
-                        }
+                        };
+                        Command::none()
                     },
                     Message::TrySelectTask(maybe_task) => {
                         // Don't overwrite a modified task
@@ -164,50 +166,38 @@ impl Application for Beavor {
                             Some(t) => *t == state.draft_task,
                             None => state.draft_task == Task::default(),
                         }{
-                            let _ = self.update(Message::SelectTask(maybe_task));
+                            self.update(Message::SelectTask(maybe_task))
                         }else{
                             println!("Refusing to overwrite draft task");
+                            Command::none()
                         }
                     },
-                    Message::SelectDate(maybe_date) => state.selected_date = maybe_date,
+                    Message::SelectDate(maybe_date) => {state.selected_date = maybe_date; Command::none()},
                     Message::UpdateDraftTask(task_field_update) => {
-                        use UpdateDraftTask as UDT;
-
-                        let t = &mut state.draft_task;
-                        match task_field_update{
-                            UDT::Category(category) => t.category = category,
-                            UDT::Name(name) => t.name = name,
-                            UDT::TimeNeeded(time_needed) => if let Ok(time_needed) = time_needed {t.time_needed = time_needed},
-                            UDT::TimeUsed(time_used) => if let Ok(time_used) = time_used {t.time_used = time_used},
-                            UDT::NextActionDate(next_action_date) => {
-                                t.next_action_date = next_action_date;
-                                let _ = self.update(Message::Modal(ModalMessage::Close));
-                            },
-                            UDT::DueDate(due_date) => {
-                                t.due_date = due_date;
-                                let _ = self.update(Message::Modal(ModalMessage::Close));
-                            },
-                            UDT::Notes(notes) => t.notes = notes,
-                            UDT::Finished(finished) => t.finished = finished,
-                        }
+                        let m = Beavor::update_draft_task(&mut state.draft_task, task_field_update);
+                        self.update(m)
                     },
+                    #[allow(clippy::single_match_else)]
                     Message::ToggleTimer => match state.timer_state.num_minutes_running(){
                         Some(minutes) => {
                             state.draft_task.time_used += minutes;
                             state.timer_state = TimerState::Stopped;
-                            let _ = self.update(Message::Mutate(MutateMessage::SaveDraftTask));
+                            self.update(Message::Mutate(MutateMessage::SaveDraftTask))
                         },
-                        None => state.timer_state = TimerState::Timing{start_time: Utc::now()},
+                        None => {state.timer_state = TimerState::Timing{start_time: Utc::now()}; Command::none()},
                     },
-                    Message::Modal(modal_message) => match modal_message{
-                        ModalMessage::PickNextActionDate => state.date_picker_state = DatePickerState::NextAction,
-                        ModalMessage::PickDueDate =>        state.date_picker_state = DatePickerState::DueDate,
-                        ModalMessage::Close =>              state.date_picker_state = DatePickerState::None,
+                    Message::Modal(modal_message) => {
+                        match modal_message{
+                            ModalMessage::PickNextActionDate => state.date_picker_state = DatePickerState::NextAction,
+                            ModalMessage::PickDueDate =>        state.date_picker_state = DatePickerState::DueDate,
+                            ModalMessage::Close =>              state.date_picker_state = DatePickerState::None,
+                        }
+                        Command::none()
                     },
-                    Message::Refresh(cache) => state.cache = cache,
-                    Message::Tick(_) => {},
+                    Message::Refresh(cache) => {state.cache = cache; Command::none()},
+                    Message::Tick(_) | Message::None => Command::none(),
                     Message::Loaded(_) | Message::Mutate(_) => panic!("Should never happen"),
-                }Command::none()}
+                }}
             },
         }
     }
@@ -245,6 +235,33 @@ impl Application for Beavor {
 }
 
 impl Beavor{
+    #[must_use] fn update_draft_task(draft_task: &mut Task, message: UpdateDraftTask) -> Message{
+        use UpdateDraftTask as UDT;
+
+        match message{
+            UDT::NextActionDate(next_action_date) => {
+                draft_task.next_action_date = next_action_date;
+                Message::Modal(ModalMessage::Close)
+            },
+            UDT::DueDate(due_date) => {
+                draft_task.due_date = due_date;
+                Message::Modal(ModalMessage::Close)
+            },
+            other => {
+                match other{
+                    UDT::NextActionDate(_) | UDT::DueDate(_) => panic!("This will never happen"),
+                    UDT::Category(category) => draft_task.category = category,
+                    UDT::Name(name) => draft_task.name = name,
+                    UDT::TimeNeeded(time_needed) => if let Ok(time_needed) = time_needed {draft_task.time_needed = time_needed},
+                    UDT::TimeUsed(time_used) => if let Ok(time_used) = time_used {draft_task.time_used = time_used},
+                    UDT::Notes(notes) => draft_task.notes = notes,
+                    UDT::Finished(finished) => draft_task.finished = finished,
+                }
+                Message::None
+            }
+        }
+    }
+
     fn mutate(state: &mut State, message: &MutateMessage) -> Command<Message>{
         // TODO this is so stupid but it works and I got tired of hacking at Arc<>
         let db_clone1 = state.db.clone();
