@@ -200,22 +200,22 @@ impl Application for Beavor {
                             UDT::Finished(finished) => t.finished = finished,
                         }
                     },
-                    Message::ToggleTimer => match state.timer_state.time_running(){
-                        Some(duration) => {
-                            state.draft_task.time_used += u32::try_from(duration.num_minutes()).expect("This will be positive and small enough to fit");
+                    Message::ToggleTimer => match state.timer_state.num_minutes_running(){
+                        Some(minutes) => {
+                            state.draft_task.time_used += minutes;
                             state.timer_state = TimerState::Stopped;
                             let _ = self.update(Message::Mutate(MutateMessage::SaveDraftTask));
                         },
                         None => state.timer_state = TimerState::Timing{start_time: Utc::now()},
                     },
-                    Message::Tick(_) => {},
-                    Message::Refresh(cache) => state.cache = cache,
                     Message::Modal(modal_message) => match modal_message{
                         // TODO would it be better to have a single message that holds date_picker_state?
                         ModalMessage::PickNextActionDate => state.date_picker_state = DatePickerState::NextAction,
                         ModalMessage::PickDueDate =>        state.date_picker_state = DatePickerState::DueDate,
                         ModalMessage::Close =>              state.date_picker_state = DatePickerState::None,
                     },
+                    Message::Refresh(cache) => state.cache = cache,
+                    Message::Tick(_) => {},
                     Message::Loaded(_) | Message::Mutate(_) => panic!("Should never happen"),
                 }Command::none()}
             },

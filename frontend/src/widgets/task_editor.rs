@@ -56,6 +56,11 @@ impl TimerState{
             TimerState::Stopped => None,
         }
     }
+
+    pub fn num_minutes_running(&self) -> Option<u32> {
+        Some(u32::try_from(self.time_running()?.num_minutes())
+            .expect("This will be positive (started in the past) and small enough to fit (<136 years)"))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -85,10 +90,7 @@ use UpdateDraftTask as UDT;
 // TODO should have a dedicated State object to pass in so don't have to keep updating arguments
 pub fn task_editor<'a>(draft_task: &'a Task, timer_state: &TimerState, date_picker_state: &DatePickerState) -> Column<'a, Message>{
 
-    let display_time_used: u32 = draft_task.time_used * 60 + match timer_state.time_running(){
-        Some(time_running) => u32::try_from(time_running.num_seconds()).expect("This should be positive and less than 136 years to avoid over/underflow"),
-        None => 0,
-    };
+    let display_time_used: u32 = draft_task.time_used * 60 + timer_state.num_minutes_running().unwrap_or(0);
 
     // TODO this is a TON of boilerplate. Find a way to reduce this down
     column![
