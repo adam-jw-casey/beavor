@@ -817,6 +817,7 @@ dependencies = [
  "chrono",
  "iced",
  "iced_aw",
+ "tokio",
 ]
 
 [[package]]

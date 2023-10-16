@@ -1,5 +1,4 @@
 #![warn(clippy::pedantic)]
-use std::sync::Arc;
 
 use iced::widget::{
     container,
@@ -20,10 +19,11 @@ use iced::{
     Alignment,
 };
 
+use tokio::sync::oneshot;
+
 use chrono::{
     NaiveDate,
     offset::Utc,
-    DateTime,
 };
 
 use backend::{
@@ -36,7 +36,11 @@ mod widgets;
 use widgets::{
     calendar,
     task_scroller,
-    task_editor::task_editor,
+    task_editor::{
+        task_editor,
+        TimerState,
+        DatePickerState,
+    },
 };
 
 use widgets::task_editor::UpdateDraftTask;
@@ -47,7 +51,14 @@ fn main() {
 }
 
 #[derive(Debug, Clone)]
-pub enum Mutate{
+pub enum ModalMessage{
+    PickNextActionDate,
+    PickDueDate,
+    Close,
+}
+
+#[derive(Debug, Clone)]
+pub enum MutateMessage{
     SaveDraftTask,
     DeleteTask,
 }
@@ -57,41 +68,26 @@ pub enum Message{
     Refresh(Cache),
     Tick(Instant),
     SelectTask(Option<Task>),
+    TrySelectTask(Option<Task>),
     SelectDate(Option<NaiveDate>),
     UpdateDraftTask(UpdateDraftTask),
-    ToggleTimer, // Consider having seperate start/stop/toggle messages
-    PickNextActionDate,
-    CancelPickNextActionDate,
-    PickDueDate,
-    CancelPickDueDate,
+    ToggleTimer, // Consider having separate start/stop/toggle messages
+    Modal(ModalMessage),
     NewTask,
-    Mutate(Mutate),
+    Mutate(MutateMessage),
     Loaded(State),
-    None(()),
+    None,
 }
 
-// TODO need a better way of keeping track of whether the shown task:
-//          a. Already exists in the database, as shown,
-//          b. Exists in the database, but is shown with unsaved user modifications,
-//          c. Is the default, placeholder task, or
-//          d. Is a new task with some or all information already entered
-//  TODO Whatever type draft_task ends of having, it should have a take/replace/swap like in
-//       std::mem to get an owned copy and overwrite the original in an "atomic" operation, to
-//       help ease state management
 #[derive(Debug, Clone)]
 pub struct State{
-    db:            Arc<DatabaseManager>,
-    selected_task: Option<Task>, // TODO should this maybe just store task ID to minimize the state
-                                 // lying around?
+    db:            DatabaseManager,
+    selected_task: Option<Task>,
     selected_date: Option<NaiveDate>,
-    draft_task: Task,
-    timer_start_utc: Option<DateTime<Utc>>, // This should really be a custom enum like TimerState
-                                            // or somesuch
-                                            // It should also have a method to compute the time
-                                            // since started, since this is done in several places
-    next_action_date_picker_showing: bool,
-    due_date_picker_showing: bool,
-    cache: Cache,
+    draft_task:    Task,
+    timer_state:   TimerState,
+    date_picker_state: DatePickerState,
+    cache:         Cache,
 }
 
 #[derive(Debug, Clone)]
@@ -111,7 +107,6 @@ impl Application for Beavor {
     type Theme = Theme;
     type Flags = ();
 
-    // TODO database path should be a flag
     fn new(_flags: Self::Flags) -> (Beavor, iced::Command<Message>) {
         (
             Self::Loading,
@@ -124,14 +119,13 @@ impl Application for Beavor {
                     selected_task: None,
                     selected_date: None,
                     draft_task:    Task::default(),
-                    timer_start_utc: None,
-                    next_action_date_picker_showing: false,
-                    due_date_picker_showing: false,
+                    timer_state: TimerState::Stopped,
+                    date_picker_state: DatePickerState::None,
                     cache: Cache{
                         loaded_tasks: db.open_tasks().await.into(),
                         loaded_schedule: db.schedule().await,
                     },
-                    db: db.into(),
+                    db,
                 }
             }, Message::Loaded),
         )
@@ -141,7 +135,6 @@ impl Application for Beavor {
         String::from("Beavor")
     }
 
-    // TODO break each match case out into seperate functions (or at least into groups). This is getting ridiculous.
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match self{
             Beavor::Loading => {
@@ -154,90 +147,56 @@ impl Application for Beavor {
                 }
             },
             Beavor::Loaded(state) => match message{
-                Message::Mutate(mutate) => {
-                    // TODO this is so stupid but it works and I got tired of hacking at Arc<>
-                    let db_clone1 = state.db.clone();
-                    let db_clone2 = state.db.clone();
-                    let t1 = state.draft_task.clone();
-                    let t2 = state.draft_task.clone();
-                    Command::batch(
-                    [
-                        match mutate{
-                            Mutate::SaveDraftTask => match t1.id{
-                                Some(_) => Command::perform(async move {
-                                    db_clone1.update_task(&t1).await;
-                                }, |()| Message::SelectTask(Some(t2))),
-                                None => Command::perform(async move {
-                                    db_clone1.create_task(&t1).await;
-                                }, |()| Message::SelectTask(Some(t2))),
-                            },
-                            Mutate::DeleteTask => {
-                                let t = std::mem::take(&mut state.draft_task);
-                                state.selected_task = None;
-                                Command::perform(async move {
-                                    db_clone1.delete_task(&t).await;
-                                }, |()| Message::NewTask)
-                            }
-                        },
-                        Command::perform(async move {Cache{
-                            loaded_tasks:    db_clone2.open_tasks().await.into(),
-                            loaded_schedule: db_clone2.schedule().await,
-                        }}, Message::Refresh)
-                    ]
-                )},
+                // Mutate messages modify the database
+                Message::Mutate(mutate_message) => Beavor::mutate(state, &mutate_message),
                 other => {match other{
-                    Message::Mutate(_) => panic!("Unreachable"),
-                    Message::NewTask => {let _ = self.update(Message::SelectTask(None));},
+                    Message::NewTask => self.update(Message::TrySelectTask(None)),
                     Message::SelectTask(maybe_task) => {
-                        // Don't overwrite an existing draft task
-                        if (state.selected_task.is_none() && state.draft_task == Task::default()) || state.draft_task == *state.selected_task.as_ref().unwrap(){
-                            state.selected_task = maybe_task.clone();
-                            state.draft_task = match maybe_task{
-                                Some(t) =>  t.clone(),
-                                None => Task::default(),
-                            }
+                        state.selected_task = maybe_task.clone();
+                        state.draft_task = match maybe_task{
+                            Some(t) =>  t.clone(),
+                            None => Task::default(),
+                        };
+                        Command::none()
+                    },
+                    Message::TrySelectTask(maybe_task) => {
+                        // Don't overwrite a modified task
+                        if match &state.selected_task{
+                            Some(t) => *t == state.draft_task,
+                            None => state.draft_task == Task::default(),
+                        }{
+                            self.update(Message::SelectTask(maybe_task))
                         }else{
-                            println!("Refusing to overwrite draft task"); // TODO handle this case elegantly
+                            println!("Refusing to overwrite draft task");
+                            Command::none()
                         }
                     },
-                    Message::SelectDate(maybe_date) => state.selected_date = maybe_date,
+                    Message::SelectDate(maybe_date) => {state.selected_date = maybe_date; Command::none()},
                     Message::UpdateDraftTask(task_field_update) => {
-                        use UpdateDraftTask as UDT;
-
-                        let t = &mut state.draft_task;
-                        match task_field_update{
-                            UDT::Category(category) => t.category = category,
-                            UDT::Name(name) => t.name = name,
-                            UDT::TimeNeeded(time_needed) => if let Ok(time_needed) = time_needed {t.time_needed = time_needed},
-                            UDT::TimeUsed(time_used) => if let Ok(time_used) = time_used {t.time_used = time_used},
-                            UDT::NextActionDate(next_action_date) => {
-                                t.next_action_date = next_action_date;
-                                let _ = self.update(Message::CancelPickNextActionDate);
-                            },
-                            UDT::DueDate(due_date) => {
-                                t.due_date = due_date;
-                                let _ = self.update(Message::CancelPickDueDate);
-                            },
-                            UDT::Notes(notes) => t.notes = notes,
-                            UDT::Finished(finished) => t.finished = finished,
-                        }
+                        let m = Beavor::update_draft_task(&mut state.draft_task, task_field_update);
+                        self.update(m)
                     },
-                    Message::ToggleTimer => match state.timer_start_utc{
-                        Some(timer_start_utc) => {
-                            state.draft_task.time_used += u32::try_from((Utc::now() - timer_start_utc).num_minutes()).expect("This will be positive and small enough to fit");
-                            state.timer_start_utc = None;
-                            let _ = self.update(Message::Mutate(Mutate::SaveDraftTask));
+                    #[allow(clippy::single_match_else)]
+                    Message::ToggleTimer => match state.timer_state.num_minutes_running(){
+                        Some(minutes) => {
+                            state.draft_task.time_used += minutes;
+                            state.timer_state = TimerState::Stopped;
+                            self.update(Message::Mutate(MutateMessage::SaveDraftTask))
                         },
-                        None => state.timer_start_utc = Some(Utc::now()),
+                        None => {state.timer_state = TimerState::Timing{start_time: Utc::now()}; Command::none()},
                     },
-                    Message::Tick(_) | Message::None(()) => {},
-                    Message::Refresh(cache) => state.cache = cache,
-                    Message::PickNextActionDate => state.next_action_date_picker_showing = true,
-                    Message::CancelPickNextActionDate => state.next_action_date_picker_showing = false,
-                    Message::PickDueDate => state.due_date_picker_showing = true,
-                    Message::CancelPickDueDate => state.due_date_picker_showing = false,
-                    Message::Loaded(_) => panic!("Should never happen"),
-                }Command::none()}
+                    Message::Modal(modal_message) => {
+                        match modal_message{
+                            ModalMessage::PickNextActionDate => state.date_picker_state = DatePickerState::NextAction,
+                            ModalMessage::PickDueDate =>        state.date_picker_state = DatePickerState::DueDate,
+                            ModalMessage::Close =>              state.date_picker_state = DatePickerState::None,
+                        }
+                        Command::none()
+                    },
+                    Message::Refresh(cache) => {state.cache = cache; Command::none()},
+                    Message::Tick(_) | Message::None => Command::none(),
+                    Message::Loaded(_) | Message::Mutate(_) => panic!("Should never happen"),
+                }}
             },
         }
     }
@@ -250,7 +209,11 @@ impl Application for Beavor {
                     task_scroller(&state.cache.loaded_tasks)
                         .width(Length::FillPortion(2))
                         .height(Length::FillPortion(1)),
-                    task_editor(&state.draft_task, state.timer_start_utc.as_ref(), state.next_action_date_picker_showing, state.due_date_picker_showing)
+                    task_editor(
+                        &state.draft_task,
+                        &state.timer_state,
+                        &state.date_picker_state,
+                    )
                         .padding(8)
                         .width(Length::FillPortion(3))
                         .height(Length::FillPortion(1)),
@@ -267,5 +230,77 @@ impl Application for Beavor {
 
     fn subscription(&self) -> Subscription<Self::Message>{
         iced::time::every(iced::time::Duration::from_secs(1)).map(Message::Tick)
+    }
+}
+
+impl Beavor{
+    #[must_use] fn update_draft_task(draft_task: &mut Task, message: UpdateDraftTask) -> Message{
+        use UpdateDraftTask as UDT;
+
+        match message{
+            UDT::NextActionDate(next_action_date) => {
+                draft_task.next_action_date = next_action_date;
+                Message::Modal(ModalMessage::Close)
+            },
+            UDT::DueDate(due_date) => {
+                draft_task.due_date = due_date;
+                Message::Modal(ModalMessage::Close)
+            },
+            other => {
+                match other{
+                    UDT::NextActionDate(_) | UDT::DueDate(_) => panic!("This will never happen"),
+                    UDT::Category(category) => draft_task.category = category,
+                    UDT::Name(name) => draft_task.name = name,
+                    UDT::TimeNeeded(time_needed) => if let Ok(time_needed) = time_needed {draft_task.time_needed = time_needed},
+                    UDT::TimeUsed(time_used) => if let Ok(time_used) = time_used {draft_task.time_used = time_used},
+                    UDT::Notes(notes) => draft_task.notes = notes,
+                    UDT::Finished(finished) => draft_task.finished = finished,
+                }
+                Message::None
+            }
+        }
+    }
+
+    fn mutate(state: &mut State, message: &MutateMessage) -> Command<Message>{
+        // TODO this is so stupid but it works and I got tired of hacking at Arc<>
+        let db_clone1 = state.db.clone();
+        let db_clone2 = state.db.clone();
+        let t1 = state.draft_task.clone();
+        let t2 = state.draft_task.clone();
+
+        let (tx, rx) = oneshot::channel::<()>(); // Synchronize the writes to the database with the
+                                                 // reads that update the cache
+        
+        Command::batch(
+            [
+                match message{
+                    MutateMessage::SaveDraftTask => match t1.id{
+                        Some(_) => Command::perform(async move {
+                            db_clone1.update_task(&t1).await;
+                            tx.send(()).unwrap();
+                        }, |()| Message::SelectTask(Some(t2))),
+                        None => Command::perform(async move {
+                            db_clone1.create_task(&t1).await;
+                            tx.send(()).unwrap();
+                        }, |()| Message::SelectTask(Some(t2))),
+                    },
+                    MutateMessage::DeleteTask => {
+                        let t = std::mem::take(&mut state.draft_task);
+                        state.selected_task = None;
+                        Command::perform(async move {
+                            db_clone1.delete_task(&t).await;
+                            tx.send(()).unwrap();
+                        }, |()| Message::NewTask)
+                    }
+                },
+                Command::perform(async move {
+                    rx.await.unwrap();
+                    Cache{
+                        loaded_tasks:    db_clone2.open_tasks().await.into(),
+                        loaded_schedule: db_clone2.schedule().await,
+                    }
+                }, Message::Refresh)
+            ]
+        )
     }
 }

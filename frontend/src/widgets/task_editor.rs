@@ -2,18 +2,21 @@ use chrono::{
     NaiveDate,
     offset::Utc,
     DateTime,
+    Duration,
 };
 
 use iced::widget::{
     column,
     Column,
     row,
+    Row,
     text,
     text_input,
     checkbox,
     button,
     Space,
     container,
+    Container,
     pick_list,
 };
 
@@ -32,8 +35,40 @@ use backend::{
 
 use crate::{
     Message,
-    Mutate,
+    MutateMessage,
+    ModalMessage,
 };
+
+// TODO this still doesn't sit quite right, since why match over TimerState when you can match over
+// time_running and immediately get the time?
+#[derive(Debug, Clone)]
+pub enum TimerState{
+    Timing{
+        start_time: DateTime<Utc>,
+    },
+    Stopped,
+}
+
+impl TimerState{
+    pub fn time_running(&self) -> Option<Duration>{
+        match self{
+            TimerState::Timing { start_time } => Some(Utc::now() - start_time),
+            TimerState::Stopped => None,
+        }
+    }
+
+    pub fn num_minutes_running(&self) -> Option<u32> {
+        Some(u32::try_from(self.time_running()?.num_minutes())
+            .expect("This will be positive (started in the past) and small enough to fit (<136 years)"))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum DatePickerState{
+    None,
+    NextAction,
+    DueDate,
+}
 
 #[derive(Debug, Clone)]
 pub enum UpdateDraftTask{
@@ -47,18 +82,15 @@ pub enum UpdateDraftTask{
     Finished        (bool),
 }
 
-// TODO should have a dedicated State object to pass in so don't have to keep updating arguments
-pub fn task_editor<'a>(task: &'a Task, timer_start_utc: Option<&'a DateTime<Utc>>, show_next_action_date_picker: bool, show_due_date_picker: bool) -> Column<'a, Message>{
-    use Message::UpdateDraftTask as Message_UDT;
-    use UpdateDraftTask as UDT;
+use Message::UpdateDraftTask as Message_UDT;
+use UpdateDraftTask as UDT;
 
-    let display_time_used: u32 = task.time_used * 60 + match timer_start_utc{
-        Some(timer_start_utc) => u32::try_from((Utc::now() - timer_start_utc).num_seconds()).expect("This should be positive and small enough to fit"), 
-            // This should work because the timer presumably started in the past, which will
-            // yield a positive number, and presumably has not been running long enough to
-            // overflow a u32 (136 years by my math)
-        None => 0,
-    };
+// TODO Should buttons be disabled while a date modal is open? Or should clicking one of them
+// close the modal?
+// TODO should have a dedicated State object to pass in so don't have to keep updating arguments
+pub fn task_editor<'a>(draft_task: &'a Task, timer_state: &TimerState, date_picker_state: &DatePickerState) -> Column<'a, Message>{
+
+    let display_time_used: u32 = draft_task.time_used * 60 + timer_state.num_minutes_running().unwrap_or(0);
 
     // TODO this is a TON of boilerplate. Find a way to reduce this down
     column![
@@ -67,7 +99,7 @@ pub fn task_editor<'a>(task: &'a Task, timer_start_utc: Option<&'a DateTime<Utc>
             text("Category").width(Length::FillPortion(1)),
             text_input(
                 "Category...",
-               &task.category
+               &draft_task.category
             )
                 .on_input(|s| Message_UDT(UDT::Category(s)))
                 .width(Length::FillPortion(3))
@@ -76,7 +108,7 @@ pub fn task_editor<'a>(task: &'a Task, timer_start_utc: Option<&'a DateTime<Utc>
             text("Name").width(Length::FillPortion(1)),
             text_input(
                 "Name...",
-               &task.name
+               &draft_task.name
             )
                 .on_input(|s| Message_UDT(UDT::Name(s)))
 				.width(Length::FillPortion(3))
@@ -85,7 +117,7 @@ pub fn task_editor<'a>(task: &'a Task, timer_start_utc: Option<&'a DateTime<Utc>
             text("Time needed").width(Length::FillPortion(1)),
             text_input(
                 "Time needed...",
-               &task.time_needed.to_string()
+               &draft_task.time_needed.to_string()
             )
                 .on_input(|u| Message_UDT(UDT::TimeNeeded(u.parse().map_err(|_| ()))))
 				.width(Length::FillPortion(3))
@@ -102,59 +134,19 @@ pub fn task_editor<'a>(task: &'a Task, timer_start_utc: Option<&'a DateTime<Utc>
         row![
             text("Next action")
                 .width(Length::FillPortion(1)),
-            container(
-                date_picker(
-                    show_next_action_date_picker,
-                    task.next_action_date,
-                    button(text(&task.next_action_date.to_string())).on_press(Message::PickNextActionDate),
-                    Message::CancelPickNextActionDate,
-                    |d| Message_UDT(UDT::NextActionDate(d.into()))
-                )
-            )
+            next_action_date_picker(date_picker_state, draft_task)
                 .width(Length::FillPortion(3)),
         ],
         row![
             text("Due date").width(Length::FillPortion(1)),
-            container(
-                date_picker(
-                    show_due_date_picker,
-                    match task.due_date{
-                        DueDate::Date(date) => date,
-                        _ => today_date(), // This will not be shown, so arbitray
-                    },
-                    button(text(&task.due_date.to_string()))
-                        .on_press_maybe(match task.due_date{
-                            DueDate::Date(_) => Some(Message::PickDueDate),
-                            _ => None,
-                        }),
-                    Message::CancelPickDueDate,
-                    |d| Message_UDT(UDT::DueDate(DueDate::Date(d.into())))
-                )
-            )
-                .width(Length::FillPortion(2)),
-            pick_list( // TODO this whole section would be easier if DueDateType had to_string()
-                vec!["Date", "None", "ASAP"],
-                Some(match task.due_date{
-                    DueDate::Never => "None",
-                    DueDate::Date(_) => "Date",
-                    DueDate::Asap => "ASAP",
-                }),
-                |selection| {
-                    Message_UDT(UDT::DueDate(match selection{
-                        "None" => DueDate::Never,
-                        "ASAP" => DueDate::Asap,
-                        "Date" => DueDate::Date(today_date()),
-                        _ => panic!("This will never happen")
-                    }))
-                }
-            )
-                .width(Length::FillPortion(1)),
+            due_date_picker(date_picker_state, draft_task)
+                .width(Length::FillPortion(3)),
         ],
         row![
             text("Notes").width(Length::FillPortion(1)),
             text_input(
                 "Notes...",
-               &task.notes
+               &draft_task.notes
             )
                 .on_input(|d| Message_UDT(UDT::Notes(d)))
 				.width(Length::FillPortion(3))
@@ -162,35 +154,74 @@ pub fn task_editor<'a>(task: &'a Task, timer_start_utc: Option<&'a DateTime<Utc>
         row![
             checkbox(
                 "Done",
-                task.finished,
+                draft_task.finished,
                 |b| Message_UDT(UDT::Finished(b)),
             ),
             button(
-                match timer_start_utc{
-                    Some(_) => "Stop",
-                    None => "Start",
+                match timer_state{
+                    TimerState::Timing{..} => "Stop",
+                    TimerState::Stopped => "Start",
                 }
-            )
-                .on_press(Message::ToggleTimer),
-            text(
-                 format!("{:02}:{:02}:{:02}", display_time_used/3600, (display_time_used % 3600)/60, display_time_used % 60)
-            ),
-            button(
-                "Save",
-            )
-                .on_press(Message::Mutate(Mutate::SaveDraftTask)),
-            button(
-                "New",
-            )
-                .on_press(Message::NewTask),
-            button(
-                "Delete",
-            )
-                .on_press(Message::Mutate(Mutate::DeleteTask)),
+            ) .on_press(Message::ToggleTimer),
+            text( format!("{:02}:{:02}:{:02}", display_time_used/3600, (display_time_used % 3600)/60, display_time_used % 60)),
+            button("Save").on_press(Message::Mutate(MutateMessage::SaveDraftTask)),
+            button("New").on_press(Message::NewTask),
+            // TODO this should be disabled if the current task is a new one (i.e., does not exist
+            // in the database
+            button("Delete").on_press(Message::Mutate(MutateMessage::DeleteTask)),
         ]
             .align_items(Alignment::Center)
             .spacing(4),
     ]
         .spacing(4)
         .align_items(Alignment::Center)
+}
+
+fn next_action_date_picker<'a>(date_picker_state: &DatePickerState, draft_task: &'a Task) -> Container<'a, Message>{
+    container(
+        date_picker(
+            *date_picker_state == DatePickerState::NextAction,
+            draft_task.next_action_date,
+            button(text(&draft_task.next_action_date.to_string())).on_press(Message::Modal(ModalMessage::PickNextActionDate)),
+            Message::Modal(ModalMessage::Close),
+            |d| Message_UDT(UDT::NextActionDate(d.into()))
+        )
+    )
+}
+
+fn due_date_picker<'a>(date_picker_state: &DatePickerState, draft_task: &'a Task) -> Row<'a, Message>{
+    row![
+        container(
+            date_picker(
+                *date_picker_state == DatePickerState::DueDate,
+                match draft_task.due_date{
+                    DueDate::Date(date) => date,
+                    _ => today_date(), // This will not be shown, so arbitray
+                },
+                button(text(&draft_task.due_date.to_string()))
+                    .on_press_maybe(match draft_task.due_date{
+                        DueDate::Date(_) => Some(Message::Modal(ModalMessage::PickDueDate)),
+                        _ => None,
+                    }),
+                Message::Modal(ModalMessage::Close),
+                |d| Message_UDT(UDT::DueDate(DueDate::Date(d.into())))
+            )
+        ).width(Length::FillPortion(1)),
+        pick_list( // TODO this whole section would be easier if DueDateType had to_string()
+            vec!["Date", "None", "ASAP"],
+            Some(match draft_task.due_date{
+                DueDate::Never => "None",
+                DueDate::Date(_) => "Date",
+                DueDate::Asap => "ASAP",
+            }),
+            |selection| {
+                Message_UDT(UDT::DueDate(match selection{
+                    "None" => DueDate::Never,
+                    "ASAP" => DueDate::Asap,
+                    "Date" => DueDate::Date(today_date()),
+                    _ => panic!("This will never happen")
+                }))
+            }
+        ).width(Length::FillPortion(2))
+    ]
 }
