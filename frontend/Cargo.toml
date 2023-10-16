@@ -11,3 +11,4 @@ backend = { path = "../backend" }
 iced = { version = "0.10.0", features = ["tokio"] }
 iced_aw = { version = "0.7.0" }
 chrono = { version = "0.4.31", features = ["clock"] }
+tokio = { version = "1.33.0", features = ["sync"]}

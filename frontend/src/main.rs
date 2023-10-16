@@ -20,6 +20,8 @@ use iced::{
     Alignment,
 };
 
+use tokio::sync::oneshot;
+
 use chrono::{
     NaiveDate,
     offset::Utc,
@@ -156,39 +158,8 @@ impl Application for Beavor {
                 }
             },
             Beavor::Loaded(state) => match message{
-                Message::Mutate(mutate) => {
-                    // TODO this is so stupid but it works and I got tired of hacking at Arc<>
-                    let db_clone1 = state.db.clone();
-                    let db_clone2 = state.db.clone();
-                    let t1 = state.draft_task.clone();
-                    let t2 = state.draft_task.clone();
-                    Command::batch(
-                    [
-                        match mutate{
-                            MutateMessage::SaveDraftTask => match t1.id{
-                                Some(_) => Command::perform(async move {
-                                    db_clone1.update_task(&t1).await;
-                                }, |()| Message::SelectTask(Some(t2))),
-                                None => Command::perform(async move {
-                                    db_clone1.create_task(&t1).await;
-                                }, |()| Message::SelectTask(Some(t2))),
-                            },
-                            MutateMessage::DeleteTask => {
-                                let t = std::mem::take(&mut state.draft_task);
-                                state.selected_task = None;
-                                Command::perform(async move {
-                                    db_clone1.delete_task(&t).await;
-                                }, |()| Message::NewTask)
-                            }
-                        },
-                        Command::perform(async move {Cache{
-                            loaded_tasks:    db_clone2.open_tasks().await.into(),
-                            loaded_schedule: db_clone2.schedule().await,
-                        }}, Message::Refresh)
-                    ]
-                )},
+                Message::Mutate(mutate_message) => Beavor::mutate(state, &mutate_message),
                 other => {match other{
-                    Message::Mutate(_) => panic!("Unreachable"),
                     Message::NewTask => {let _ = self.update(Message::SelectTask(None));},
                     Message::SelectTask(maybe_task) => {
                         state.selected_task = maybe_task.clone();
@@ -237,20 +208,19 @@ impl Application for Beavor {
                     },
                     Message::Tick(_) | Message::None(()) => {},
                     Message::Refresh(cache) => state.cache = cache,
-                    // TODO These three should be grouped together somehow maybe a Modal type
-                    // message? so only one modal at a time can ever be showing?
                     Message::Modal(modal_message) => match modal_message{
                         ModalMessage::PickNextActionDate => state.date_picker_state = DatePickerState::NextAction,
                         ModalMessage::PickDueDate => state.date_picker_state = DatePickerState::DueDate,
                         ModalMessage::Close => state.date_picker_state = DatePickerState::None,
                     },
-                    Message::Loaded(_) => panic!("Should never happen"),
+                    Message::Loaded(_) | Message::Mutate(_) => panic!("Should never happen"),
                 }Command::none()}
             },
         }
     }
 
     fn view(&self) -> Element<'_, Self::Message> {
+        println!("Reloading UI");
         let content: Element<Message> = match self{
             Beavor::Loading => text("Loading...").into(),
             Beavor::Loaded(state) => 
@@ -279,5 +249,50 @@ impl Application for Beavor {
 
     fn subscription(&self) -> Subscription<Self::Message>{
         iced::time::every(iced::time::Duration::from_secs(1)).map(Message::Tick)
+    }
+}
+
+impl Beavor{
+    fn mutate(state: &mut State, message: &MutateMessage) -> Command<Message>{
+        // TODO this is so stupid but it works and I got tired of hacking at Arc<>
+        let db_clone1 = state.db.clone();
+        let db_clone2 = state.db.clone();
+        let t1 = state.draft_task.clone();
+        let t2 = state.draft_task.clone();
+
+        let (tx, rx) = oneshot::channel::<()>(); // Synchronize the writes to the database with the
+                                                 // reads that update the cache
+        
+        Command::batch(
+            [
+                match message{
+                    MutateMessage::SaveDraftTask => match t1.id{
+                        Some(_) => Command::perform(async move {
+                            db_clone1.update_task(&t1).await;
+                            tx.send(()).unwrap();
+                        }, |()| Message::SelectTask(Some(t2))),
+                        None => Command::perform(async move {
+                            db_clone1.create_task(&t1).await;
+                            tx.send(()).unwrap();
+                        }, |()| Message::SelectTask(Some(t2))),
+                    },
+                    MutateMessage::DeleteTask => {
+                        let t = std::mem::take(&mut state.draft_task);
+                        state.selected_task = None;
+                        Command::perform(async move {
+                            db_clone1.delete_task(&t).await;
+                            tx.send(()).unwrap();
+                        }, |()| Message::NewTask)
+                    }
+                },
+                Command::perform(async move {println!("Updating cache");
+                    rx.await.unwrap();
+                    Cache{
+                        loaded_tasks:    db_clone2.open_tasks().await.into(),
+                        loaded_schedule: db_clone2.schedule().await,
+                    }
+                }, Message::Refresh)
+            ]
+        )
     }
 }
