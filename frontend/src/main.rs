@@ -92,10 +92,10 @@ pub struct State{
     db:            DatabaseManager,
     selected_task: Option<Task>,
     selected_date: Option<NaiveDate>,
-    draft_task: Task,
-    timer_state: TimerState,
+    draft_task:    Task,
+    timer_state:   TimerState,
     date_picker_state: DatePickerState,
-    cache: Cache,
+    cache:         Cache,
 }
 
 #[derive(Debug, Clone)]
@@ -157,6 +157,7 @@ impl Application for Beavor {
                 }
             },
             Beavor::Loaded(state) => match message{
+                // Mutate messages modify the database
                 Message::Mutate(mutate_message) => Beavor::mutate(state, &mutate_message),
                 other => {match other{
                     Message::NewTask => {let _ = self.update(Message::SelectTask(None));},
@@ -208,9 +209,10 @@ impl Application for Beavor {
                     Message::Tick(_) | Message::None(()) => {},
                     Message::Refresh(cache) => state.cache = cache,
                     Message::Modal(modal_message) => match modal_message{
+                        // TODO would it be better to have a single message that holds date_picker_state?
                         ModalMessage::PickNextActionDate => state.date_picker_state = DatePickerState::NextAction,
-                        ModalMessage::PickDueDate => state.date_picker_state = DatePickerState::DueDate,
-                        ModalMessage::Close => state.date_picker_state = DatePickerState::None,
+                        ModalMessage::PickDueDate =>        state.date_picker_state = DatePickerState::DueDate,
+                        ModalMessage::Close =>              state.date_picker_state = DatePickerState::None,
                     },
                     Message::Loaded(_) | Message::Mutate(_) => panic!("Should never happen"),
                 }Command::none()}
