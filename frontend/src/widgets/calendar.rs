@@ -8,6 +8,7 @@ use iced::widget::{
 use iced::{
     Element,
     Length,
+    Alignment,
 };
 
 use chrono::{
@@ -60,8 +61,9 @@ fn cal_day(day: NaiveDate, load: u32) -> Column<'static, Message>{
             day.format("%b %d")
         ),
         text(
-            format!("{:.1}", f64::from(load)/60.0)
+            if day >= today_date() {format!("{:.1}", f64::from(load)/60.0)} else{"-".to_string()}
         )
     ]
         .padding(4)
+        .align_items(Alignment::Center)
 }
