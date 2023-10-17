@@ -39,15 +39,16 @@ pub fn calendar(schedule: &Schedule) -> Element<'static, Message>{
     let today = today_date();
 
     let num_weeks = 4;
-    Column::with_children(
-        (0..num_weeks)
-            .map(|n| today + Days::new(7*n))
-            .map(|d| Row::with_children(
-                week_of(d).iter().map(
-                    |d| Element::from(cal_day(*d, schedule.workload_on_day(*d)).padding(4))
-                ).collect()
-            ).into())
-            .collect()
+    Row::with_children(
+        week_of(today)
+            .iter()
+            .map(|d| Column::with_children(
+                (0..num_weeks)
+                    .map(|n| *d + Days::new(7*n))
+                    .map(|d| Element::from(cal_day(d, schedule.workload_on_day(d)).padding(4)))
+                    .collect()
+                ).into()
+            ).collect()
     )
         .width(Length::Shrink)
         .height(Length::Shrink)
