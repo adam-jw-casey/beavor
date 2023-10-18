@@ -142,9 +142,11 @@ impl Schedule{
     }
 
     /// Returns the number of minutes of work that need to be done on a given date
-    #[must_use] pub fn workload_on_day(&self, date: NaiveDate) -> u32{
-        *self.workloads.get(&date)
-            .unwrap_or(&0)
+    #[must_use] pub fn workload_on_day(&self, date: NaiveDate) -> Option<u32>{
+        if self.is_work_day(date) && date >= today_date(){
+            Some(*self.workloads.get(&date)
+                .unwrap_or(&0))
+        }else{None}
     }
 
     /// Returns a boolean representing whether a given date is a work day
@@ -180,6 +182,6 @@ mod tests{
         assert!(!schedule.is_work_day(NaiveDate::from_ymd_opt(3000,01,05).unwrap()));
         assert!(!schedule.is_work_day(NaiveDate::from_ymd_opt(3000,01,08).unwrap()));
 
-        assert_eq!(schedule.workload_on_day(NaiveDate::from_ymd_opt(3000,01,02).unwrap()), 20);
+        assert_eq!(schedule.workload_on_day(NaiveDate::from_ymd_opt(3000,01,02).unwrap()), Some(20));
     }
 }

@@ -56,13 +56,13 @@ pub fn calendar(schedule: &Schedule) -> Element<'static, Message>{
         .into()
 }
 
-fn cal_day(day: NaiveDate, load: u32) -> Column<'static, Message>{
+fn cal_day(day: NaiveDate, load: Option<u32>) -> Column<'static, Message>{
     column![
         text(
             day.format("%b %d")
         ),
         text(
-            if day >= today_date() {format!("{:.1}", f64::from(load)/60.0)} else{"-".to_string()}
+            if let Some(load) = load {format!("{:.1}", f64::from(load)/60.0)} else{"-".to_string()}
         )
     ]
         .padding(4)
