@@ -1,4 +1,4 @@
-mod calendar;
+pub mod calendar;
 pub use calendar::calendar;
 
 mod task_scroller;
