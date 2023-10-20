@@ -143,7 +143,8 @@ impl Application for Beavor {
                         *self = Self::Loaded(state);
                         Command::none()
                     },
-                    _ => panic!("Should never happen")
+                    Message::Tick(_) => {Command::none()},
+                    m => panic!("Should never happen: {m:#?}")
                 }
             },
             Beavor::Loaded(state) => match message{
