@@ -34,7 +34,10 @@ use backend::{
 
 mod widgets;
 use widgets::{
-    calendar,
+    calendar::{
+        calendar,
+        CalendarState,
+    },
     task_scroller,
     task_editor::{
         task_editor,
@@ -76,6 +79,9 @@ pub enum Message{
     NewTask,
     Mutate(MutateMessage),
     Loaded(State),
+    ScrollDownCalendar,
+    ScrollUpCalendar,
+    ScrollUpMaxCalendar,
     None,
 }
 
@@ -87,6 +93,7 @@ pub struct State{
     draft_task:    Task,
     timer_state:   TimerState,
     date_picker_state: DatePickerState,
+    calendar_state: CalendarState,
     cache:         Cache,
 }
 
@@ -126,6 +133,7 @@ impl Application for Beavor {
                         loaded_schedule: db.schedule().await,
                     },
                     db,
+                    calendar_state: Default::default(),
                 }
             }, Message::Loaded),
         )
@@ -197,6 +205,9 @@ impl Application for Beavor {
                     Message::Refresh(cache) => {state.cache = cache; Command::none()},
                     Message::Tick(_) | Message::None => Command::none(),
                     Message::Loaded(_) | Message::Mutate(_) => panic!("Should never happen"),
+                    Message::ScrollDownCalendar => {state.calendar_state.scroll_down(); Command::none()},
+                    Message::ScrollUpCalendar => {state.calendar_state.scroll_up(); Command::none()},
+                    Message::ScrollUpMaxCalendar => {state.calendar_state.scroll_up_max(); Command::none()},
                 }}
             },
         }
@@ -218,7 +229,7 @@ impl Application for Beavor {
                         .padding(8)
                         .width(Length::FillPortion(3))
                         .height(Length::FillPortion(1)),
-                    calendar(&state.cache.loaded_schedule),
+                    calendar(&state.cache.loaded_schedule, &state.calendar_state),
                 ]
                     .align_items(Alignment::End)
                     .height(Length::Fill)

@@ -167,7 +167,7 @@ pub fn task_editor<'a>(draft_task: &'a Task, timer_state: &TimerState, date_pick
                     TimerState::Timing{..} => "Stop",
                     TimerState::Stopped => "Start",
                 }
-            ) .on_press(Message::ToggleTimer),
+            ).on_press(Message::ToggleTimer),
             text( format!("{:02}:{:02}:{:02}", display_time_used/3600, (display_time_used % 3600)/60, display_time_used % 60)),
             button("Save").on_press(Message::Mutate(MutateMessage::SaveDraftTask)),
             button("New").on_press(Message::NewTask),
