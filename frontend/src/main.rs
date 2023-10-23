@@ -17,6 +17,7 @@ use iced::{
     time::Instant,
     Length,
     Alignment,
+    font,
 };
 
 use tokio::sync::oneshot;
@@ -117,25 +118,28 @@ impl Application for Beavor {
     fn new(_flags: Self::Flags) -> (Beavor, iced::Command<Message>) {
         (
             Self::Loading,
-            Command::perform(async{
-                let db = match DatabaseManager::new("worklist.db").await{
-                    Ok(db) => db,
-                    Err(_) => DatabaseManager::with_new_database("worklist.db").await.expect("Should be able to create database"),
-                };
-                State{
-                    selected_task: None,
-                    selected_date: None,
-                    draft_task:    Task::default(),
-                    timer_state: TimerState::Stopped,
-                    date_picker_state: DatePickerState::None,
-                    cache: Cache{
-                        loaded_tasks: db.open_tasks().await.into(),
-                        loaded_schedule: db.schedule().await,
-                    },
-                    db,
-                    calendar_state: Default::default(),
-                }
-            }, Message::Loaded),
+            Command::batch(vec![
+                Command::perform(async{
+                    let db = match DatabaseManager::new("worklist.db").await{
+                        Ok(db) => db,
+                        Err(_) => DatabaseManager::with_new_database("worklist.db").await.expect("Should be able to create database"),
+                    };
+                    State{
+                        selected_task: None,
+                        selected_date: None,
+                        draft_task:    Task::default(),
+                        timer_state: TimerState::Stopped,
+                        date_picker_state: DatePickerState::None,
+                        cache: Cache{
+                            loaded_tasks: db.open_tasks().await.into(),
+                            loaded_schedule: db.schedule().await,
+                        },
+                        db,
+                        calendar_state: CalendarState::default(),
+                    }
+                }, Message::Loaded),
+                font::load(iced_aw::graphics::icons::ICON_FONT_BYTES).map(|_| Message::None),
+            ])
         )
     }
 
@@ -151,7 +155,7 @@ impl Application for Beavor {
                         *self = Self::Loaded(state);
                         Command::none()
                     },
-                    Message::Tick(_) => {Command::none()},
+                    Message::Tick(_) | Message::None => {Command::none()},
                     m => panic!("Should never happen: {m:#?}")
                 }
             },
