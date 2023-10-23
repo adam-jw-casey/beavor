@@ -1,8 +1,6 @@
 use std::error::Error;
 use std::str::FromStr;
 
-use tokio::runtime::Runtime;
-
 use sqlx::sqlite::{
     SqlitePool,
     SqliteRow,
@@ -63,10 +61,11 @@ struct Holidays{
     holidays: Vec<Holiday>,
 }
 
+#[allow(non_snake_case)]
 #[derive(Serialize, Deserialize)]
 struct Holiday{
     provinces: Vec<Province>,
-    observed_date: String
+    observedDate: String
 }
 
 #[derive(Debug, Clone)]
@@ -88,22 +87,19 @@ impl Connection{
     }
 
     pub async fn with_new_database(database_path: &str) -> Result<Self, sqlx::Error>{
-        let rt = Runtime::new().unwrap();
-        rt.block_on(async{
-            let mut conn = SqliteConnectOptions::from_str(database_path)
-                .expect("This should work")
-                .create_if_missing(true)
-                .connect()
-                .await
-                .expect("Should be able to connect to database");
+        let mut conn = SqliteConnectOptions::from_str(database_path)
+            .expect("This should work")
+            .create_if_missing(true)
+            .connect()
+            .await
+            .expect("Should be able to connect to database");
 
-            // This doesn't use query! because when creating a database, it doesn't make sense to
-            // check against an existing database
-            sqlx::query_file!("resources/schema.sql")
-                .execute(&mut conn)
-                .await
-                .expect("Should be able to create the schema");
-        });
+        // This doesn't use query! because when creating a database, it doesn't make sense to
+        // check against an existing database
+        sqlx::query_file!("resources/schema.sql")
+            .execute(&mut conn)
+            .await
+            .expect("Should be able to create the schema");
 
         Self::new(database_path).await
     }
@@ -290,7 +286,7 @@ impl Connection{
             .holidays
             .iter()
             .filter(|h| h.provinces.contains(&Province{id: "BC".to_string()}))
-            .map(|h| h.observed_date.parse::<NaiveDate>())
+            .map(|h| h.observedDate.parse::<NaiveDate>())
             .collect::<Result<Vec<NaiveDate>, _>>()?;
 
             for d in holiday_dates{
