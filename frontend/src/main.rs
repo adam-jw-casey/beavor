@@ -83,6 +83,7 @@ pub enum Message{
     ScrollDownCalendar,
     ScrollUpCalendar,
     ScrollUpMaxCalendar,
+    Open(String),
     None,
 }
 
@@ -212,6 +213,8 @@ impl Application for Beavor {
                     Message::ScrollDownCalendar => {state.calendar_state.scroll_down(); Command::none()},
                     Message::ScrollUpCalendar => {state.calendar_state.scroll_up(); Command::none()},
                     Message::ScrollUpMaxCalendar => {state.calendar_state.scroll_up_max(); Command::none()},
+                    Message::Open(url) => {open::that(url).expect("Should be able to open this"); Command::none()}
+                    ,
                 }}
             },
         }

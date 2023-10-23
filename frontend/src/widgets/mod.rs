@@ -6,3 +6,6 @@ pub use task_scroller::task_scroller;
 
 pub mod task_editor;
 pub use task_editor::task_editor;
+
+pub mod hyperlink;
+pub use hyperlink::hyperlink;
