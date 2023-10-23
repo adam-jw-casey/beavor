@@ -16,3 +16,8 @@ CREATE TABLE IF NOT EXISTS days_off(
 	Day	TEXT UNIQUE,
 	Reason	TEXT CHECK(Reason IN ('vacation', 'stat_holiday', 'travel'))
 );
+
+CREATE TABLE IF NOT EXISTS hyperlinks(
+	Url	TEXT,
+	Display TEXT
+);
