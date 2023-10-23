@@ -81,8 +81,12 @@ impl Connection{
     /// Will fail a connection to the database cannot be established. This is generally if the
     /// database file does not exist or is corrupted
     pub async fn new(database_path: &str) -> Result<Self, sqlx::Error>{
+        let pool = SqlitePool::connect(database_path).await?;
+
+        sqlx::query!("PRAGMA foreign_keys=ON").execute(&pool).await?;
+
         Ok(Self{
-            pool: SqlitePool::connect(database_path).await?,
+            pool,
         })
     }
 

@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS tasks(
 	NextAction TEXT,
 	DueDate    TEXT,
 	Notes      TEXT,
-	DateAdded  TEXT
+	DateAdded  TEXT,
+	TaskID	   INTEGER PRIMARY KEY
 );
 
 CREATE TABLE IF NOT EXISTS days_off(
@@ -19,5 +20,7 @@ CREATE TABLE IF NOT EXISTS days_off(
 
 CREATE TABLE IF NOT EXISTS hyperlinks(
 	Url	TEXT,
-	Display TEXT
+	Display TEXT,
+	Task	INTEGER,
+	FOREIGN KEY (Task) REFERENCES tasks(TaskID) ON DELETE CASCADE
 );

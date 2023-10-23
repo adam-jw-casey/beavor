@@ -26,5 +26,5 @@ new: $(RESOURCES)/schema.sql
 upgrade: $(TARGET)
 
 $(RESOURCES)/beavor_v1.1.db: $(RESOURCES)/schema.db $(UPGRADE)/upgrade_v1.1.sql
-	sqlite3 $< < $(RESOURCES)/upgrade_v1.1.sql
-	mv $(RESOURCES)/schema.db $(RESOURCES)/beavor_v1.1.db
+	sqlite3 $< < $(UPGRADE)/upgrade_v1.1.sql
+	mv $< $@
