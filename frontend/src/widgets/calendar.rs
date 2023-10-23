@@ -24,6 +24,14 @@ use backend::{
     Schedule,
 };
 
+use iced_aw::{
+    Icon,
+    graphics::icons::{
+        icon_to_char,
+        ICON_FONT,
+    },
+};
+
 use crate::Message;
 
 #[derive(Debug, Clone, Default)]
@@ -76,11 +84,13 @@ pub fn calendar(schedule: &Schedule, state: &CalendarState) -> Element<'static, 
             .height(Length::Shrink)
             .padding(8),
             column![
-                button("↑").on_press_maybe(if state.weeks_scrolled > 0 {Some(Message::ScrollUpMaxCalendar)}else{None}),
-                button("🞁").on_press_maybe(if state.weeks_scrolled > 0 {Some(Message::ScrollUpCalendar)}else{None}),
-                button("🞃").on_press(Message::ScrollDownCalendar),
-            ]
-    ].into()
+                button(text(icon_to_char(Icon::ChevronDoubleUp)).font(ICON_FONT)).on_press_maybe(if state.weeks_scrolled > 0 {Some(Message::ScrollUpMaxCalendar)}else{None}),
+                button(text(icon_to_char(Icon::ChevronUp)).font(ICON_FONT)).on_press_maybe(if state.weeks_scrolled > 0 {Some(Message::ScrollUpCalendar)}else{None}),
+                button(text(icon_to_char(Icon::ChevronDown)).font(ICON_FONT)).on_press(Message::ScrollDownCalendar),
+            ].height(Length::Shrink)
+    ]
+        .align_items(Alignment::Center)
+        .into()
 }
 
 fn cal_day(day: NaiveDate, load: Option<u32>) -> Column<'static, Message>{
