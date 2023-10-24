@@ -31,12 +31,14 @@ use backend::{
     Task,
     DueDate,
     utils::today_date,
+    Hyperlink,
 };
 
 use crate::{
     Message,
     MutateMessage,
     ModalMessage,
+    widgets::hyperlink,
 };
 
 // TODO this still doesn't sit quite right, since why match over TimerState when you can match over
@@ -85,6 +87,7 @@ pub enum UpdateDraftTask{
     DueDate         (DueDate),
     Notes           (String),
     Finished        (bool),
+    Link            ((usize, Option<Hyperlink>)),
 }
 
 use Message::UpdateDraftTask as Message_UDT;
@@ -93,7 +96,7 @@ use UpdateDraftTask as UDT;
 // TODO Should buttons be disabled while a date modal is open? Or should clicking one of them
 // close the modal?
 // TODO should have a dedicated State object to pass in so don't have to keep updating arguments
-pub fn task_editor<'a>(draft_task: &'a Task, timer_state: &TimerState, date_picker_state: &DatePickerState) -> Column<'a, Message>{
+pub fn task_editor<'a>(draft_task: &'a Task, timer_state: &TimerState, date_picker_state: &DatePickerState, editing_link: Option<usize>) -> Column<'a, Message>{
 
     let display_time_used: u32 = draft_task.time_used * 60 + timer_state.num_seconds_running().unwrap_or(0);
 
@@ -147,6 +150,14 @@ pub fn task_editor<'a>(draft_task: &'a Task, timer_state: &TimerState, date_pick
             due_date_picker(date_picker_state, draft_task)
                 .width(Length::FillPortion(3)),
         ],
+        Column::with_children(
+            draft_task.links
+                .iter()
+                .map(|h: &Hyperlink| {
+                    hyperlink(draft_task.links.clone(), h.id, editing_link)
+                })
+                .collect()
+        ),
         row![
             text("Notes").width(Length::FillPortion(1)),
             text_input(
@@ -212,7 +223,7 @@ fn due_date_picker<'a>(date_picker_state: &DatePickerState, draft_task: &'a Task
                 |d| Message_UDT(UDT::DueDate(DueDate::Date(d.into())))
             )
         ).width(Length::FillPortion(1)),
-        pick_list( // TODO this whole section would be easier if DueDateType had to_string()
+        pick_list(
             vec!["Date", "None", "ASAP"],
             Some(match draft_task.due_date{
                 DueDate::Never => "None",

@@ -31,6 +31,7 @@ use backend::{
     DatabaseManager,
     Task,
     Schedule,
+    Hyperlink,
 };
 
 mod widgets;
@@ -83,6 +84,7 @@ pub enum Message{
     ScrollDownCalendar,
     ScrollUpCalendar,
     ScrollUpMaxCalendar,
+    EditLinkID(Option<usize>),
     Open(String),
     None,
 }
@@ -97,6 +99,7 @@ pub struct State{
     date_picker_state: DatePickerState,
     calendar_state: CalendarState,
     cache:         Cache,
+    editing_link: Option<usize>,
 }
 
 #[derive(Debug, Clone)]
@@ -137,6 +140,7 @@ impl Application for Beavor {
                         },
                         db,
                         calendar_state: CalendarState::default(),
+                        editing_link: None,
                     }
                 }, Message::Loaded),
                 font::load(iced_aw::graphics::icons::ICON_FONT_BYTES).map(|_| Message::None),
@@ -160,7 +164,8 @@ impl Application for Beavor {
                     m => panic!("Should never happen: {m:#?}")
                 }
             },
-            Beavor::Loaded(state) => match message{
+            Beavor::Loaded(state) => match message{ // TODO most of these branches end in
+                                                    // Command::none() - how can this be cleaner?
                 // Mutate messages modify the database
                 Message::Mutate(mutate_message) => Beavor::mutate(state, &mutate_message),
                 other => {match other{
@@ -213,8 +218,8 @@ impl Application for Beavor {
                     Message::ScrollDownCalendar => {state.calendar_state.scroll_down(); Command::none()},
                     Message::ScrollUpCalendar => {state.calendar_state.scroll_up(); Command::none()},
                     Message::ScrollUpMaxCalendar => {state.calendar_state.scroll_up_max(); Command::none()},
-                    Message::Open(url) => {open::that(url).expect("Should be able to open this"); Command::none()}
-                    ,
+                    Message::Open(url) => {open::that(url).expect("Should be able to open this"); Command::none()},
+                    Message::EditLinkID(h_id) => {state.editing_link = h_id; Command::none()},
                 }}
             },
         }
@@ -232,6 +237,7 @@ impl Application for Beavor {
                         &state.draft_task,
                         &state.timer_state,
                         &state.date_picker_state,
+                        state.editing_link,
                     )
                         .padding(8)
                         .width(Length::FillPortion(3))
@@ -274,6 +280,12 @@ impl Beavor{
                     UDT::TimeUsed(time_used) => if let Ok(time_used) = time_used {draft_task.time_used = time_used},
                     UDT::Notes(notes) => draft_task.notes = notes,
                     UDT::Finished(finished) => draft_task.finished = finished,
+                    UDT::Link((link_id, link)) => {
+                        match link{
+                            Some(link) => draft_task.links[link_id as usize] = link,
+                            None => {draft_task.links.remove(link_id);},
+                        }
+                    }
                 }
                 Message::None
             }

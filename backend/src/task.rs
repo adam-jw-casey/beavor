@@ -55,6 +55,7 @@ impl std::default::Default for Task{
 
 #[derive(Clone, Debug, Serialize, Deserialize, Hash, PartialEq, Eq, Default)]
 pub struct Hyperlink{
-    pub url:    String,
-    pub display:   String,
+    pub url:     String,
+    pub display: String,
+    pub id:      usize,
 }

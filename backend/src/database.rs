@@ -31,8 +31,6 @@ use serde::{
     Deserialize,
 };
 
-use futures::future;
-
 impl TryFrom<SqliteRow> for Task{
     type Error = ParseDateError;
 
@@ -47,7 +45,7 @@ impl TryFrom<SqliteRow> for Task{
             next_action_date: parse_date(&row.get::<String, &str>("NextAction"))?,
             due_date:                     row.get::<String, &str>("DueDate").try_into()?,
             notes:                        row.get::<String, &str>("Notes"),
-            id:                           row.get::<Option<u32>, &str>("rowid"),
+            id:                           row.get::<Option<u32>, &str>("TaskID"),
             date_added:       parse_date(&row.get::<String, &str>("DateAdded"))?,
             links:                        Vec::new(),
         })
@@ -61,6 +59,7 @@ impl TryFrom<SqliteRow> for Hyperlink{
         Ok(Hyperlink{
             url:     row.get::<String, &str>("Url"),
             display: row.get::<String, &str>("Display"),
+            id:      row.get::<u32, &str>("rowid") as usize,
         })
     }
 }
@@ -191,9 +190,9 @@ impl Connection{
         // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
         // return type of query! to write an impl From<T> for Task
         sqlx::query("
-            SELECT *, rowid
+            SELECT *
             FROM tasks
-            WHERE rowid == ?
+            WHERE TaskID == ?
         ")
             .bind(new_rowid)
             .fetch_one(&self.pool)
@@ -224,7 +223,7 @@ impl Connection{
                 DueDate =     ?,
                 Notes =       ?
             WHERE
-                rowid == ?
+                TaskID == ?
         ",
             task.category,
             task.finished,
@@ -273,7 +272,7 @@ impl Connection{
         sqlx::query!("
             DELETE
             FROM tasks
-            WHERE rowid == ?
+            WHERE TaskID == ?
         ",
             task.id
         )
@@ -287,7 +286,7 @@ impl Connection{
         // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
         // return type of query! to write an impl From<T> for Task
         let mut tasks: Vec<Task> = sqlx::query("
-            SELECT *, rowid
+            SELECT *
             FROM tasks
             WHERE Finished == false
             ORDER BY DueDate
@@ -302,7 +301,7 @@ impl Connection{
         #[allow(clippy::explicit_iter_loop)]
         for task in tasks.iter_mut(){
             task.links = sqlx::query("
-                SELECT *
+                SELECT *, rowid
                 FROM hyperlinks
                 WHERE Task == ?
              ")
