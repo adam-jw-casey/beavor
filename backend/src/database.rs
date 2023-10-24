@@ -13,6 +13,7 @@ use sqlx::{
 
 use crate::{
     Task,
+    Hyperlink,
     due_date::ParseDateError,
     utils::parse_date,
     DueDate,
@@ -30,6 +31,8 @@ use serde::{
     Deserialize,
 };
 
+use futures::future;
+
 impl TryFrom<SqliteRow> for Task{
     type Error = ParseDateError;
 
@@ -46,6 +49,18 @@ impl TryFrom<SqliteRow> for Task{
             notes:                        row.get::<String, &str>("Notes"),
             id:                           row.get::<Option<u32>, &str>("rowid"),
             date_added:       parse_date(&row.get::<String, &str>("DateAdded"))?,
+            links:                        Vec::new(),
+        })
+    }
+}
+
+impl TryFrom<SqliteRow> for Hyperlink{
+    type Error = std::convert::Infallible;
+
+    fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
+        Ok(Hyperlink{
+            url:     row.get::<String, &str>("Url"),
+            display: row.get::<String, &str>("Display"),
         })
     }
 }
@@ -159,6 +174,20 @@ impl Connection{
             .expect("Should be able to insert Task into database")
             .last_insert_rowid();
 
+        for h in &task.links{
+            sqlx::query!("
+                INSERT INTO hyperlinks (Url, Display, Task)
+                VALUES(?,?,?)
+            ",
+                h.url,
+                h.display,
+                new_rowid,
+            )
+                .execute(&self.pool)
+                .await
+                .expect("Should be able to insert new link");
+        }
+
         // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
         // return type of query! to write an impl From<T> for Task
         sqlx::query("
@@ -210,11 +239,37 @@ impl Connection{
             .execute(&self.pool)
             .await
             .expect("Should be able to update task");
+
+        sqlx::query!("
+            DELETE FROM hyperlinks
+            WHERE Task == ?
+        ",
+            task.id,
+        )
+            .execute(&self.pool)
+            .await
+            .expect("Should be able to delete links");
+
+        // TODO this is duplicated in create_task()
+        for h in &task.links{
+            sqlx::query!("
+                INSERT INTO hyperlinks (Url, Display, Task)
+                VALUES(?,?,?)
+            ",
+                h.url,
+                h.display,
+                task.id,
+            )
+                .execute(&self.pool)
+                .await
+                .expect("Should be able to insert new link");
+        }
     }
 
     // Note: this deliberately takes ownership of task, because it will be deleted afterward and
     // this prevents references to it from surviving
     pub async fn delete_task(&self, task: &Task){
+        // Note that hyperlinks are ON DELETE CASCADE, so do not need to be deleted manually
         sqlx::query!("
             DELETE
             FROM tasks
@@ -229,8 +284,8 @@ impl Connection{
 
     pub async fn open_tasks(&self) -> Vec<Task>{
         
-            // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
-            // return type of query! to write an impl From<T> for Task
+        // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
+        // return type of query! to write an impl From<T> for Task
         let mut tasks: Vec<Task> = sqlx::query("
             SELECT *, rowid
             FROM tasks
@@ -241,9 +296,24 @@ impl Connection{
             .await
             .expect("Should be able to get tasks")
             .into_iter()
-            .map(|r: SqliteRow| Task::try_from(r)
-                 .expect("Database should hold valid Tasks")
-            ).collect();
+            .map(|r: SqliteRow| Task::try_from(r).expect("Database should hold valid Tasks"))
+            .collect();
+
+        #[allow(clippy::explicit_iter_loop)]
+        for task in tasks.iter_mut(){
+            task.links = sqlx::query("
+                SELECT *
+                FROM hyperlinks
+                WHERE Task == ?
+             ")
+                .bind(task.id)
+                .fetch_all(&self.pool)
+                .await
+                .expect("Should be able to get hyperlinks for task")
+                .into_iter()
+                .map(|r: SqliteRow| Hyperlink::try_from(r).expect("Database should hold valid links"))
+                .collect();
+        }
 
         tasks.sort_by(|a,b| a.due_date.cmp(&b.due_date));
 

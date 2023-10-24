@@ -6,7 +6,7 @@ pub mod due_date;
 pub use due_date::DueDate;
 
 pub mod task;
-pub use task::Task;
+pub use task::{Task, Hyperlink};
 
 pub mod utils;
 

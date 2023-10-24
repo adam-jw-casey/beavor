@@ -5,6 +5,8 @@ use crate::due_date::DueDate;
 
 pub type Id = Option<u32>;
 
+use serde::{Serialize, Deserialize};
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature="serde", derive(Serialize, Deserialize))]
 pub struct Task{
@@ -19,6 +21,7 @@ pub struct Task{
     pub next_action_date: NaiveDate,
     pub due_date:         DueDate,
     pub id:               Id,
+    pub links:            Vec<Hyperlink>,
 }
 
 impl Task{
@@ -45,6 +48,13 @@ impl std::default::Default for Task{
             notes:              String::new(),
             due_date:           DueDate::Asap,
             id:                 None,
+            links:              Vec::new(),
         }
     }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Hash, PartialEq, Eq, Default)]
+pub struct Hyperlink{
+    pub url:    String,
+    pub display:   String,
 }
