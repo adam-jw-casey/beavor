@@ -219,7 +219,13 @@ impl Application for Beavor {
                     Message::ScrollDownCalendar => {state.calendar_state.scroll_down(); Command::none()},
                     Message::ScrollUpCalendar => {state.calendar_state.scroll_up(); Command::none()},
                     Message::ScrollUpMaxCalendar => {state.calendar_state.scroll_up_max(); Command::none()},
-                    Message::Open(url) => {open::that(url).expect("Should be able to open this"); Command::none()},
+                    Message::Open(url) => {
+                        if open::that(url.clone()).is_err(){
+                            println!("Error opening '{url}'"); // TODO this should be visible in
+                                                               // the GUI, not just the terminal
+                        };
+                        Command::none()
+                    },
                     Message::EditLinkID(h_id) => {state.editing_link = h_id; Command::none()},
                 }}
             },
