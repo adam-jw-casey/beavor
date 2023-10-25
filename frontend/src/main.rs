@@ -282,7 +282,9 @@ impl Beavor{
                     UDT::Notes(notes) => draft_task.notes = notes,
                     UDT::Finished(finished) => draft_task.finished = finished,
                     UDT::Link(link_message) => match link_message{
-                        LinkMessage::New => draft_task.links.push(Hyperlink::default()),
+                        LinkMessage::New => if !draft_task.links.contains(&Hyperlink::default()){
+                            draft_task.links.push(Hyperlink::default());
+                        },
                         LinkMessage::Delete(id) => {
                             let idx = draft_task.links.iter().position(|l| l.id == id).unwrap();
                             draft_task.links.remove(idx);
