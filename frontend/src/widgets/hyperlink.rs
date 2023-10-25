@@ -37,14 +37,19 @@ pub fn hyperlink <'a>(links: &[Hyperlink], link_id: usize, editing_id: Option<us
             )}),
             button(text("Close"))
                 .on_press(Message::EditLinkID(None)),
-        ].into()
+        ]
+            .spacing(4)
+            .into()
     }else{
         row![
             button(text(&links[idx].display))
                 .on_press(Message::Open(link.url.to_string())),
             button(text("Edit"))
                 .on_press(Message::EditLinkID(Some(link.id))),
+            button(text("Delete"))
+                .on_press(Message::UpdateDraftTask(UpdateDraftTask::Link(LinkMessage::Delete(link_id)))),
         ]
+            .spacing(4)
             .into()
     }
 }
