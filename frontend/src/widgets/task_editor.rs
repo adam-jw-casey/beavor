@@ -167,6 +167,7 @@ pub fn task_editor<'a>(draft_task: &'a Task, timer_state: &TimerState, date_pick
         )
             .spacing(4),
         row![
+            Space::with_width(Length::Fill),
             button("Add link").on_press(Message_UDT(UDT::Link(LinkMessage::New)))
         ],
         row![
