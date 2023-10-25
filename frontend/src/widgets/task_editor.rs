@@ -39,6 +39,7 @@ use crate::{
     MutateMessage,
     ModalMessage,
     widgets::hyperlink,
+    ModalShowing,
 };
 
 // TODO this still doesn't sit quite right, since why match over TimerState when you can match over
@@ -70,13 +71,6 @@ impl TimerState{
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum DatePickerState{
-    None,
-    NextAction,
-    DueDate,
-}
-
 #[derive(Debug, Clone)]
 pub enum LinkMessage{
     New,
@@ -103,7 +97,7 @@ use UpdateDraftTask as UDT;
 // TODO Should buttons be disabled while a date modal is open? Or should clicking one of them
 // close the modal?
 // TODO should have a dedicated State object to pass in so don't have to keep updating arguments
-pub fn task_editor<'a>(draft_task: &'a Task, timer_state: &TimerState, date_picker_state: &DatePickerState, editing_link: Option<usize>) -> Column<'a, Message>{
+pub fn task_editor<'a>(draft_task: &'a Task, timer_state: &TimerState, date_picker_state: &ModalShowing, editing_link: Option<usize>) -> Column<'a, Message>{
 
     let display_time_used: u32 = draft_task.time_used * 60 + timer_state.num_seconds_running().unwrap_or(0);
 
@@ -205,10 +199,10 @@ pub fn task_editor<'a>(draft_task: &'a Task, timer_state: &TimerState, date_pick
         .align_items(Alignment::Center)
 }
 
-fn next_action_date_picker<'a>(date_picker_state: &DatePickerState, draft_task: &'a Task) -> Container<'a, Message>{
+fn next_action_date_picker<'a>(date_picker_state: &ModalShowing, draft_task: &'a Task) -> Container<'a, Message>{
     container(
         date_picker(
-            *date_picker_state == DatePickerState::NextAction,
+            matches!(date_picker_state, ModalShowing::NextAction),
             draft_task.next_action_date,
             button(text(&draft_task.next_action_date.to_string())).on_press(Message::Modal(ModalMessage::PickNextActionDate)),
             Message::Modal(ModalMessage::Close),
@@ -217,11 +211,11 @@ fn next_action_date_picker<'a>(date_picker_state: &DatePickerState, draft_task: 
     )
 }
 
-fn due_date_picker<'a>(date_picker_state: &DatePickerState, draft_task: &'a Task) -> Row<'a, Message>{
+fn due_date_picker<'a>(date_picker_state: &ModalShowing, draft_task: &'a Task) -> Row<'a, Message>{
     row![
         container(
             date_picker(
-                *date_picker_state == DatePickerState::DueDate,
+                matches!(date_picker_state, ModalShowing::DueDate),
                 match draft_task.due_date{
                     DueDate::Date(date) => date,
                     _ => today_date(), // This will not be shown, so arbitray

@@ -44,9 +44,9 @@ use widgets::{
     task_editor::{
         task_editor,
         TimerState,
-        DatePickerState,
         LinkMessage,
     },
+    confirm_modal,
 };
 
 use widgets::task_editor::UpdateDraftTask;
@@ -60,7 +60,17 @@ fn main() {
 pub enum ModalMessage{
     PickNextActionDate,
     PickDueDate,
+    Confirm((String, Box<Message>)),
     Close,
+    Ok,
+}
+
+#[derive(Debug, Clone)]
+pub enum ModalShowing{
+    None,
+    NextAction,
+    DueDate,
+    Confirm(String, Box<Message>),
 }
 
 #[derive(Debug, Clone)]
@@ -97,7 +107,7 @@ pub struct State{
     selected_date: Option<NaiveDate>,
     draft_task:    Task,
     timer_state:   TimerState,
-    date_picker_state: DatePickerState,
+    modal_state: ModalShowing,
     calendar_state: CalendarState,
     cache:         Cache,
     editing_link: Option<usize>,
@@ -134,7 +144,7 @@ impl Application for Beavor {
                         selected_date: None,
                         draft_task:    Task::default(),
                         timer_state: TimerState::Stopped,
-                        date_picker_state: DatePickerState::None,
+                        modal_state: ModalShowing::None,
                         cache: Cache{
                             loaded_tasks: db.open_tasks().await.into(),
                             loaded_schedule: db.schedule().await,
@@ -187,8 +197,10 @@ impl Application for Beavor {
                         }{
                             self.update(Message::SelectTask(maybe_task))
                         }else{
-                            println!("Refusing to overwrite draft task");
-                            Command::none()
+                            self.update(Message::Modal(ModalMessage::Confirm((
+                                "Unsaved changes will be lost. Continue without saving?".to_string(),
+                                Box::new(Message::SelectTask(maybe_task))
+                            ))))
                         }
                     },
                     Message::SelectDate(maybe_date) => {state.selected_date = maybe_date; Command::none()},
@@ -205,14 +217,20 @@ impl Application for Beavor {
                         },
                         None => {state.timer_state = TimerState::Timing{start_time: Utc::now()}; Command::none()},
                     },
-                    Message::Modal(modal_message) => {
-                        match modal_message{
-                            ModalMessage::PickNextActionDate => state.date_picker_state = DatePickerState::NextAction,
-                            ModalMessage::PickDueDate =>        state.date_picker_state = DatePickerState::DueDate,
-                            ModalMessage::Close =>              state.date_picker_state = DatePickerState::None,
-                        }
-                        Command::none()
-                    },
+                    Message::Modal(modal_message) => match modal_message{
+                        ModalMessage::PickNextActionDate => {state.modal_state = ModalShowing::NextAction; Command::none()},
+                        ModalMessage::PickDueDate =>        {state.modal_state = ModalShowing::DueDate; Command::none()},
+                        ModalMessage::Close =>              {state.modal_state = ModalShowing::None; Command::none()},
+                        ModalMessage::Ok => match &state.modal_state{
+                            ModalShowing::Confirm(_, confirmed_message) => {
+                                let m = confirmed_message.clone();
+                                state.modal_state = ModalShowing::None; // this bypasses the update function
+                                self.update(*m)
+                            },
+                            _ => panic!("Should never happen"),
+                        },
+                        ModalMessage::Confirm((string, message)) => {state.modal_state = ModalShowing::Confirm(string, message); Command::none()},
+                    } ,
                     Message::Refresh(cache) => {state.cache = cache; Command::none()},
                     Message::Tick(_) | Message::None => Command::none(),
                     Message::Loaded(_) | Message::Mutate(_) => panic!("Should never happen"),
@@ -243,13 +261,14 @@ impl Application for Beavor {
                     task_editor(
                         &state.draft_task,
                         &state.timer_state,
-                        &state.date_picker_state,
+                        &state.modal_state,
                         state.editing_link,
                     )
                         .padding(8)
                         .width(Length::FillPortion(3))
                         .height(Length::FillPortion(1)),
                     calendar(&state.cache.loaded_schedule, &state.calendar_state),
+                    confirm_modal(&state.modal_state),
                 ]
                     .align_items(Alignment::End)
                     .height(Length::Fill)

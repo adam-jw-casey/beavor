@@ -9,3 +9,6 @@ pub use task_editor::task_editor;
 
 pub mod hyperlink;
 pub use hyperlink::hyperlink;
+
+pub mod confirm_modal;
+pub use confirm_modal::confirm_modal;
