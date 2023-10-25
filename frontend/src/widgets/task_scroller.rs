@@ -38,7 +38,7 @@ fn task_row(task: &Task) -> Element<'static, Message>{
             text(&task.category),
         ]
     )
-        .on_press(Message::SelectTask(Some(task.clone())))
+        .on_press(Message::TrySelectTask(Some(task.clone())))
         .width(Length::Fill)
         .into()
 }
