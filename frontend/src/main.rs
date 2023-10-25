@@ -45,6 +45,7 @@ use widgets::{
         task_editor,
         TimerState,
         DatePickerState,
+        LinkMessage,
     },
 };
 
@@ -280,11 +281,16 @@ impl Beavor{
                     UDT::TimeUsed(time_used) => if let Ok(time_used) = time_used {draft_task.time_used = time_used},
                     UDT::Notes(notes) => draft_task.notes = notes,
                     UDT::Finished(finished) => draft_task.finished = finished,
-                    UDT::Link((link_id, link)) => {
-                        match link{
-                            Some(link) => draft_task.links[link_id as usize] = link,
-                            None => {draft_task.links.remove(link_id);},
-                        }
+                    UDT::Link(link_message) => match link_message{
+                        LinkMessage::New => draft_task.links.push(Hyperlink::default()),
+                        LinkMessage::Delete(id) => {
+                            let idx = draft_task.links.iter().position(|l| l.id == id).unwrap();
+                            draft_task.links.remove(idx);
+                        },
+                        LinkMessage::Update(link) => {
+                            let idx = draft_task.links.iter().position(|l| l.id == link.id).unwrap();
+                            draft_task.links[idx] = link;
+                        },
                     }
                 }
                 Message::None

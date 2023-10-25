@@ -78,6 +78,13 @@ pub enum DatePickerState{
 }
 
 #[derive(Debug, Clone)]
+pub enum LinkMessage{
+    New,
+    Delete(usize),
+    Update(Hyperlink),
+}
+
+#[derive(Debug, Clone)]
 pub enum UpdateDraftTask{
     Category        (String),
     Name            (String),
@@ -87,7 +94,7 @@ pub enum UpdateDraftTask{
     DueDate         (DueDate),
     Notes           (String),
     Finished        (bool),
-    Link            ((usize, Option<Hyperlink>)),
+    Link            (LinkMessage),
 }
 
 use Message::UpdateDraftTask as Message_UDT;
@@ -154,10 +161,13 @@ pub fn task_editor<'a>(draft_task: &'a Task, timer_state: &TimerState, date_pick
             draft_task.links
                 .iter()
                 .map(|h: &Hyperlink| {
-                    hyperlink(draft_task.links.clone(), h.id, editing_link)
+                    hyperlink(&draft_task.links, h.id, editing_link)
                 })
                 .collect()
         ),
+        row![
+            button("Add link").on_press(Message_UDT(UDT::Link(LinkMessage::New)))
+        ],
         row![
             text("Notes").width(Length::FillPortion(1)),
             text_input(
