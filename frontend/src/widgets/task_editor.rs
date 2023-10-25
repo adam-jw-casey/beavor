@@ -190,7 +190,7 @@ pub fn task_editor<'a>(draft_task: &'a Task, timer_state: &TimerState, date_pick
             button("New").on_press(Message::NewTask),
             // TODO this should be disabled if the current task is a new one (i.e., does not exist
             // in the database
-            button("Delete").on_press(Message::Mutate(MutateMessage::DeleteTask)),
+            button("Delete").on_press(Message::TryDeleteTask),
         ]
             .align_items(Alignment::Center)
             .spacing(4),

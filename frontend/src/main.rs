@@ -85,6 +85,7 @@ pub enum Message{
     Tick(Instant),
     SelectTask(Option<Task>),
     TrySelectTask(Option<Task>),
+    TryDeleteTask,
     SelectDate(Option<NaiveDate>),
     UpdateDraftTask(UpdateDraftTask),
     ToggleTimer, // Consider having separate start/stop/toggle messages
@@ -202,6 +203,14 @@ impl Application for Beavor {
                                 Box::new(Message::SelectTask(maybe_task))
                             ))))
                         }
+                    },
+                    Message::TryDeleteTask => {
+                        // Confirm before deleting
+                        let name = state.draft_task.name.clone();
+                        self.update(Message::Modal(ModalMessage::Confirm((
+                            format!("Are you sure you want to delete '{name}'?"),
+                            Box::new(Message::Mutate(MutateMessage::DeleteTask))
+                        ))))
                     },
                     Message::SelectDate(maybe_date) => {state.selected_date = maybe_date; Command::none()},
                     Message::UpdateDraftTask(task_field_update) => {
