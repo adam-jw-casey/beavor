@@ -31,6 +31,7 @@ use backend::{
     DatabaseManager,
     Task,
     Schedule,
+    Hyperlink,
 };
 
 mod widgets;
@@ -44,6 +45,7 @@ use widgets::{
         task_editor,
         TimerState,
         DatePickerState,
+        LinkMessage,
     },
 };
 
@@ -83,6 +85,8 @@ pub enum Message{
     ScrollDownCalendar,
     ScrollUpCalendar,
     ScrollUpMaxCalendar,
+    EditLinkID(Option<usize>),
+    Open(String),
     None,
 }
 
@@ -96,6 +100,7 @@ pub struct State{
     date_picker_state: DatePickerState,
     calendar_state: CalendarState,
     cache:         Cache,
+    editing_link: Option<usize>,
 }
 
 #[derive(Debug, Clone)]
@@ -136,6 +141,7 @@ impl Application for Beavor {
                         },
                         db,
                         calendar_state: CalendarState::default(),
+                        editing_link: None,
                     }
                 }, Message::Loaded),
                 font::load(iced_aw::graphics::icons::ICON_FONT_BYTES).map(|_| Message::None),
@@ -159,7 +165,8 @@ impl Application for Beavor {
                     m => panic!("Should never happen: {m:#?}")
                 }
             },
-            Beavor::Loaded(state) => match message{
+            Beavor::Loaded(state) => match message{ // TODO most of these branches end in
+                                                    // Command::none() - how can this be cleaner?
                 // Mutate messages modify the database
                 Message::Mutate(mutate_message) => Beavor::mutate(state, &mutate_message),
                 other => {match other{
@@ -212,6 +219,14 @@ impl Application for Beavor {
                     Message::ScrollDownCalendar => {state.calendar_state.scroll_down(); Command::none()},
                     Message::ScrollUpCalendar => {state.calendar_state.scroll_up(); Command::none()},
                     Message::ScrollUpMaxCalendar => {state.calendar_state.scroll_up_max(); Command::none()},
+                    Message::Open(url) => {
+                        if open::that(url.clone()).is_err(){
+                            println!("Error opening '{url}'"); // TODO this should be visible in
+                                                               // the GUI, not just the terminal
+                        };
+                        Command::none()
+                    },
+                    Message::EditLinkID(h_id) => {state.editing_link = h_id; Command::none()},
                 }}
             },
         }
@@ -229,6 +244,7 @@ impl Application for Beavor {
                         &state.draft_task,
                         &state.timer_state,
                         &state.date_picker_state,
+                        state.editing_link,
                     )
                         .padding(8)
                         .width(Length::FillPortion(3))
@@ -271,6 +287,19 @@ impl Beavor{
                     UDT::TimeUsed(time_used) => if let Ok(time_used) = time_used {draft_task.time_used = time_used},
                     UDT::Notes(notes) => draft_task.notes = notes,
                     UDT::Finished(finished) => draft_task.finished = finished,
+                    UDT::Link(link_message) => match link_message{
+                        LinkMessage::New => if !draft_task.links.contains(&Hyperlink::default()){
+                            draft_task.links.push(Hyperlink::default());
+                        },
+                        LinkMessage::Delete(id) => {
+                            let idx = draft_task.links.iter().position(|l| l.id == id).unwrap();
+                            draft_task.links.remove(idx);
+                        },
+                        LinkMessage::Update(link) => {
+                            let idx = draft_task.links.iter().position(|l| l.id == link.id).unwrap();
+                            draft_task.links[idx] = link;
+                        },
+                    }
                 }
                 Message::None
             }

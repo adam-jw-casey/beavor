@@ -1,8 +1,6 @@
 use std::error::Error;
 use std::str::FromStr;
 
-use tokio::runtime::Runtime;
-
 use sqlx::sqlite::{
     SqlitePool,
     SqliteRow,
@@ -15,6 +13,7 @@ use sqlx::{
 
 use crate::{
     Task,
+    Hyperlink,
     due_date::ParseDateError,
     utils::parse_date,
     DueDate,
@@ -46,8 +45,21 @@ impl TryFrom<SqliteRow> for Task{
             next_action_date: parse_date(&row.get::<String, &str>("NextAction"))?,
             due_date:                     row.get::<String, &str>("DueDate").try_into()?,
             notes:                        row.get::<String, &str>("Notes"),
-            id:                           row.get::<Option<u32>, &str>("rowid"),
+            id:                           row.get::<Option<u32>, &str>("TaskID"),
             date_added:       parse_date(&row.get::<String, &str>("DateAdded"))?,
+            links:                        Vec::new(),
+        })
+    }
+}
+
+impl TryFrom<SqliteRow> for Hyperlink{
+    type Error = std::convert::Infallible;
+
+    fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
+        Ok(Hyperlink{
+            url:     row.get::<String, &str>("Url"),
+            display: row.get::<String, &str>("Display"),
+            id:      row.get::<u32, &str>("rowid") as usize,
         })
     }
 }
@@ -63,10 +75,11 @@ struct Holidays{
     holidays: Vec<Holiday>,
 }
 
+#[allow(non_snake_case)]
 #[derive(Serialize, Deserialize)]
 struct Holiday{
     provinces: Vec<Province>,
-    observed_date: String
+    observedDate: String
 }
 
 #[derive(Debug, Clone)]
@@ -82,28 +95,29 @@ impl Connection{
     /// Will fail a connection to the database cannot be established. This is generally if the
     /// database file does not exist or is corrupted
     pub async fn new(database_path: &str) -> Result<Self, sqlx::Error>{
+        let pool = SqlitePool::connect(database_path).await?;
+
+        sqlx::query!("PRAGMA foreign_keys=ON").execute(&pool).await?;
+
         Ok(Self{
-            pool: SqlitePool::connect(database_path).await?,
+            pool,
         })
     }
 
     pub async fn with_new_database(database_path: &str) -> Result<Self, sqlx::Error>{
-        let rt = Runtime::new().unwrap();
-        rt.block_on(async{
-            let mut conn = SqliteConnectOptions::from_str(database_path)
-                .expect("This should work")
-                .create_if_missing(true)
-                .connect()
-                .await
-                .expect("Should be able to connect to database");
+        let mut conn = SqliteConnectOptions::from_str(database_path)
+            .expect("This should work")
+            .create_if_missing(true)
+            .connect()
+            .await
+            .expect("Should be able to connect to database");
 
-            // This doesn't use query! because when creating a database, it doesn't make sense to
-            // check against an existing database
-            sqlx::query_file!("resources/schema.sql")
-                .execute(&mut conn)
-                .await
-                .expect("Should be able to create the schema");
-        });
+        // This doesn't use query! because when creating a database, it doesn't make sense to
+        // check against an existing database
+        sqlx::query_file!("resources/schema.sql")
+            .execute(&mut conn)
+            .await
+            .expect("Should be able to create the schema");
 
         Self::new(database_path).await
     }
@@ -159,12 +173,26 @@ impl Connection{
             .expect("Should be able to insert Task into database")
             .last_insert_rowid();
 
+        for h in &task.links{
+            sqlx::query!("
+                INSERT INTO hyperlinks (Url, Display, Task)
+                VALUES(?,?,?)
+            ",
+                h.url,
+                h.display,
+                new_rowid,
+            )
+                .execute(&self.pool)
+                .await
+                .expect("Should be able to insert new link");
+        }
+
         // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
         // return type of query! to write an impl From<T> for Task
         sqlx::query("
-            SELECT *, rowid
+            SELECT *
             FROM tasks
-            WHERE rowid == ?
+            WHERE TaskID == ?
         ")
             .bind(new_rowid)
             .fetch_one(&self.pool)
@@ -195,7 +223,7 @@ impl Connection{
                 DueDate =     ?,
                 Notes =       ?
             WHERE
-                rowid == ?
+                TaskID == ?
         ",
             task.category,
             task.finished,
@@ -210,15 +238,41 @@ impl Connection{
             .execute(&self.pool)
             .await
             .expect("Should be able to update task");
+
+        sqlx::query!("
+            DELETE FROM hyperlinks
+            WHERE Task == ?
+        ",
+            task.id,
+        )
+            .execute(&self.pool)
+            .await
+            .expect("Should be able to delete links");
+
+        // TODO this is duplicated in create_task()
+        for h in &task.links{
+            sqlx::query!("
+                INSERT INTO hyperlinks (Url, Display, Task)
+                VALUES(?,?,?)
+            ",
+                h.url,
+                h.display,
+                task.id,
+            )
+                .execute(&self.pool)
+                .await
+                .expect("Should be able to insert new link");
+        }
     }
 
     // Note: this deliberately takes ownership of task, because it will be deleted afterward and
     // this prevents references to it from surviving
     pub async fn delete_task(&self, task: &Task){
+        // Note that hyperlinks are ON DELETE CASCADE, so do not need to be deleted manually
         sqlx::query!("
             DELETE
             FROM tasks
-            WHERE rowid == ?
+            WHERE TaskID == ?
         ",
             task.id
         )
@@ -229,10 +283,10 @@ impl Connection{
 
     pub async fn open_tasks(&self) -> Vec<Task>{
         
-            // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
-            // return type of query! to write an impl From<T> for Task
+        // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
+        // return type of query! to write an impl From<T> for Task
         let mut tasks: Vec<Task> = sqlx::query("
-            SELECT *, rowid
+            SELECT *
             FROM tasks
             WHERE Finished == false
             ORDER BY DueDate
@@ -241,9 +295,24 @@ impl Connection{
             .await
             .expect("Should be able to get tasks")
             .into_iter()
-            .map(|r: SqliteRow| Task::try_from(r)
-                 .expect("Database should hold valid Tasks")
-            ).collect();
+            .map(|r: SqliteRow| Task::try_from(r).expect("Database should hold valid Tasks"))
+            .collect();
+
+        #[allow(clippy::explicit_iter_loop)]
+        for task in tasks.iter_mut(){
+            task.links = sqlx::query("
+                SELECT *, rowid
+                FROM hyperlinks
+                WHERE Task == ?
+             ")
+                .bind(task.id)
+                .fetch_all(&self.pool)
+                .await
+                .expect("Should be able to get hyperlinks for task")
+                .into_iter()
+                .map(|r: SqliteRow| Hyperlink::try_from(r).expect("Database should hold valid links"))
+                .collect();
+        }
 
         tasks.sort_by(|a,b| a.due_date.cmp(&b.due_date));
 
@@ -290,7 +359,7 @@ impl Connection{
             .holidays
             .iter()
             .filter(|h| h.provinces.contains(&Province{id: "BC".to_string()}))
-            .map(|h| h.observed_date.parse::<NaiveDate>())
+            .map(|h| h.observedDate.parse::<NaiveDate>())
             .collect::<Result<Vec<NaiveDate>, _>>()?;
 
             for d in holiday_dates{

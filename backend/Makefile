@@ -1,7 +1,30 @@
+VERSION = v1.1
+RESOURCES = resources
+UPGRADE = $(RESOURCES)/upgrade
+TARGET = $(RESOURCES)/beavor_$(VERSION).db
+
+ifneq ($(wildcard $(RESOURCES)/*.db),)
+	ifneq ($(wildcard $(TARGET)),)
+		MODE = none
+	else
+		MODE = upgrade
+	endif
+else
+	MODE = new
+endif
+
 default: .env
 
-.env: resources/schema.db
-	@echo "DATABASE_URL=sqlite:$(abspath $<)" > $@
+.env: $(MODE) $(RESOURCES)/schema.sql
+	@echo "DATABASE_URL=sqlite:$(abspath $(TARGET))" > $@
 
-resources/schema.db: resources/schema.sql
-	cd $(@D); rm -f $(@F); sqlite3 $(@F) < schema.sql
+none:
+
+new: $(RESOURCES)/schema.sql
+	sqlite3 $(TARGET) < $<
+
+upgrade: $(TARGET)
+
+$(RESOURCES)/beavor_v1.1.db: $(RESOURCES)/schema.db $(UPGRADE)/upgrade_v1.1.sql
+	sqlite3 $< < $(UPGRADE)/upgrade_v1.1.sql
+	mv $< $@
