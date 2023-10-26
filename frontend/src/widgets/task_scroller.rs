@@ -4,7 +4,6 @@ use iced::widget::{
     Column,
     column,
     scrollable,
-    Scrollable,
     text,
     Button,
 };
@@ -21,29 +20,40 @@ use backend::{
 
 use crate::Message;
 
-pub fn task_scroller(tasks: &[Task], filter_date: Option<&NaiveDate>, schedule: &Schedule) -> Scrollable<'static, Message> {
+pub fn task_scroller(tasks: &[Task], filter_date: Option<&NaiveDate>, schedule: &Schedule) -> Column<'static, Message>{
 
-    scrollable(
-        Column::with_children(
-            tasks
-                .iter()
-                .filter(|t| match filter_date{
-                    None => true,
-                    Some(date) => {
-                        schedule.is_available_on_day(
-                            t,
-                            *date
-                        )
-                    }
-                })
-                .map(task_row)
-                .collect()
+    let filters = [ // TODO this should probably be in the application-level state
+        filter_date.map(|date| |t| {
+            schedule.is_available_on_day(
+                t,
+                *date
+            )
+        }),
+    ];
+
+    column![
+        scrollable(
+            Column::with_children(
+                tasks
+                    .iter()
+                    .filter(|t|
+                        filters
+                            .iter()
+                            .map(|f| match f{
+                                None => true,
+                                Some(f) => f(t)
+                            })
+                            .all(|b| b)
+                    )
+                    .map(task_row)
+                    .collect()
+            )
+                .width(Length::Shrink)
+                .spacing(2)
+                .padding(4)
         )
-            .width(Length::Shrink)
-            .spacing(2)
-            .padding(4)
-    )
-        .height(Length::Fill)
+            .height(Length::Fill),
+    ]
 }
 
 fn task_row(task: &Task) -> Element<'static, Message>{
