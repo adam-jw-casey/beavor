@@ -272,21 +272,7 @@ impl Application for Beavor {
             Beavor::Loading => text("Loading...").into(),
             Beavor::Loaded(state) => 
                 row![
-                    task_scroller(&state.cache.loaded_tasks
-                                    .iter()
-                                    .filter(|t| match state.calendar_state.filter_date{
-                                        None => true,
-                                        Some(date) => {
-                                            state.cache.loaded_schedule.is_available_on_day(
-                                                t,
-                                                date
-                                            )
-                                        }
-                                    })
-                                    .map(std::clone::Clone::clone)
-                                    .collect::<Vec<_>>()
-                                    [..]
-                    )
+                    task_scroller(&state.cache.loaded_tasks, state.calendar_state.filter_date.as_ref(), &state.cache.loaded_schedule)
                         .width(Length::FillPortion(2))
                         .height(Length::FillPortion(1)),
                     Rule::vertical(4),

@@ -1,3 +1,5 @@
+use chrono::NaiveDate;
+
 use iced::widget::{
     Column,
     column,
@@ -12,15 +14,28 @@ use iced::{
     Length,
 };
 
-use backend::Task;
+use backend::{
+    Task,
+    Schedule,
+};
 
 use crate::Message;
 
-pub fn task_scroller(tasks: &[Task]) -> Scrollable<'static, Message>{
+pub fn task_scroller(tasks: &[Task], filter_date: Option<&NaiveDate>, schedule: &Schedule) -> Scrollable<'static, Message> {
+
     scrollable(
         Column::with_children(
             tasks
                 .iter()
+                .filter(|t| match filter_date{
+                    None => true,
+                    Some(date) => {
+                        schedule.is_available_on_day(
+                            t,
+                            *date
+                        )
+                    }
+                })
                 .map(task_row)
                 .collect()
         )
