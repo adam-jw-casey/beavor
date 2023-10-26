@@ -319,12 +319,10 @@ impl Beavor{
                         LinkMessage::New => if !draft_task.links.contains(&Hyperlink::default()){
                             draft_task.links.push(Hyperlink::default());
                         },
-                        LinkMessage::Delete(id) => {
-                            let idx = draft_task.links.iter().position(|l| l.id == id).unwrap();
+                        LinkMessage::Delete(idx) => {
                             draft_task.links.remove(idx);
                         },
-                        LinkMessage::Update(link) => {
-                            let idx = draft_task.links.iter().position(|l| l.id == link.id).unwrap();
+                        LinkMessage::Update((link, idx)) => {
                             draft_task.links[idx] = link;
                         },
                     }

@@ -75,7 +75,7 @@ impl TimerState{
 pub enum LinkMessage{
     New,
     Delete(usize),
-    Update(Hyperlink),
+    Update((Hyperlink, usize)),
 }
 
 #[derive(Debug, Clone)]
@@ -152,10 +152,9 @@ pub fn task_editor<'a>(draft_task: &'a Task, timer_state: &TimerState, date_pick
                 .width(Length::FillPortion(3)),
         ],
         Column::with_children(
-            draft_task.links
-                .iter()
-                .map(|h: &Hyperlink| {
-                    hyperlink(&draft_task.links, h.id, editing_link)
+            (0..draft_task.links.len())
+                .map(|idx: usize| {
+                    hyperlink(&draft_task.links[idx], idx, editing_link)
                 })
                 .collect()
         )
