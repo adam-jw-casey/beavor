@@ -34,6 +34,7 @@ use backend::{
     Task,
     Schedule,
     Hyperlink,
+    utils::today_date,
 };
 
 mod widgets;
@@ -101,6 +102,7 @@ pub enum Message{
     EditLinkID(Option<usize>),
     Open(String),
     None,
+    FilterToDate(Option<NaiveDate>),
 }
 
 #[derive(Debug, Clone)]
@@ -110,7 +112,7 @@ pub struct State{
     selected_date: Option<NaiveDate>,
     draft_task:    Task,
     timer_state:   TimerState,
-    modal_state: ModalShowing,
+    modal_state:   ModalShowing,
     calendar_state: CalendarState,
     cache:         Cache,
     editing_link: Option<usize>,
@@ -260,6 +262,7 @@ impl Application for Beavor {
                         Command::none()
                     },
                     Message::EditLinkID(h_id) => {state.editing_link = h_id; Command::none()},
+                    Message::FilterToDate(date) => {state.calendar_state.filter_date = date; Command::none()},
                 }}
             },
         }
@@ -270,7 +273,21 @@ impl Application for Beavor {
             Beavor::Loading => text("Loading...").into(),
             Beavor::Loaded(state) => 
                 row![
-                    task_scroller(&state.cache.loaded_tasks)
+                    task_scroller(&state.cache.loaded_tasks
+                                    .iter()
+                                    .filter(|t| match state.calendar_state.filter_date{
+                                        None => true,
+                                        Some(date) => {
+                                            state.cache.loaded_schedule.is_available_on_day(
+                                                t,
+                                                date
+                                            )
+                                        }
+                                    })
+                                    .map(std::clone::Clone::clone)
+                                    .collect::<Vec<_>>()
+                                    [..]
+                    )
                         .width(Length::FillPortion(2))
                         .height(Length::FillPortion(1)),
                     Rule::vertical(4),
