@@ -77,7 +77,7 @@ pub fn calendar(schedule: &Schedule, state: &CalendarState) -> Element<'static, 
                 .map(|d| Column::with_children(
                     (0..num_weeks)
                         .map(|n| *d + Days::new(7*n))
-                        .map(|d| Element::from(cal_day(d, schedule.workload_on_day(d))))
+                        .map(|d| Element::from(cal_day(d, schedule.workload_on_day(d), Some(d) == state.filter_date)))
                         .collect()
                     ).into()
                 ).collect()
@@ -95,11 +95,15 @@ pub fn calendar(schedule: &Schedule, state: &CalendarState) -> Element<'static, 
         .into()
 }
 
-fn cal_day(day: NaiveDate, load: Option<u32>) -> Element<'static, Message>{
+fn cal_day(day: NaiveDate, load: Option<u32>, is_selected: bool) -> Element<'static, Message>{
     MouseArea::new(
         column![
             text(
-                day.format("%b %d")
+                if is_selected{
+                    day.format("[%b %d]")
+                }else{
+                    day.format("%b %d")
+                }
             ),
             text(
                 if let Some(load) = load {format!("{:.1}", f64::from(load)/60.0)} else{"-".to_string()}

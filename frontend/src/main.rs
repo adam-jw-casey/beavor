@@ -34,7 +34,6 @@ use backend::{
     Task,
     Schedule,
     Hyperlink,
-    utils::today_date,
 };
 
 mod widgets;
