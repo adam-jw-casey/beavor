@@ -18,6 +18,7 @@ use iced::{
     Length,
     Alignment,
     font,
+    window,
 };
 
 use tokio::sync::oneshot;
@@ -156,6 +157,10 @@ impl Application for Beavor {
                     }
                 }, Message::Loaded),
                 font::load(iced_aw::graphics::icons::ICON_FONT_BYTES).map(|_| Message::None),
+                window::change_icon(window::icon::from_file_data(
+                    include_bytes!("../../resources/logo.png"),
+                    None
+                ).expect("Icon should load"))
             ])
         )
     }
