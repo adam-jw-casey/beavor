@@ -347,7 +347,8 @@ impl Beavor{
                 match message{
                     MutateMessage::SaveDraftTask => match t1.id{
                         Some(_) => Command::perform(async move {
-                            db_clone1.update_task(&t1).await;
+                            db_clone1.update_task(&t1).await
+                                .expect("The task should already exist");
                             tx.send(()).unwrap();
                         }, |()| Message::SelectTask(Some(t2))),
                         None => Command::perform(async move {

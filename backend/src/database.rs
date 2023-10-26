@@ -104,24 +104,26 @@ impl Connection{
         })
     }
 
+    /// # Errors
+    /// Will fail a connection to the database cannot be established. This is generally if the
+    /// database file does not exist or is corrupted
     pub async fn with_new_database(database_path: &str) -> Result<Self, sqlx::Error>{
-        let mut conn = SqliteConnectOptions::from_str(database_path)
-            .expect("This should work")
+        let mut conn = SqliteConnectOptions::from_str(database_path)?
             .create_if_missing(true)
             .connect()
-            .await
-            .expect("Should be able to connect to database");
+            .await?;
 
         // This doesn't use query! because when creating a database, it doesn't make sense to
         // check against an existing database
         sqlx::query_file!("resources/schema.sql")
             .execute(&mut conn)
-            .await
-            .expect("Should be able to create the schema");
+            .await?;
 
         Self::new(database_path).await
     }
 
+    /// # Panics
+    /// Panics if any database queries fail, or if the database contains invalid tasks
     pub async fn create_task(&self, task: &Task) -> Task{
         // These must be stored so that they are not dropped in-between
         // the calls to query! and .execute
@@ -202,16 +204,18 @@ impl Connection{
             .expect("Database should contain valid Tasks only")
     }
 
-    // TODO I think this will silently fail if passed a task that is not already present in the
-    // database, e.g., if someone erroneously used this where create_task() was required. Perhaps
-    // this should return a Result<(), _>
-    pub async fn update_task(&self, task: &Task){
+    /// # Panics
+    /// Panics if any database queries fail
+    /// # Errors
+    /// This returns a `RowNotFound` error if the update step fails to update any rows.
+    /// This indicated that no task with an id matching the passed task exists in the database
+    pub async fn update_task(&self, task: &Task) -> Result<(), sqlx::Error>{
         // These must be stored so that they are not dropped in-between
         // the calls to query! and .execute
         let next_action_str = DueDate::Date(task.next_action_date).to_string();
         let due_date_str = task.due_date.to_string();
 
-        sqlx::query!("
+        if sqlx::query!("
             UPDATE tasks
             SET
                 Category =    ?,
@@ -237,7 +241,10 @@ impl Connection{
         )
             .execute(&self.pool)
             .await
-            .expect("Should be able to update task");
+            .expect("Should be able to update task")
+            .rows_affected() != 1{
+                return Err(sqlx::Error::RowNotFound)
+            }
 
         sqlx::query!("
             DELETE FROM hyperlinks
@@ -263,10 +270,13 @@ impl Connection{
                 .await
                 .expect("Should be able to insert new link");
         }
+        Ok(())
     }
 
-    // Note: this deliberately takes ownership of task, because it will be deleted afterward and
-    // this prevents references to it from surviving
+    /// Note: this deliberately takes ownership of task, because it will be deleted afterward and
+    /// this prevents references to it from surviving
+    /// # Panics
+    /// Panics if any database queries fail
     pub async fn delete_task(&self, task: &Task){
         // Note that hyperlinks are ON DELETE CASCADE, so do not need to be deleted manually
         sqlx::query!("
@@ -281,6 +291,9 @@ impl Connection{
             .expect("Should be able do delete task");
     }
 
+    /// # Panics
+    /// Panics if any database queries fail, or if the database contains invalid tasks or invalid
+    /// links
     pub async fn open_tasks(&self) -> Vec<Task>{
         
         // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
@@ -319,6 +332,8 @@ impl Connection{
         tasks
     }
 
+    /// # Panics
+    /// Panics if any database queries fail, or if any row has a non-string category
     #[allow(non_snake_case)]
     pub async fn categories(&self) -> Vec<String>{
         sqlx::query!("
@@ -334,6 +349,11 @@ impl Connection{
             .collect()
     }
 
+    /// # Panics
+    /// Panics if any database queries fail
+    ///
+    /// # Errors
+    /// Returns an error if unable to connect to the holiday server or unable to parse the response
     pub async fn try_update_holidays(&self) -> Result<(), Box<dyn Error>>{
         // If database already has holidays from the current year, exit
         if self.holidays()
@@ -351,9 +371,9 @@ impl Connection{
         // If database doesn't have the holidays for this year, get them
         // and store them in the database
         let response: String = reqwest::get("https://canada-holidays.ca/api/v1/holidays")
-                .await?
-                .text()
-                .await?;
+            .await?
+            .text()
+            .await?;
 
         let holiday_dates: Vec<NaiveDate> = serde_json::from_str::<Holidays>(&response)?
             .holidays
@@ -387,6 +407,8 @@ impl Connection{
         Ok(())
     }
 
+    /// # Panics
+    /// Panics if any database queries fail
     pub async fn add_vacation_day(&self, date: &NaiveDate){
         let date_string = date.to_string();
         sqlx::query!("
@@ -408,6 +430,8 @@ impl Connection{
             .expect("Should be able to add vacation day");
     }
 
+    /// # Panics
+    /// Panics if any database queries fail
     pub async fn delete_vacation_day(&self, date: &NaiveDate){
         let date_string = date.to_string();
 
@@ -423,6 +447,8 @@ impl Connection{
             .expect("Should be able do delete task");
     }
 
+    /// # Panics
+    /// Panics if any database queries fail, or `days_off` contains invalid dates
     #[allow(non_snake_case)]
     pub async fn vacation_days(&self) -> Vec<NaiveDate>{
         sqlx::query!("
@@ -442,6 +468,8 @@ impl Connection{
             .collect()
     }
 
+    /// # Panics
+    /// Panics if any database queries fail, or `days_off` contains invalid dates
     #[allow(non_snake_case)]
     pub async fn holidays(&self) -> Vec<NaiveDate>{
         sqlx::query!("
@@ -461,6 +489,10 @@ impl Connection{
             .collect()
     }
 
+    // TODO This will likely cause a crash if missing internet connection (but only first time app
+    // is launched in a given calendar year?)
+    /// # Panics
+    /// Panics if unable to update holidays 
     pub async fn days_off(&self) -> Vec<NaiveDate> {
         let mut days_off = Vec::new();
 
