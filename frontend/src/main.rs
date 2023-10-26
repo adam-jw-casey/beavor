@@ -4,6 +4,7 @@ use iced::widget::{
     container,
     row,
     text,
+    rule::Rule,
 };
 
 use iced::{
@@ -272,6 +273,7 @@ impl Application for Beavor {
                     task_scroller(&state.cache.loaded_tasks)
                         .width(Length::FillPortion(2))
                         .height(Length::FillPortion(1)),
+                    Rule::vertical(4),
                     task_editor(
                         &state.draft_task,
                         &state.timer_state,
@@ -281,6 +283,7 @@ impl Application for Beavor {
                         .padding(8)
                         .width(Length::FillPortion(3))
                         .height(Length::FillPortion(1)),
+                    Rule::vertical(4),
                     calendar(&state.cache.loaded_schedule, &state.calendar_state),
                     confirm_modal(&state.modal_state),
                 ]
