@@ -299,7 +299,11 @@ impl Application for Beavor {
                     .into()
         };
 
-        container(content).into()
+        container(content)
+            .center_x()
+            .center_y()
+            .padding(8)
+            .into()
     }
 
     fn subscription(&self) -> Subscription<Self::Message>{
