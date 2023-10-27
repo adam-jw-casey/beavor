@@ -7,12 +7,16 @@ use iced::widget::{
     column,
     scrollable,
     text,
-    Button,
+    button,
+    row,
+    rule::Rule,
+    space::Space,
 };
 
 use iced::{
     Element,
     Length,
+    Alignment,
 };
 
 use backend::{
@@ -22,8 +26,9 @@ use backend::{
 
 use crate::Message;
 
-trait Filter: Display{
+trait Filter: Display{ // TODO rather than display, should really impl Into<Element<'static, Message>>
     fn apply(&self, task: &Task) -> bool;
+    fn cancel(&self) -> Message;
 }
 
 struct DateFilter<'a, 'b>{
@@ -38,11 +43,15 @@ impl Filter for DateFilter<'_, '_>{
             *self.date
         )
     }
+
+    fn cancel(&self) -> Message {
+        Message::FilterToDate(None)
+    }
 }
 
 impl Display for DateFilter<'_, '_>{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.date.format("%b %d"))
+        write!(f, "Available on: {}", self.date.format("%b %d"))
     }
 }
 
@@ -56,6 +65,27 @@ pub fn task_scroller(tasks: &[Task], filter_date: Option<&NaiveDate>, schedule: 
     ];
 
     column![
+        Column::with_children(
+            filters
+                .iter()
+                .filter_map(|f| f.as_ref().map(|f|
+                    row![
+                        button("X").on_press(f.cancel()),
+                        text(f.to_string())
+                    ]
+                    .align_items(Alignment::Center)
+                    .spacing(4)
+                    .into())
+                )
+                .chain(
+                    [if filters.iter().any(Option::is_some){
+                        Rule::horizontal(2).into()
+                    }else{
+                        Space::with_height(0).into()
+                    }]
+                )
+                .collect()
+        ).spacing(4),
         scrollable(
             Column::with_children(
                 tasks
@@ -74,14 +104,15 @@ pub fn task_scroller(tasks: &[Task], filter_date: Option<&NaiveDate>, schedule: 
             )
                 .width(Length::Shrink)
                 .spacing(2)
-                .padding(4)
         )
             .height(Length::Fill),
     ]
+        .spacing(4)
+        .padding(4)
 }
 
 fn task_row(task: &Task) -> Element<'static, Message>{
-    Button::new(
+    button(
         column![
             text(&task.name),
             text(&task.category),

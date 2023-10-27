@@ -97,11 +97,11 @@ pub enum Message{
     Loaded(State),
     ScrollDownCalendar,
     ScrollUpCalendar,
-    ScrollUpMaxCalendar,
+    ScrollUpMaxCalendar, // TODO merge these calendar messages
     EditLinkID(Option<usize>),
     Open(String),
     None,
-    FilterToDate(Option<NaiveDate>),
+    FilterToDate(Option<NaiveDate>), //TODO I have a feeling I'll want more filters at some point
 }
 
 #[derive(Debug, Clone)]
