@@ -272,7 +272,11 @@ impl Application for Beavor {
             Beavor::Loading => text("Loading...").into(),
             Beavor::Loaded(state) => 
                 row![
-                    task_scroller(&state.cache.loaded_tasks, state.calendar_state.filter_date.as_ref(), &state.cache.loaded_schedule)
+                    task_scroller(
+                        &state.cache.loaded_tasks,
+                        state.calendar_state.filter_date.as_ref(),
+                        &state.cache.loaded_schedule
+                    )
                         .width(Length::FillPortion(2))
                         .height(Length::FillPortion(1)),
                     Rule::vertical(4),

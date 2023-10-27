@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use chrono::NaiveDate;
 
 use iced::widget::{
@@ -20,14 +22,36 @@ use backend::{
 
 use crate::Message;
 
+trait Filter: Display{
+    fn apply(&self, task: &Task) -> bool;
+}
+
+struct DateFilter<'a, 'b>{
+    date: &'a NaiveDate,
+    schedule: &'b Schedule,
+}
+
+impl Filter for DateFilter<'_, '_>{
+    fn apply(&self, t: &Task) -> bool{
+        self.schedule.is_available_on_day(
+            t,
+            *self.date
+        )
+    }
+}
+
+impl Display for DateFilter<'_, '_>{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.date.format("%b %d"))
+    }
+}
+
 pub fn task_scroller(tasks: &[Task], filter_date: Option<&NaiveDate>, schedule: &Schedule) -> Column<'static, Message>{
 
     let filters = [ // TODO this should probably be in the application-level state
-        filter_date.map(|date| |t| {
-            schedule.is_available_on_day(
-                t,
-                *date
-            )
+        filter_date.map(|date| DateFilter{
+            date,
+            schedule
         }),
     ];
 
@@ -41,7 +65,7 @@ pub fn task_scroller(tasks: &[Task], filter_date: Option<&NaiveDate>, schedule: 
                             .iter()
                             .map(|f| match f{
                                 None => true,
-                                Some(f) => f(t)
+                                Some(f) => f.apply(t)
                             })
                             .all(|b| b)
                     )
