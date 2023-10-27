@@ -97,10 +97,11 @@ pub enum Message{
     Loaded(State),
     ScrollDownCalendar,
     ScrollUpCalendar,
-    ScrollUpMaxCalendar,
+    ScrollUpMaxCalendar, // TODO merge these calendar messages
     EditLinkID(Option<usize>),
     Open(String),
     None,
+    FilterToDate(Option<NaiveDate>), //TODO I have a feeling I'll want more filters at some point
 }
 
 #[derive(Debug, Clone)]
@@ -110,7 +111,7 @@ pub struct State{
     selected_date: Option<NaiveDate>,
     draft_task:    Task,
     timer_state:   TimerState,
-    modal_state: ModalShowing,
+    modal_state:   ModalShowing,
     calendar_state: CalendarState,
     cache:         Cache,
     editing_link: Option<usize>,
@@ -260,6 +261,7 @@ impl Application for Beavor {
                         Command::none()
                     },
                     Message::EditLinkID(h_id) => {state.editing_link = h_id; Command::none()},
+                    Message::FilterToDate(date) => {state.calendar_state.filter_date = date; Command::none()},
                 }}
             },
         }
@@ -270,7 +272,11 @@ impl Application for Beavor {
             Beavor::Loading => text("Loading...").into(),
             Beavor::Loaded(state) => 
                 row![
-                    task_scroller(&state.cache.loaded_tasks)
+                    task_scroller(
+                        &state.cache.loaded_tasks,
+                        state.calendar_state.filter_date.as_ref(),
+                        &state.cache.loaded_schedule
+                    )
                         .width(Length::FillPortion(2))
                         .height(Length::FillPortion(1)),
                     Rule::vertical(4),
@@ -293,7 +299,11 @@ impl Application for Beavor {
                     .into()
         };
 
-        container(content).into()
+        container(content)
+            .center_x()
+            .center_y()
+            .padding(8)
+            .into()
     }
 
     fn subscription(&self) -> Subscription<Self::Message>{
