@@ -90,6 +90,8 @@ pub enum Message{
     TryDeleteTask,
     SelectDate(Option<NaiveDate>),
     UpdateDraftTask(UpdateDraftTask),
+    StartTimer,
+    StopTimer,
     ToggleTimer, // Consider having separate start/stop/toggle messages
     Modal(ModalMessage),
     NewTask,
@@ -228,14 +230,25 @@ impl Application for Beavor {
                         let m = Beavor::update_draft_task(&mut state.draft_task, task_field_update);
                         self.update(m)
                     },
-                    #[allow(clippy::single_match_else)]
-                    Message::ToggleTimer => match state.timer_state.num_minutes_running(){
-                        Some(minutes) => {
+                    Message::StartTimer => {
+                        if state.timer_state.num_minutes_running().is_none(){
+                            state.timer_state = TimerState::Timing{start_time: Utc::now()};
+                        }
+                        Command::none()
+                    },
+                    Message::StopTimer => {
+                        if let Some(minutes) = state.timer_state.num_minutes_running(){
                             state.draft_task.time_used += minutes;
                             state.timer_state = TimerState::Stopped;
                             self.update(Message::Mutate(MutateMessage::SaveDraftTask))
-                        },
-                        None => {state.timer_state = TimerState::Timing{start_time: Utc::now()}; Command::none()},
+                        }else{
+                            Command::none()
+                        }
+                    },
+                    #[allow(clippy::single_match_else)]
+                    Message::ToggleTimer => match state.timer_state.num_minutes_running(){
+                        Some(_) => self.update(Message::StopTimer),
+                        None => self.update(Message::StartTimer),
                     },
                     Message::Modal(modal_message) => match modal_message{
                         ModalMessage::PickNextActionDate => {state.modal_state = ModalShowing::NextAction; Command::none()},
@@ -252,7 +265,6 @@ impl Application for Beavor {
                         ModalMessage::Confirm((string, message)) => {state.modal_state = ModalShowing::Confirm(string, message); Command::none()},
                     } ,
                     Message::Refresh(cache) => {
-
                         state.cache = cache;
                         if state.draft_task.finished{
                             self.update(Message::SelectTask(None))
