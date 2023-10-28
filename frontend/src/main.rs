@@ -339,9 +339,6 @@ impl Beavor{
 
     fn handle_modal_message(modal_state: &mut ModalShowing, modal_message: ModalMessage) -> Message{
         match modal_message{
-            ModalMessage::PickNextActionDate => {*modal_state = ModalShowing::NextAction; Message::None},
-            ModalMessage::PickDueDate =>        {*modal_state = ModalShowing::DueDate; Message::None},
-            ModalMessage::Close =>              {*modal_state = ModalShowing::None; Message::None},
             ModalMessage::Ok => match &modal_state{
                 ModalShowing::Confirm(_, confirmed_message) => {
                     let m = confirmed_message.clone();
@@ -350,7 +347,16 @@ impl Beavor{
                 },
                 _ => panic!("Should never happen"),
             },
-            ModalMessage::Confirm((string, message)) => {*modal_state = ModalShowing::Confirm(string, message); Message::None},
+            other => {
+                *modal_state = match other{
+                    ModalMessage::Confirm((string, message)) =>  ModalShowing::Confirm(string, message),
+                    ModalMessage::PickNextActionDate =>          ModalShowing::NextAction,
+                    ModalMessage::PickDueDate =>                 ModalShowing::DueDate,
+                    ModalMessage::Close =>                       ModalShowing::None,
+                    ModalMessage::Ok => panic!("will never happen"),
+                };
+                Message::None
+            }
         }
     }
 
