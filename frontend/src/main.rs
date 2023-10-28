@@ -190,10 +190,6 @@ impl Application for Beavor {
                 // Mutate messages modify the database
                 Message::Mutate(mutate_message) => Beavor::mutate(state, &mutate_message),
                 other => {match other{
-                    // TODO Semantically, it would make more sense for SelectTask(None) to call
-                    // NewTask, rather than the other way around (which is currently how it's done)
-                    // why do I even have NewTask if they do the same thing? Just for the
-                    // psychological meaning?
                     Message::NewTask => self.update(Message::TrySelectTask(None)),
                     Message::SelectTask(maybe_task) => {
                         state.selected_task = maybe_task.clone();
@@ -250,20 +246,10 @@ impl Application for Beavor {
                         Some(_) => self.update(Message::StopTimer),
                         None => self.update(Message::StartTimer),
                     },
-                    Message::Modal(modal_message) => match modal_message{
-                        ModalMessage::PickNextActionDate => {state.modal_state = ModalShowing::NextAction; Command::none()},
-                        ModalMessage::PickDueDate =>        {state.modal_state = ModalShowing::DueDate; Command::none()},
-                        ModalMessage::Close =>              {state.modal_state = ModalShowing::None; Command::none()},
-                        ModalMessage::Ok => match &state.modal_state{
-                            ModalShowing::Confirm(_, confirmed_message) => {
-                                let m = confirmed_message.clone();
-                                state.modal_state = ModalShowing::None; // this bypasses the update function
-                                self.update(*m)
-                            },
-                            _ => panic!("Should never happen"),
-                        },
-                        ModalMessage::Confirm((string, message)) => {state.modal_state = ModalShowing::Confirm(string, message); Command::none()},
-                    } ,
+                    Message::Modal(modal_message) => {
+                        let m = Self::handle_modal_message(&mut state.modal_state, modal_message);
+                        self.update(m)
+                    },
                     Message::Refresh(cache) => {
                         state.cache = cache;
                         if state.draft_task.finished{
@@ -336,6 +322,23 @@ impl Application for Beavor {
 }
 
 impl Beavor{
+    fn handle_modal_message(modal_state: &mut ModalShowing, modal_message: ModalMessage) -> Message{
+        match modal_message{
+            ModalMessage::PickNextActionDate => {*modal_state = ModalShowing::NextAction; Message::None},
+            ModalMessage::PickDueDate =>        {*modal_state = ModalShowing::DueDate; Message::None},
+            ModalMessage::Close =>              {*modal_state = ModalShowing::None; Message::None},
+            ModalMessage::Ok => match &modal_state{
+                ModalShowing::Confirm(_, confirmed_message) => {
+                    let m = confirmed_message.clone();
+                    *modal_state = ModalShowing::None; // this bypasses the update function
+                    *m
+                },
+                _ => panic!("Should never happen"),
+            },
+            ModalMessage::Confirm((string, message)) => {*modal_state = ModalShowing::Confirm(string, message); Message::None},
+        }
+    }
+
     #[must_use] fn update_draft_task(draft_task: &mut Task, message: UpdateDraftTask) -> Message{
         use UpdateDraftTask as UDT;
 
