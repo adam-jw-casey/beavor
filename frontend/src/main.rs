@@ -191,14 +191,7 @@ impl Application for Beavor {
                 Message::Mutate(mutate_message) => Beavor::mutate(state, &mutate_message),
                 other => {match other{
                     Message::NewTask => self.update(Message::TrySelectTask(None)),
-                    Message::SelectTask(maybe_task) => {
-                        state.selected_task = maybe_task.clone();
-                        state.draft_task = match maybe_task{
-                            Some(t) =>  t.clone(),
-                            None => Task::default(),
-                        };
-                        Command::none()
-                    },
+                    Message::SelectTask(maybe_task) => {Self::select_task(state, maybe_task); Command::none()}, // TODO this message needs to go
                     Message::TrySelectTask(maybe_task) => {
                         // Stop timer and save if timer is running
                         Self::stop_timer(state);
@@ -208,7 +201,8 @@ impl Application for Beavor {
                             Some(t) => *t == state.draft_task,
                             None => state.draft_task == Task::default(),
                         }{
-                            self.update(Message::SelectTask(maybe_task))
+                            Self::select_task(state, maybe_task);
+                            Command::none()
                         }else{
                             self.update(Message::Modal(ModalMessage::Confirm((
                                 "Unsaved changes will be lost. Continue without saving?".to_string(),
@@ -230,14 +224,14 @@ impl Application for Beavor {
                         self.update(m)
                     },
                     Message::StartTimer => {Self::start_timer(&mut state.timer_state); Command::none()},
-                    Message::StopTimer => {
-                        Self::stop_timer(state);
-                        Command::none()
-                    },
+                    Message::StopTimer => {Self::stop_timer(state); Command::none()},
                     #[allow(clippy::single_match_else)]
-                    Message::ToggleTimer => match state.timer_state.num_minutes_running(){
-                        Some(_) => self.update(Message::StopTimer),
-                        None => self.update(Message::StartTimer),
+                    Message::ToggleTimer => {
+                        match state.timer_state.num_minutes_running(){
+                            Some(_) => Self::stop_timer(state),
+                            None => Self::start_timer(&mut state.timer_state),
+                        }
+                        Command::none()
                     },
                     Message::Modal(modal_message) => {
                         let m = Self::handle_modal_message(&mut state.modal_state, modal_message);
@@ -246,10 +240,9 @@ impl Application for Beavor {
                     Message::Refresh(cache) => {
                         state.cache = cache;
                         if state.draft_task.finished{
-                            self.update(Message::SelectTask(None))
-                        }else{
-                            Command::none()
+                            Self::select_task(state, None);
                         }
+                        Command::none()
                     },
                     Message::Tick(_) | Message::None => Command::none(),
                     Message::Loaded(_) | Message::Mutate(_) => panic!("Should never happen"),
@@ -315,6 +308,14 @@ impl Application for Beavor {
 }
 
 impl Beavor{
+    fn select_task(state: &mut State, maybe_task: Option<Task>){
+        state.selected_task = maybe_task.clone();
+        state.draft_task = match maybe_task{
+            Some(t) =>  t.clone(),
+            None => Task::default(),
+        };
+    }
+
     fn start_timer(timer_state: &mut TimerState){
         if timer_state.num_minutes_running().is_none(){
             *timer_state = TimerState::Timing{start_time: Utc::now()};
