@@ -190,13 +190,13 @@ impl Application for Beavor {
                 // Mutate messages modify the database
                 Message::Mutate(mutate_message) => Beavor::mutate(state, &mutate_message),
                 other => {match other{
-                    Message::NewTask => {
-                        let m = Self::try_select_task(state, None);
-                        self.update(m)
-                    },
                     Message::ForceSelectTask(maybe_task) => {Self::select_task(state, maybe_task); Command::none()}, // TODO this message needs to go
                     Message::TrySelectTask(maybe_task) => {
                         let m = Self::try_select_task(state, maybe_task);
+                        self.update(m)
+                    },
+                    Message::NewTask => {
+                        let m = Self::try_select_task(state, None);
                         self.update(m)
                     },
                     Message::TryDeleteTask => {
@@ -207,11 +207,15 @@ impl Application for Beavor {
                             Box::new(Message::Mutate(MutateMessage::DeleteTask))
                         ))))
                     },
-                    Message::SelectDate(maybe_date) => {state.selected_date = maybe_date; Command::none()},
+                    Message::Modal(modal_message) => {
+                        let m = Self::handle_modal_message(&mut state.modal_state, modal_message);
+                        self.update(m)
+                    },
                     Message::UpdateDraftTask(task_field_update) => {
                         let m = Beavor::update_draft_task(&mut state.draft_task, task_field_update);
                         self.update(m)
                     },
+                    Message::SelectDate(maybe_date) => {state.selected_date = maybe_date; Command::none()},
                     Message::StartTimer => {Self::start_timer(&mut state.timer_state); Command::none()},
                     Message::StopTimer => {Self::stop_timer(state); Command::none()},
                     #[allow(clippy::single_match_else)]
@@ -221,10 +225,6 @@ impl Application for Beavor {
                             None => Self::start_timer(&mut state.timer_state),
                         }
                         Command::none()
-                    },
-                    Message::Modal(modal_message) => {
-                        let m = Self::handle_modal_message(&mut state.modal_state, modal_message);
-                        self.update(m)
                     },
                     Message::Refresh(cache) => {
                         state.cache = cache;
