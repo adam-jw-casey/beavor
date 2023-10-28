@@ -190,25 +190,14 @@ impl Application for Beavor {
                 // Mutate messages modify the database
                 Message::Mutate(mutate_message) => Beavor::mutate(state, &mutate_message),
                 other => {match other{
-                    Message::NewTask => self.update(Message::TrySelectTask(None)),
+                    Message::NewTask => {
+                        let m = Self::try_select_task(state, None);
+                        self.update(m)
+                    },
                     Message::SelectTask(maybe_task) => {Self::select_task(state, maybe_task); Command::none()}, // TODO this message needs to go
                     Message::TrySelectTask(maybe_task) => {
-                        // Stop timer and save if timer is running
-                        Self::stop_timer(state);
-
-                        // Don't overwrite a modified task
-                        if match &state.selected_task{
-                            Some(t) => *t == state.draft_task,
-                            None => state.draft_task == Task::default(),
-                        }{
-                            Self::select_task(state, maybe_task);
-                            Command::none()
-                        }else{
-                            self.update(Message::Modal(ModalMessage::Confirm((
-                                "Unsaved changes will be lost. Continue without saving?".to_string(),
-                                Box::new(Message::SelectTask(maybe_task))
-                            ))))
-                        }
+                        let m = Self::try_select_task(state, maybe_task);
+                        self.update(m)
                     },
                     Message::TryDeleteTask => {
                         // Confirm before deleting
@@ -308,6 +297,25 @@ impl Application for Beavor {
 }
 
 impl Beavor{
+    #[must_use] fn try_select_task(state: &mut State, maybe_task: Option<Task>) -> Message{
+        // Stop timer and save if timer is running
+        Self::stop_timer(state);
+
+        // Don't overwrite a modified task
+        if match &state.selected_task{
+            Some(t) => *t == state.draft_task,
+            None => state.draft_task == Task::default(),
+        }{
+            Self::select_task(state, maybe_task);
+            Message::None
+        }else{
+            Message::Modal(ModalMessage::Confirm((
+                "Unsaved changes will be lost. Continue without saving?".to_string(),
+                Box::new(Message::SelectTask(maybe_task))
+            )))
+        }
+    }
+
     fn select_task(state: &mut State, maybe_task: Option<Task>){
         state.selected_task = maybe_task.clone();
         state.draft_task = match maybe_task{
