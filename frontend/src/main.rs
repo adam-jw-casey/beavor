@@ -85,7 +85,7 @@ pub enum MutateMessage{
 pub enum Message{
     Refresh(Cache),
     Tick(Instant),
-    SelectTask(Option<Task>),
+    ForceSelectTask(Option<Task>),
     TrySelectTask(Option<Task>),
     TryDeleteTask,
     SelectDate(Option<NaiveDate>),
@@ -194,7 +194,7 @@ impl Application for Beavor {
                         let m = Self::try_select_task(state, None);
                         self.update(m)
                     },
-                    Message::SelectTask(maybe_task) => {Self::select_task(state, maybe_task); Command::none()}, // TODO this message needs to go
+                    Message::ForceSelectTask(maybe_task) => {Self::select_task(state, maybe_task); Command::none()}, // TODO this message needs to go
                     Message::TrySelectTask(maybe_task) => {
                         let m = Self::try_select_task(state, maybe_task);
                         self.update(m)
@@ -311,7 +311,7 @@ impl Beavor{
         }else{
             Message::Modal(ModalMessage::Confirm((
                 "Unsaved changes will be lost. Continue without saving?".to_string(),
-                Box::new(Message::SelectTask(maybe_task))
+                Box::new(Message::ForceSelectTask(maybe_task))
             )))
         }
     }
@@ -411,12 +411,12 @@ impl Beavor{
                             db_clone1.update_task(&t1).await
                                 .expect("The task should already exist");
                             tx.send(()).unwrap();
-                        }, |()| Message::SelectTask(Some(t2))),
+                        }, |()| Message::ForceSelectTask(Some(t2))),
                         None => Command::perform(async move {
                             let t: Task = db_clone1.create_task(&t1).await;
                             tx.send(()).unwrap();
                             t
-                        }, |t: Task| Message::SelectTask(Some(t))),
+                        }, |t: Task| Message::ForceSelectTask(Some(t))),
                     },
                     MutateMessage::DeleteTask => {
                         let t = std::mem::take(&mut state.draft_task);
