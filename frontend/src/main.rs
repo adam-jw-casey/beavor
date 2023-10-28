@@ -370,9 +370,10 @@ impl Beavor{
                             tx.send(()).unwrap();
                         }, |()| Message::SelectTask(Some(t2))),
                         None => Command::perform(async move {
-                            db_clone1.create_task(&t1).await;
+                            let t: Task = db_clone1.create_task(&t1).await;
                             tx.send(()).unwrap();
-                        }, |()| Message::SelectTask(Some(t2))),
+                            t
+                        }, |t: Task| Message::SelectTask(Some(t))),
                     },
                     MutateMessage::DeleteTask => {
                         let t = std::mem::take(&mut state.draft_task);
