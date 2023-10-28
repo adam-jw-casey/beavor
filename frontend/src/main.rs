@@ -90,6 +90,8 @@ pub enum Message{
     TryDeleteTask,
     SelectDate(Option<NaiveDate>),
     UpdateDraftTask(UpdateDraftTask),
+    StartTimer,
+    StopTimer,
     ToggleTimer, // Consider having separate start/stop/toggle messages
     Modal(ModalMessage),
     NewTask,
@@ -98,7 +100,7 @@ pub enum Message{
     ScrollDownCalendar,
     ScrollUpCalendar,
     ScrollUpMaxCalendar, // TODO merge these calendar messages
-    EditLinkID(Option<usize>),
+    SetEditingLinkID(Option<usize>),
     Open(String),
     None,
     FilterToDate(Option<NaiveDate>), //TODO I have a feeling I'll want more filters at some point
@@ -198,6 +200,9 @@ impl Application for Beavor {
                         Command::none()
                     },
                     Message::TrySelectTask(maybe_task) => {
+                        // Stop timer and save if timer is running
+                        Self::stop_timer(state);
+
                         // Don't overwrite a modified task
                         if match &state.selected_task{
                             Some(t) => *t == state.draft_task,
@@ -224,30 +229,28 @@ impl Application for Beavor {
                         let m = Beavor::update_draft_task(&mut state.draft_task, task_field_update);
                         self.update(m)
                     },
+                    Message::StartTimer => {Self::start_timer(&mut state.timer_state); Command::none()},
+                    Message::StopTimer => {
+                        Self::stop_timer(state);
+                        Command::none()
+                    },
                     #[allow(clippy::single_match_else)]
                     Message::ToggleTimer => match state.timer_state.num_minutes_running(){
-                        Some(minutes) => {
-                            state.draft_task.time_used += minutes;
-                            state.timer_state = TimerState::Stopped;
-                            self.update(Message::Mutate(MutateMessage::SaveDraftTask))
-                        },
-                        None => {state.timer_state = TimerState::Timing{start_time: Utc::now()}; Command::none()},
+                        Some(_) => self.update(Message::StopTimer),
+                        None => self.update(Message::StartTimer),
                     },
-                    Message::Modal(modal_message) => match modal_message{
-                        ModalMessage::PickNextActionDate => {state.modal_state = ModalShowing::NextAction; Command::none()},
-                        ModalMessage::PickDueDate =>        {state.modal_state = ModalShowing::DueDate; Command::none()},
-                        ModalMessage::Close =>              {state.modal_state = ModalShowing::None; Command::none()},
-                        ModalMessage::Ok => match &state.modal_state{
-                            ModalShowing::Confirm(_, confirmed_message) => {
-                                let m = confirmed_message.clone();
-                                state.modal_state = ModalShowing::None; // this bypasses the update function
-                                self.update(*m)
-                            },
-                            _ => panic!("Should never happen"),
-                        },
-                        ModalMessage::Confirm((string, message)) => {state.modal_state = ModalShowing::Confirm(string, message); Command::none()},
-                    } ,
-                    Message::Refresh(cache) => {state.cache = cache; Command::none()},
+                    Message::Modal(modal_message) => {
+                        let m = Self::handle_modal_message(&mut state.modal_state, modal_message);
+                        self.update(m)
+                    },
+                    Message::Refresh(cache) => {
+                        state.cache = cache;
+                        if state.draft_task.finished{
+                            self.update(Message::SelectTask(None))
+                        }else{
+                            Command::none()
+                        }
+                    },
                     Message::Tick(_) | Message::None => Command::none(),
                     Message::Loaded(_) | Message::Mutate(_) => panic!("Should never happen"),
                     Message::ScrollDownCalendar => {state.calendar_state.scroll_down(); Command::none()},
@@ -260,7 +263,7 @@ impl Application for Beavor {
                         };
                         Command::none()
                     },
-                    Message::EditLinkID(h_id) => {state.editing_link = h_id; Command::none()},
+                    Message::SetEditingLinkID(h_id) => {state.editing_link = h_id; Command::none()},
                     Message::FilterToDate(date) => {state.calendar_state.filter_date = date; Command::none()},
                 }}
             },
@@ -312,6 +315,36 @@ impl Application for Beavor {
 }
 
 impl Beavor{
+    fn start_timer(timer_state: &mut TimerState){
+        if timer_state.num_minutes_running().is_none(){
+            *timer_state = TimerState::Timing{start_time: Utc::now()};
+        }
+    }
+
+    fn stop_timer(state: &mut State){
+        if let Some(minutes) = state.timer_state.num_minutes_running(){
+            state.draft_task.time_used += minutes;
+            state.timer_state = TimerState::Stopped;
+        }
+    }
+
+    fn handle_modal_message(modal_state: &mut ModalShowing, modal_message: ModalMessage) -> Message{
+        match modal_message{
+            ModalMessage::PickNextActionDate => {*modal_state = ModalShowing::NextAction; Message::None},
+            ModalMessage::PickDueDate =>        {*modal_state = ModalShowing::DueDate; Message::None},
+            ModalMessage::Close =>              {*modal_state = ModalShowing::None; Message::None},
+            ModalMessage::Ok => match &modal_state{
+                ModalShowing::Confirm(_, confirmed_message) => {
+                    let m = confirmed_message.clone();
+                    *modal_state = ModalShowing::None; // this bypasses the update function
+                    *m
+                },
+                _ => panic!("Should never happen"),
+            },
+            ModalMessage::Confirm((string, message)) => {*modal_state = ModalShowing::Confirm(string, message); Message::None},
+        }
+    }
+
     #[must_use] fn update_draft_task(draft_task: &mut Task, message: UpdateDraftTask) -> Message{
         use UpdateDraftTask as UDT;
 
@@ -351,6 +384,7 @@ impl Beavor{
     }
 
     fn mutate(state: &mut State, message: &MutateMessage) -> Command<Message>{
+        Self::stop_timer(state);
         // TODO this is so stupid but it works and I got tired of hacking at Arc<>
         let db_clone1 = state.db.clone();
         let db_clone2 = state.db.clone();
@@ -370,9 +404,10 @@ impl Beavor{
                             tx.send(()).unwrap();
                         }, |()| Message::SelectTask(Some(t2))),
                         None => Command::perform(async move {
-                            db_clone1.create_task(&t1).await;
+                            let t: Task = db_clone1.create_task(&t1).await;
                             tx.send(()).unwrap();
-                        }, |()| Message::SelectTask(Some(t2))),
+                            t
+                        }, |t: Task| Message::SelectTask(Some(t))),
                     },
                     MutateMessage::DeleteTask => {
                         let t = std::mem::take(&mut state.draft_task);
@@ -385,6 +420,7 @@ impl Beavor{
                 },
                 Command::perform(async move {
                     rx.await.unwrap();
+
                     Cache{
                         loaded_tasks:    db_clone2.open_tasks().await.into(),
                         loaded_schedule: db_clone2.schedule().await,

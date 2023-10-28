@@ -36,7 +36,7 @@ pub fn hyperlink <'a>(link: &Hyperlink, link_idx: usize, editing_idx: Option<usi
                 Message::UpdateDraftTask(UpdateDraftTask::Link(LinkMessage::Update((new_link, link_idx)))
             )}).width(Length::FillPortion(2)),
             button(text("Done"))
-                .on_press(Message::EditLinkID(None))
+                .on_press(Message::SetEditingLinkID(None))
                 .width(Length::Shrink),
         ]
             .spacing(4)
@@ -47,7 +47,7 @@ pub fn hyperlink <'a>(link: &Hyperlink, link_idx: usize, editing_idx: Option<usi
                 .on_press(Message::Open(link.url.to_string()))
                 .width(Length::FillPortion(4)),
             button(text("Edit"))
-                .on_press(Message::EditLinkID(Some(link_idx)))
+                .on_press(Message::SetEditingLinkID(Some(link_idx)))
                 .width(Length::FillPortion(1)),
             button(text("Delete"))
                 .on_press(Message::UpdateDraftTask(UpdateDraftTask::Link(LinkMessage::Delete(link_idx))))
