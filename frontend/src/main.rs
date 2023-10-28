@@ -188,6 +188,10 @@ impl Application for Beavor {
                 // Mutate messages modify the database
                 Message::Mutate(mutate_message) => Beavor::mutate(state, &mutate_message),
                 other => {match other{
+                    // TODO Semantically, it would make more sense for SelectTask(None) to call
+                    // NewTask, rather than the other way around (which is currently how it's done)
+                    // why do I even have NewTask if they do the same thing? Just for the
+                    // psychological meaning?
                     Message::NewTask => self.update(Message::TrySelectTask(None)),
                     Message::SelectTask(maybe_task) => {
                         state.selected_task = maybe_task.clone();
@@ -247,7 +251,15 @@ impl Application for Beavor {
                         },
                         ModalMessage::Confirm((string, message)) => {state.modal_state = ModalShowing::Confirm(string, message); Command::none()},
                     } ,
-                    Message::Refresh(cache) => {state.cache = cache; Command::none()},
+                    Message::Refresh(cache) => {
+
+                        state.cache = cache;
+                        if state.draft_task.finished{
+                            self.update(Message::SelectTask(None))
+                        }else{
+                            Command::none()
+                        }
+                    },
                     Message::Tick(_) | Message::None => Command::none(),
                     Message::Loaded(_) | Message::Mutate(_) => panic!("Should never happen"),
                     Message::ScrollDownCalendar => {state.calendar_state.scroll_down(); Command::none()},
@@ -386,6 +398,7 @@ impl Beavor{
                 },
                 Command::perform(async move {
                     rx.await.unwrap();
+
                     Cache{
                         loaded_tasks:    db_clone2.open_tasks().await.into(),
                         loaded_schedule: db_clone2.schedule().await,
