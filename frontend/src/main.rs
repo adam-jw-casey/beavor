@@ -100,7 +100,7 @@ pub enum Message{
     ScrollDownCalendar,
     ScrollUpCalendar,
     ScrollUpMaxCalendar, // TODO merge these calendar messages
-    EditLinkID(Option<usize>),
+    SetEditingLinkID(Option<usize>),
     Open(String),
     None,
     FilterToDate(Option<NaiveDate>), //TODO I have a feeling I'll want more filters at some point
@@ -284,7 +284,7 @@ impl Application for Beavor {
                         };
                         Command::none()
                     },
-                    Message::EditLinkID(h_id) => {state.editing_link = h_id; Command::none()},
+                    Message::SetEditingLinkID(h_id) => {state.editing_link = h_id; Command::none()},
                     Message::FilterToDate(date) => {state.calendar_state.filter_date = date; Command::none()},
                 }}
             },
