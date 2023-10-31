@@ -66,15 +66,12 @@ pub struct ConfirmationRequest{
 
 #[derive(Debug, Clone)]
 pub enum ModalMessage{
-    PickNextActionDate,
-    PickDueDate,
-    Confirm(ConfirmationRequest),
-    Close,
+    Show(ModalType),
     Ok,
 }
 
 #[derive(Debug, Clone)]
-pub enum ModalShowing{
+pub enum ModalType{
     None,
     NextAction,
     DueDate,
@@ -119,7 +116,7 @@ pub struct State{
     selected_date: Option<NaiveDate>,
     draft_task:    Task,
     timer_state:   TimerState,
-    modal_state:   ModalShowing,
+    modal_state:   ModalType,
     calendar_state: CalendarState,
     cache:         Cache,
     editing_link: Option<usize>,
@@ -156,7 +153,7 @@ impl Application for Beavor {
                         selected_date: None,
                         draft_task:    Task::default(),
                         timer_state: TimerState::Stopped,
-                        modal_state: ModalShowing::None,
+                        modal_state: ModalType::None,
                         cache: Cache{
                             loaded_tasks: db.open_tasks().await.into(),
                             loaded_schedule: db.schedule().await,
@@ -198,7 +195,7 @@ impl Application for Beavor {
                 other => {match other{
                     Message::NewTask => {
                         if let Some(m) = Self::try_select_task(state, None){
-                            self.update(Message::Modal(ModalMessage::Confirm(m)))
+                            self.update(Message::Modal(ModalMessage::Show(ModalType::Confirm(m))))
                         }else{
                             Command::none()
                         }
@@ -206,16 +203,21 @@ impl Application for Beavor {
                     Message::TryDeleteTask => {
                         // Confirm before deleting
                         let name = state.draft_task.name.clone();
-                        self.update(Message::Modal(ModalMessage::Confirm(ConfirmationRequest{
+                        self.update(Message::Modal(ModalMessage::Show(ModalType::Confirm(ConfirmationRequest{
                             message: format!("Are you sure you want to delete '{name}'?"),
                             run_on_confirm: Box::new(Message::Mutate(MutateMessage::DeleteTask))
-                        })))
+                        }))))
                     },
                     Message::Modal(modal_message) => {
-                        if let Some(m) = Self::handle_modal_message(&mut state.modal_state, modal_message){
-                            self.update(m)
-                        }else{
-                            Command::none()
+                        match modal_message{
+                            ModalMessage::Show(modal_type) => {
+                                state.modal_state = modal_type;
+                                Command::none()
+                            },
+                            ModalMessage::Ok => {
+                                let m = Self::complete_modal(&mut state.modal_state);
+                                self.update(m)
+                            }
                         }
                     },
                     Message::UpdateDraftTask(task_field_update) => {
@@ -227,7 +229,7 @@ impl Application for Beavor {
                     },
                     Message::TrySelectTask(maybe_task) => {
                         if let Some(m) = Self::try_select_task(state, maybe_task){
-                            self.update(Message::Modal(ModalMessage::Confirm(m)))
+                            self.update(Message::Modal(ModalMessage::Show(ModalType::Confirm(m))))
                         }else{
                             Command::none()
                         }
@@ -355,26 +357,14 @@ impl Beavor{
         }
     }
 
-    fn handle_modal_message(modal_state: &mut ModalShowing, modal_message: ModalMessage) -> Option<Message>{
-        match modal_message{
-            ModalMessage::Ok => match &modal_state{
-                ModalShowing::Confirm(confirmation_request) => {
-                    let m = confirmation_request.run_on_confirm.clone();
-                    *modal_state = ModalShowing::None; // this bypasses the update function
-                    Some(*m)
-                },
-                _ => panic!("Should never happen"),
+    fn complete_modal(modal_state: &mut ModalType) -> Message{
+        match &modal_state{
+            ModalType::Confirm(confirmation_request) => {
+                let m = confirmation_request.run_on_confirm.clone();
+                *modal_state = ModalType::None; // this bypasses the update function
+                *m
             },
-            other => {
-                *modal_state = match other{
-                    ModalMessage::Confirm(confirmation_request) =>  ModalShowing::Confirm(confirmation_request),
-                    ModalMessage::PickNextActionDate =>             ModalShowing::NextAction,
-                    ModalMessage::PickDueDate =>                    ModalShowing::DueDate,
-                    ModalMessage::Close =>                          ModalShowing::None,
-                    ModalMessage::Ok => panic!("will never happen"),
-                };
-                None
-            }
+            _ => panic!("Should never happen"),
         }
     }
 
@@ -384,11 +374,11 @@ impl Beavor{
         match message{
             UDT::NextActionDate(next_action_date) => {
                 draft_task.next_action_date = next_action_date;
-                Some(ModalMessage::Close)
+                Some(ModalMessage::Show(ModalType::None))
             },
             UDT::DueDate(due_date) => {
                 draft_task.due_date = due_date;
-                Some(ModalMessage::Close)
+                Some(ModalMessage::Show(ModalType::None))
             },
             other => {
                 match other{
