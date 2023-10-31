@@ -194,11 +194,8 @@ impl Application for Beavor {
                 Message::Mutate(mutate_message) => Beavor::mutate(state, &mutate_message),
                 other => {match other{
                     Message::NewTask => {
-                        if let Some(m) = Self::try_select_task(state, None){
-                            self.update(Message::Modal(ModalMessage::Show(ModalType::Confirm(m))))
-                        }else{
-                            Command::none()
-                        }
+                        Self::try_select_task(state, None);
+                        Command::none()
                     },
                     Message::TryDeleteTask => {
                         // Confirm before deleting
@@ -211,7 +208,7 @@ impl Application for Beavor {
                     Message::Modal(modal_message) => {
                         match modal_message{
                             ModalMessage::Show(modal_type) => {
-                                state.modal_state = modal_type;
+                                Self::update_modal_state(&mut state.modal_state, modal_type);
                                 Command::none()
                             },
                             ModalMessage::Ok => {
@@ -228,11 +225,8 @@ impl Application for Beavor {
                         }
                     },
                     Message::TrySelectTask(maybe_task) => {
-                        if let Some(m) = Self::try_select_task(state, maybe_task){
-                            self.update(Message::Modal(ModalMessage::Show(ModalType::Confirm(m))))
-                        }else{
-                            Command::none()
-                        }
+                        Self::try_select_task(state, maybe_task);
+                        Command::none()
                     },
                     Message::ForceSelectTask(maybe_task) => {Self::select_task(state, maybe_task); Command::none()}, // TODO this message needs to go
                     Message::SelectDate(maybe_date) => {state.selected_date = maybe_date; Command::none()},
@@ -317,7 +311,7 @@ impl Application for Beavor {
 }
 
 impl Beavor{
-    #[must_use] fn try_select_task(state: &mut State, maybe_task: Option<Task>) -> Option<ConfirmationRequest>{
+     fn try_select_task(state: &mut State, maybe_task: Option<Task>){
         // Stop timer and save if timer is running
         Self::stop_timer(state);
 
@@ -327,12 +321,11 @@ impl Beavor{
             None => state.draft_task == Task::default(),
         }{
             Self::select_task(state, maybe_task);
-            None
         }else{
-            Some(ConfirmationRequest{
+            Self::update_modal_state(&mut state.modal_state, ModalType::Confirm(ConfirmationRequest{
                 message: "Unsaved changes will be lost. Continue without saving?".to_string(),
                 run_on_confirm: Box::new(Message::ForceSelectTask(maybe_task))
-            })
+            }));
         }
     }
 
@@ -357,7 +350,11 @@ impl Beavor{
         }
     }
 
-    fn complete_modal(modal_state: &mut ModalType) -> Message{
+    fn update_modal_state(modal_state: &mut ModalType, modal_type: ModalType){
+        *modal_state = modal_type;
+    }
+
+    #[must_use] fn complete_modal(modal_state: &mut ModalType) -> Message{
         match &modal_state{
             ModalType::Confirm(confirmation_request) => {
                 let m = confirmation_request.run_on_confirm.clone();
