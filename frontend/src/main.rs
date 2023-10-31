@@ -200,10 +200,11 @@ impl Application for Beavor {
                     Message::TryDeleteTask => {
                         // Confirm before deleting
                         let name = state.draft_task.name.clone();
-                        self.update(Message::Modal(ModalMessage::Show(ModalType::Confirm(ConfirmationRequest{
+                        Self::update_modal_state(&mut state.modal_state, ModalType::Confirm(ConfirmationRequest{
                             message: format!("Are you sure you want to delete '{name}'?"),
                             run_on_confirm: Box::new(Message::Mutate(MutateMessage::DeleteTask))
-                        }))))
+                        }));
+                        Command::none()
                     },
                     Message::Modal(modal_message) => {
                         match modal_message{
@@ -219,10 +220,9 @@ impl Application for Beavor {
                     },
                     Message::UpdateDraftTask(task_field_update) => {
                         if let Some(m) = Beavor::update_draft_task(&mut state.draft_task, task_field_update){
-                            self.update(Message::Modal(m))
-                        }else{
-                            Command::none()
+                            Self::update_modal_state(&mut state.modal_state, m);
                         }
+                        Command::none()
                     },
                     Message::TrySelectTask(maybe_task) => {
                         Self::try_select_task(state, maybe_task);
@@ -365,17 +365,17 @@ impl Beavor{
         }
     }
 
-    #[must_use] fn update_draft_task(draft_task: &mut Task, message: UpdateDraftTask) -> Option<ModalMessage>{
+    #[must_use] fn update_draft_task(draft_task: &mut Task, message: UpdateDraftTask) -> Option<ModalType>{
         use UpdateDraftTask as UDT;
 
         match message{
             UDT::NextActionDate(next_action_date) => {
                 draft_task.next_action_date = next_action_date;
-                Some(ModalMessage::Show(ModalType::None))
+                Some(ModalType::None)
             },
             UDT::DueDate(due_date) => {
                 draft_task.due_date = due_date;
-                Some(ModalMessage::Show(ModalType::None))
+                Some(ModalType::None)
             },
             other => {
                 match other{
