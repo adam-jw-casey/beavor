@@ -18,18 +18,18 @@ use iced_aw::{
 use crate::{
     Message,
     ModalMessage,
-    ModalShowing,
+    ModalType,
 };
 
-pub fn confirm_modal<'a>(state: &ModalShowing) -> Element<'a, Message>{
+pub fn confirm_modal<'a>(state: &ModalType) -> Element<'a, Message>{
     let underlay = row![];
 
     let overlay = match state {
-        ModalShowing::Confirm(string, _message) => {
+        ModalType::Confirm(confirmation_request) => {
             Some(
                 Card::new(
                     text("Confirm:"),
-                    text(string),
+                    text(confirmation_request.message.clone()),
                 )
                 .foot(
                     Row::new()
@@ -39,7 +39,7 @@ pub fn confirm_modal<'a>(state: &ModalShowing) -> Element<'a, Message>{
                     .push(
                         button(text("Cancel"))
                             .width(Length::Fill)
-                            .on_press(Message::Modal(ModalMessage::Close)),
+                            .on_press(Message::Modal(ModalMessage::Show(ModalType::None))),
                     )
                     .push(
                         button("Ok")
@@ -48,14 +48,14 @@ pub fn confirm_modal<'a>(state: &ModalShowing) -> Element<'a, Message>{
                     ),
                 )
                     .max_width(300.0)
-                    .on_close(Message::Modal(ModalMessage::Close)),
+                    .on_close(Message::Modal(ModalMessage::Show(ModalType::None))),
             )
         },
         _ => None,
     };
 
     modal(underlay, overlay)
-        .backdrop(Message::Modal(ModalMessage::Close))
-        .on_esc(Message::Modal(ModalMessage::Close))
+        .backdrop(Message::Modal(ModalMessage::Show(ModalType::None)))
+        .on_esc(Message::Modal(ModalMessage::Show(ModalType::None)))
         .into()
 }

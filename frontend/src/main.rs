@@ -59,20 +59,23 @@ fn main() {
 }
 
 #[derive(Debug, Clone)]
+pub struct ConfirmationRequest{
+    message: String,
+    run_on_confirm: Box<Message>,
+}
+
+#[derive(Debug, Clone)]
 pub enum ModalMessage{
-    PickNextActionDate,
-    PickDueDate,
-    Confirm((String, Box<Message>)),
-    Close,
+    Show(ModalType),
     Ok,
 }
 
 #[derive(Debug, Clone)]
-pub enum ModalShowing{
+pub enum ModalType{
     None,
     NextAction,
     DueDate,
-    Confirm(String, Box<Message>),
+    Confirm(ConfirmationRequest),
 }
 
 #[derive(Debug, Clone)]
@@ -85,7 +88,7 @@ pub enum MutateMessage{
 pub enum Message{
     Refresh(Cache),
     Tick(Instant),
-    SelectTask(Option<Task>),
+    ForceSelectTask(Option<Task>),
     TrySelectTask(Option<Task>),
     TryDeleteTask,
     SelectDate(Option<NaiveDate>),
@@ -113,7 +116,7 @@ pub struct State{
     selected_date: Option<NaiveDate>,
     draft_task:    Task,
     timer_state:   TimerState,
-    modal_state:   ModalShowing,
+    modal_state:   ModalType,
     calendar_state: CalendarState,
     cache:         Cache,
     editing_link: Option<usize>,
@@ -150,7 +153,7 @@ impl Application for Beavor {
                         selected_date: None,
                         draft_task:    Task::default(),
                         timer_state: TimerState::Stopped,
-                        modal_state: ModalShowing::None,
+                        modal_state: ModalType::None,
                         cache: Cache{
                             loaded_tasks: db.open_tasks().await.into(),
                             loaded_schedule: db.schedule().await,
@@ -179,92 +182,77 @@ impl Application for Beavor {
                 match message{
                     Message::Loaded(state) => {
                         *self = Self::Loaded(state);
-                        Command::none()
                     },
-                    Message::Tick(_) | Message::None => {Command::none()},
+                    Message::Tick(_) | Message::None => (),
                     m => panic!("Should never happen: {m:#?}")
                 }
+                Command::none()
             },
-            Beavor::Loaded(state) => match message{ // TODO most of these branches end in
-                                                    // Command::none() - how can this be cleaner?
-                // Mutate messages modify the database
+            Beavor::Loaded(state) => match message{
                 Message::Mutate(mutate_message) => Beavor::mutate(state, &mutate_message),
                 other => {match other{
-                    Message::NewTask => self.update(Message::TrySelectTask(None)),
-                    Message::SelectTask(maybe_task) => {
-                        state.selected_task = maybe_task.clone();
-                        state.draft_task = match maybe_task{
-                            Some(t) =>  t.clone(),
-                            None => Task::default(),
-                        };
-                        Command::none()
-                    },
-                    Message::TrySelectTask(maybe_task) => {
-                        // Stop timer and save if timer is running
-                        Self::stop_timer(state);
-
-                        // Don't overwrite a modified task
-                        if match &state.selected_task{
-                            Some(t) => *t == state.draft_task,
-                            None => state.draft_task == Task::default(),
-                        }{
-                            self.update(Message::SelectTask(maybe_task))
-                        }else{
-                            self.update(Message::Modal(ModalMessage::Confirm((
-                                "Unsaved changes will be lost. Continue without saving?".to_string(),
-                                Box::new(Message::SelectTask(maybe_task))
-                            ))))
-                        }
-                    },
-                    Message::TryDeleteTask => {
-                        // Confirm before deleting
-                        let name = state.draft_task.name.clone();
-                        self.update(Message::Modal(ModalMessage::Confirm((
-                            format!("Are you sure you want to delete '{name}'?"),
-                            Box::new(Message::Mutate(MutateMessage::DeleteTask))
-                        ))))
-                    },
-                    Message::SelectDate(maybe_date) => {state.selected_date = maybe_date; Command::none()},
-                    Message::UpdateDraftTask(task_field_update) => {
-                        let m = Beavor::update_draft_task(&mut state.draft_task, task_field_update);
-                        self.update(m)
-                    },
-                    Message::StartTimer => {Self::start_timer(&mut state.timer_state); Command::none()},
-                    Message::StopTimer => {
-                        Self::stop_timer(state);
-                        Command::none()
-                    },
-                    #[allow(clippy::single_match_else)]
-                    Message::ToggleTimer => match state.timer_state.num_minutes_running(){
-                        Some(_) => self.update(Message::StopTimer),
-                        None => self.update(Message::StartTimer),
-                    },
                     Message::Modal(modal_message) => {
-                        let m = Self::handle_modal_message(&mut state.modal_state, modal_message);
-                        self.update(m)
-                    },
-                    Message::Refresh(cache) => {
-                        state.cache = cache;
-                        if state.draft_task.finished{
-                            self.update(Message::SelectTask(None))
-                        }else{
-                            Command::none()
+                        match modal_message{
+                            ModalMessage::Show(modal_type) => {
+                                Self::update_modal_state(&mut state.modal_state, modal_type);
+                                Command::none()
+                            },
+                            ModalMessage::Ok => {
+                                let m = Self::complete_modal(&mut state.modal_state);
+                                self.update(m)
+                            }
                         }
                     },
-                    Message::Tick(_) | Message::None => Command::none(),
-                    Message::Loaded(_) | Message::Mutate(_) => panic!("Should never happen"),
-                    Message::ScrollDownCalendar => {state.calendar_state.scroll_down(); Command::none()},
-                    Message::ScrollUpCalendar => {state.calendar_state.scroll_up(); Command::none()},
-                    Message::ScrollUpMaxCalendar => {state.calendar_state.scroll_up_max(); Command::none()},
-                    Message::Open(url) => {
-                        if open::that(url.clone()).is_err(){
-                            println!("Error opening '{url}'"); // TODO this should be visible in
-                                                               // the GUI, not just the terminal
-                        };
+                    other => {
+                        match other{
+                            Message::NewTask => Self::try_select_task(state, None),
+                            Message::TryDeleteTask => {
+                                // Confirm before deleting
+                                let name = state.draft_task.name.clone();
+                                Self::update_modal_state(&mut state.modal_state, ModalType::Confirm(ConfirmationRequest{
+                                    message: format!("Are you sure you want to delete '{name}'?"),
+                                    run_on_confirm: Box::new(Message::Mutate(MutateMessage::DeleteTask))
+                                }));
+                            },
+                            Message::UpdateDraftTask(task_field_update) => {
+                                if let Some(m) = Beavor::update_draft_task(&mut state.draft_task, task_field_update){
+                                    Self::update_modal_state(&mut state.modal_state, m);
+                                }
+                            },
+                            Message::TrySelectTask(maybe_task) => Self::try_select_task(state, maybe_task),
+                            Message::ForceSelectTask(maybe_task) => Self::select_task(state, maybe_task), // TODO this message needs to go
+                            Message::SelectDate(maybe_date) => state.selected_date = maybe_date,
+                            Message::StartTimer => Self::start_timer(&mut state.timer_state),
+                            Message::StopTimer => Self::stop_timer(state),
+                            #[allow(clippy::single_match_else)]
+                            Message::ToggleTimer => {
+                                match state.timer_state.num_minutes_running(){
+                                    Some(_) => Self::stop_timer(state),
+                                    None => Self::start_timer(&mut state.timer_state),
+                                }
+                            },
+                            Message::Refresh(cache) => {
+                                state.cache = cache;
+                                if state.draft_task.finished{
+                                    Self::select_task(state, None);
+                                }
+                            },
+                            Message::Tick(_) | Message::None => (),
+                            Message::Loaded(_) | Message::Mutate(_) => panic!("Should never happen"),
+                            Message::ScrollDownCalendar => state.calendar_state.scroll_down(),
+                            Message::ScrollUpCalendar => state.calendar_state.scroll_up(),
+                            Message::ScrollUpMaxCalendar => state.calendar_state.scroll_up_max(),
+                            Message::Open(url) => {
+                                if open::that(url.clone()).is_err(){
+                                    println!("Error opening '{url}'"); // TODO this should be visible in the GUI, not just the terminal
+                                };
+                            },
+                            Message::SetEditingLinkID(h_id) => state.editing_link = h_id,
+                            Message::FilterToDate(date) => state.calendar_state.filter_date = date,
+                            Message::Modal(_) => panic!("Can never happen"),
+                        }
                         Command::none()
-                    },
-                    Message::SetEditingLinkID(h_id) => {state.editing_link = h_id; Command::none()},
-                    Message::FilterToDate(date) => {state.calendar_state.filter_date = date; Command::none()},
+                    }
                 }}
             },
         }
@@ -315,6 +303,32 @@ impl Application for Beavor {
 }
 
 impl Beavor{
+     fn try_select_task(state: &mut State, maybe_task: Option<Task>){
+        // Stop timer and save if timer is running
+        Self::stop_timer(state);
+
+        // Don't overwrite a modified task
+        if match &state.selected_task{
+            Some(t) => *t == state.draft_task,
+            None => state.draft_task == Task::default(),
+        }{
+            Self::select_task(state, maybe_task);
+        }else{
+            Self::update_modal_state(&mut state.modal_state, ModalType::Confirm(ConfirmationRequest{
+                message: "Unsaved changes will be lost. Continue without saving?".to_string(),
+                run_on_confirm: Box::new(Message::ForceSelectTask(maybe_task))
+            }));
+        }
+    }
+
+    fn select_task(state: &mut State, maybe_task: Option<Task>){
+        state.selected_task = maybe_task.clone();
+        state.draft_task = match maybe_task{
+            Some(t) =>  t.clone(),
+            None => Task::default(),
+        };
+    }
+
     fn start_timer(timer_state: &mut TimerState){
         if timer_state.num_minutes_running().is_none(){
             *timer_state = TimerState::Timing{start_time: Utc::now()};
@@ -328,34 +342,32 @@ impl Beavor{
         }
     }
 
-    fn handle_modal_message(modal_state: &mut ModalShowing, modal_message: ModalMessage) -> Message{
-        match modal_message{
-            ModalMessage::PickNextActionDate => {*modal_state = ModalShowing::NextAction; Message::None},
-            ModalMessage::PickDueDate =>        {*modal_state = ModalShowing::DueDate; Message::None},
-            ModalMessage::Close =>              {*modal_state = ModalShowing::None; Message::None},
-            ModalMessage::Ok => match &modal_state{
-                ModalShowing::Confirm(_, confirmed_message) => {
-                    let m = confirmed_message.clone();
-                    *modal_state = ModalShowing::None; // this bypasses the update function
-                    *m
-                },
-                _ => panic!("Should never happen"),
+    fn update_modal_state(modal_state: &mut ModalType, modal_type: ModalType){
+        *modal_state = modal_type;
+    }
+
+    #[must_use] fn complete_modal(modal_state: &mut ModalType) -> Message{
+        match &modal_state{
+            ModalType::Confirm(confirmation_request) => {
+                let m = confirmation_request.run_on_confirm.clone();
+                *modal_state = ModalType::None; // this bypasses the update function
+                *m
             },
-            ModalMessage::Confirm((string, message)) => {*modal_state = ModalShowing::Confirm(string, message); Message::None},
+            _ => panic!("Should never happen"),
         }
     }
 
-    #[must_use] fn update_draft_task(draft_task: &mut Task, message: UpdateDraftTask) -> Message{
+    #[must_use] fn update_draft_task(draft_task: &mut Task, message: UpdateDraftTask) -> Option<ModalType>{
         use UpdateDraftTask as UDT;
 
         match message{
             UDT::NextActionDate(next_action_date) => {
                 draft_task.next_action_date = next_action_date;
-                Message::Modal(ModalMessage::Close)
+                Some(ModalType::None)
             },
             UDT::DueDate(due_date) => {
                 draft_task.due_date = due_date;
-                Message::Modal(ModalMessage::Close)
+                Some(ModalType::None)
             },
             other => {
                 match other{
@@ -378,7 +390,7 @@ impl Beavor{
                         },
                     }
                 }
-                Message::None
+                None
             }
         }
     }
@@ -391,8 +403,7 @@ impl Beavor{
         let t1 = state.draft_task.clone();
         let t2 = state.draft_task.clone();
 
-        let (tx, rx) = oneshot::channel::<()>(); // Synchronize the writes to the database with the
-                                                 // reads that update the cache
+        let (tx, rx) = oneshot::channel::<()>(); // Synchronize the writes to the database with the reads that update the cache
         
         Command::batch(
             [
@@ -402,12 +413,12 @@ impl Beavor{
                             db_clone1.update_task(&t1).await
                                 .expect("The task should already exist");
                             tx.send(()).unwrap();
-                        }, |()| Message::SelectTask(Some(t2))),
+                        }, |()| Message::ForceSelectTask(Some(t2))),
                         None => Command::perform(async move {
                             let t: Task = db_clone1.create_task(&t1).await;
                             tx.send(()).unwrap();
                             t
-                        }, |t: Task| Message::SelectTask(Some(t))),
+                        }, |t: Task| Message::ForceSelectTask(Some(t))),
                     },
                     MutateMessage::DeleteTask => {
                         let t = std::mem::take(&mut state.draft_task);
