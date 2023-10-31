@@ -226,9 +226,9 @@ impl Application for Beavor {
                             Message::StopTimer => Self::stop_timer(state),
                             #[allow(clippy::single_match_else)]
                             Message::ToggleTimer => {
-                                match state.timer_state.num_minutes_running(){
-                                    Some(_) => Self::stop_timer(state),
-                                    None => Self::start_timer(&mut state.timer_state),
+                                match state.timer_state{
+                                    TimerState::Timing{..} => Self::stop_timer(state),
+                                    TimerState::Stopped => Self::start_timer(&mut state.timer_state),
                                 }
                             },
                             Message::Refresh(cache) => {
@@ -330,7 +330,7 @@ impl Beavor{
     }
 
     fn start_timer(timer_state: &mut TimerState){
-        if timer_state.num_minutes_running().is_none(){
+        if matches!(timer_state, TimerState::Timing{..}){
             *timer_state = TimerState::Timing{start_time: Utc::now()};
         }
     }
