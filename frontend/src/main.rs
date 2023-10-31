@@ -188,24 +188,9 @@ impl Application for Beavor {
                 }
                 Command::none()
             },
-            Beavor::Loaded(state) => match message{ // TODO most of these branches end in
-                                                    // Command::none() - how can this be cleaner?
-                // Mutate messages modify the database
+            Beavor::Loaded(state) => match message{
                 Message::Mutate(mutate_message) => Beavor::mutate(state, &mutate_message),
                 other => {match other{
-                    Message::NewTask => {
-                        Self::try_select_task(state, None);
-                        Command::none()
-                    },
-                    Message::TryDeleteTask => {
-                        // Confirm before deleting
-                        let name = state.draft_task.name.clone();
-                        Self::update_modal_state(&mut state.modal_state, ModalType::Confirm(ConfirmationRequest{
-                            message: format!("Are you sure you want to delete '{name}'?"),
-                            run_on_confirm: Box::new(Message::Mutate(MutateMessage::DeleteTask))
-                        }));
-                        Command::none()
-                    },
                     Message::Modal(modal_message) => {
                         match modal_message{
                             ModalMessage::Show(modal_type) => {
@@ -218,49 +203,56 @@ impl Application for Beavor {
                             }
                         }
                     },
-                    Message::UpdateDraftTask(task_field_update) => {
-                        if let Some(m) = Beavor::update_draft_task(&mut state.draft_task, task_field_update){
-                            Self::update_modal_state(&mut state.modal_state, m);
+                    other => {
+                        match other{
+                            Message::NewTask => Self::try_select_task(state, None),
+                            Message::TryDeleteTask => {
+                                // Confirm before deleting
+                                let name = state.draft_task.name.clone();
+                                Self::update_modal_state(&mut state.modal_state, ModalType::Confirm(ConfirmationRequest{
+                                    message: format!("Are you sure you want to delete '{name}'?"),
+                                    run_on_confirm: Box::new(Message::Mutate(MutateMessage::DeleteTask))
+                                }));
+                            },
+                            Message::UpdateDraftTask(task_field_update) => {
+                                if let Some(m) = Beavor::update_draft_task(&mut state.draft_task, task_field_update){
+                                    Self::update_modal_state(&mut state.modal_state, m);
+                                }
+                            },
+                            Message::TrySelectTask(maybe_task) => Self::try_select_task(state, maybe_task),
+                            Message::ForceSelectTask(maybe_task) => Self::select_task(state, maybe_task), // TODO this message needs to go
+                            Message::SelectDate(maybe_date) => state.selected_date = maybe_date,
+                            Message::StartTimer => Self::start_timer(&mut state.timer_state),
+                            Message::StopTimer => Self::stop_timer(state),
+                            #[allow(clippy::single_match_else)]
+                            Message::ToggleTimer => {
+                                match state.timer_state.num_minutes_running(){
+                                    Some(_) => Self::stop_timer(state),
+                                    None => Self::start_timer(&mut state.timer_state),
+                                }
+                            },
+                            Message::Refresh(cache) => {
+                                state.cache = cache;
+                                if state.draft_task.finished{
+                                    Self::select_task(state, None);
+                                }
+                            },
+                            Message::Tick(_) | Message::None => (),
+                            Message::Loaded(_) | Message::Mutate(_) => panic!("Should never happen"),
+                            Message::ScrollDownCalendar => state.calendar_state.scroll_down(),
+                            Message::ScrollUpCalendar => state.calendar_state.scroll_up(),
+                            Message::ScrollUpMaxCalendar => state.calendar_state.scroll_up_max(),
+                            Message::Open(url) => {
+                                if open::that(url.clone()).is_err(){
+                                    println!("Error opening '{url}'"); // TODO this should be visible in the GUI, not just the terminal
+                                };
+                            },
+                            Message::SetEditingLinkID(h_id) => state.editing_link = h_id,
+                            Message::FilterToDate(date) => state.calendar_state.filter_date = date,
+                            Message::Modal(_) => panic!("Can never happen"),
                         }
                         Command::none()
-                    },
-                    Message::TrySelectTask(maybe_task) => {
-                        Self::try_select_task(state, maybe_task);
-                        Command::none()
-                    },
-                    Message::ForceSelectTask(maybe_task) => {Self::select_task(state, maybe_task); Command::none()}, // TODO this message needs to go
-                    Message::SelectDate(maybe_date) => {state.selected_date = maybe_date; Command::none()},
-                    Message::StartTimer => {Self::start_timer(&mut state.timer_state); Command::none()},
-                    Message::StopTimer => {Self::stop_timer(state); Command::none()},
-                    #[allow(clippy::single_match_else)]
-                    Message::ToggleTimer => {
-                        match state.timer_state.num_minutes_running(){
-                            Some(_) => Self::stop_timer(state),
-                            None => Self::start_timer(&mut state.timer_state),
-                        }
-                        Command::none()
-                    },
-                    Message::Refresh(cache) => {
-                        state.cache = cache;
-                        if state.draft_task.finished{
-                            Self::select_task(state, None);
-                        }
-                        Command::none()
-                    },
-                    Message::Tick(_) | Message::None => Command::none(),
-                    Message::Loaded(_) | Message::Mutate(_) => panic!("Should never happen"),
-                    Message::ScrollDownCalendar => {state.calendar_state.scroll_down(); Command::none()},
-                    Message::ScrollUpCalendar => {state.calendar_state.scroll_up(); Command::none()},
-                    Message::ScrollUpMaxCalendar => {state.calendar_state.scroll_up_max(); Command::none()},
-                    Message::Open(url) => {
-                        if open::that(url.clone()).is_err(){
-                            println!("Error opening '{url}'"); // TODO this should be visible in
-                                                               // the GUI, not just the terminal
-                        };
-                        Command::none()
-                    },
-                    Message::SetEditingLinkID(h_id) => {state.editing_link = h_id; Command::none()},
-                    Message::FilterToDate(date) => {state.calendar_state.filter_date = date; Command::none()},
+                    }
                 }}
             },
         }
