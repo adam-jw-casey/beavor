@@ -25,11 +25,11 @@ pub fn confirm_modal<'a>(state: &ModalShowing) -> Element<'a, Message>{
     let underlay = row![];
 
     let overlay = match state {
-        ModalShowing::Confirm(string, _message) => {
+        ModalShowing::Confirm(confirmation_request) => {
             Some(
                 Card::new(
                     text("Confirm:"),
-                    text(string),
+                    text(confirmation_request.message.clone()),
                 )
                 .foot(
                     Row::new()
