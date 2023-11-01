@@ -110,14 +110,14 @@ pub enum Message{
 
 #[derive(Debug, Clone)]
 pub struct DisplayedTask{
-    selected:           Option<Task>,
-    draft:              Task,
-    editing_link_idx:   Option<usize>,
-    timer:              TimerState,
+    selected:               Option<Task>,
+    pub draft:              Task,
+    pub editing_link_idx:   Option<usize>,
+    pub timer:              TimerState,
 }
 
 impl DisplayedTask{
-    fn is_modified(&self) -> bool{
+    fn is_unmodified(&self) -> bool{
         match &self.selected{
             Some(t) => *t == self.draft,
             None => self.draft == Task::default(),
@@ -257,7 +257,7 @@ impl Application for Beavor {
                             },
                             Message::UpdateDraftTask(task_field_update) => {
                                 if let Some(m) = Beavor::update_draft_task(&mut state.displayed_task.draft, &mut state.displayed_task.editing_link_idx, task_field_update){
-                                    Self::update_modal_state(&mut state.modal_state, m);
+                                    Self::update_modal_state(&mut state.modal_state, m); //TODO this whole thing could be a method on DisplayedTask
                                 }
                             },
                             Message::TrySelectTask(maybe_task) => Self::try_select_task(state, maybe_task),
@@ -312,7 +312,7 @@ impl Application for Beavor {
                         &state.displayed_task.draft,
                         &state.displayed_task.timer,
                         &state.modal_state,
-                        state.displayed_task.editing_link_idx,
+                        state.displayed_task.editing_link_idx, // TODO just pass in displayed_task itself
                     )
                         .padding(8)
                         .width(Length::FillPortion(3))
@@ -345,7 +345,7 @@ impl Beavor{
         state.displayed_task.stop_timer();
 
         // Don't overwrite a modified task
-        if state.displayed_task.is_modified(){
+        if state.displayed_task.is_unmodified(){
             state.displayed_task.select(maybe_task);
         }else{
             Self::update_modal_state(&mut state.modal_state, ModalType::Confirm(ConfirmationRequest{
