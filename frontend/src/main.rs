@@ -306,7 +306,7 @@ impl Application for Beavor {
                             Message::StartTimer => state.displayed_task.start_timer(),
                             Message::StopTimer => state.displayed_task.stop_timer(),
                             #[allow(clippy::single_match_else)]
-                            Message::ToggleTimer => state.displayed_task.toggle_timer(),
+                            Message::ToggleTimer => state.displayed_task.toggle_timer(), // TODO merge these timer messages. Pass directly to DisplayedTask? And through to TimerState?
                             Message::Refresh(cache) => {
                                 state.cache = cache;
                                 // This is called after mutating state, e.g., saving a task
