@@ -230,7 +230,7 @@ impl Application for Beavor {
                 Command::none()
             },
             Beavor::Loaded(state) => match message{
-                Message::Mutate(mutate_message) => Beavor::mutate(state, &mutate_message),
+                Message::Mutate(mutate_message) => Beavor::mutate(&state.db, &mut state.displayed_task, &mutate_message),
                 other => {match other{
                     Message::Modal(modal_message) => {
                         match modal_message{
@@ -410,13 +410,13 @@ impl Beavor{
         }
     }
 
-    fn mutate(state: &mut State, message: &MutateMessage) -> Command<Message>{
-        state.displayed_task.stop_timer();
+    fn mutate(db: &DatabaseManager, displayed_task: &mut DisplayedTask, message: &MutateMessage) -> Command<Message>{
+        displayed_task.stop_timer();
         // TODO this is so stupid but it works and I got tired of hacking at Arc<>
-        let db_clone1 = state.db.clone();
-        let db_clone2 = state.db.clone();
-        let t1 = state.displayed_task.draft.clone();
-        let t2 = state.displayed_task.draft.clone();
+        let db_clone1 = db.clone();
+        let db_clone2 = db.clone();
+        let t1 = displayed_task.draft.clone();
+        let t2 = displayed_task.draft.clone();
 
         let (tx, rx) = oneshot::channel::<()>(); // Synchronize the writes to the database with the reads that update the cache
         
@@ -436,8 +436,8 @@ impl Beavor{
                         }, |t: Task| Message::ForceSelectTask(Some(t))),
                     },
                     MutateMessage::DeleteTask => {
-                        let t = std::mem::take(&mut state.displayed_task.draft);
-                        state.displayed_task.selected = None;
+                        let t = std::mem::take(&mut displayed_task.draft);
+                        displayed_task.selected = None;
                         Command::perform(async move {
                             db_clone1.delete_task(&t).await;
                             tx.send(()).unwrap();
