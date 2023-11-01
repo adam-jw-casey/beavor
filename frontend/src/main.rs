@@ -110,16 +110,21 @@ pub enum Message{
 }
 
 #[derive(Debug, Clone)]
+pub struct DisplayedTask{
+    selected:           Option<Task>,
+    draft:              Task,
+    editing_link_idx:   Option<usize>,
+    timer:        TimerState,
+}
+
+#[derive(Debug, Clone)]
 pub struct State{
-    db:            DatabaseManager,
-    selected_task: Option<Task>,
-    selected_date: Option<NaiveDate>,
-    draft_task:    Task,
-    timer_state:   TimerState,
-    modal_state:   ModalType,
+    db:             DatabaseManager,
+    displayed_task: DisplayedTask,
+    selected_date:  Option<NaiveDate>,
+    modal_state:    ModalType,
     calendar_state: CalendarState,
-    cache:         Cache,
-    editing_link: Option<usize>,
+    cache:          Cache,
 }
 
 #[derive(Debug, Clone)]
@@ -149,10 +154,13 @@ impl Application for Beavor {
                         Err(_) => DatabaseManager::with_new_database("worklist.db").await.expect("Should be able to create database"),
                     };
                     State{
-                        selected_task: None,
+                        displayed_task: DisplayedTask{
+                            selected: None,
+                            draft: Task::default(),
+                            timer: TimerState::Stopped,
+                            editing_link_idx: None,
+                        },
                         selected_date: None,
-                        draft_task:    Task::default(),
-                        timer_state: TimerState::Stopped,
                         modal_state: ModalType::None,
                         cache: Cache{
                             loaded_tasks: db.open_tasks().await.into(),
@@ -160,7 +168,6 @@ impl Application for Beavor {
                         },
                         db,
                         calendar_state: CalendarState::default(),
-                        editing_link: None,
                     }
                 }, Message::Loaded),
                 font::load(iced_aw::graphics::icons::ICON_FONT_BYTES).map(|_| Message::None),
@@ -208,32 +215,32 @@ impl Application for Beavor {
                             Message::NewTask => Self::try_select_task(state, None),
                             Message::TryDeleteTask => {
                                 // Confirm before deleting
-                                let name = state.draft_task.name.clone();
+                                let name = state.displayed_task.draft.name.clone();
                                 Self::update_modal_state(&mut state.modal_state, ModalType::Confirm(ConfirmationRequest{
                                     message: format!("Are you sure you want to delete '{name}'?"),
                                     run_on_confirm: Box::new(Message::Mutate(MutateMessage::DeleteTask))
                                 }));
                             },
                             Message::UpdateDraftTask(task_field_update) => {
-                                if let Some(m) = Beavor::update_draft_task(&mut state.draft_task, &mut state.editing_link, task_field_update){
+                                if let Some(m) = Beavor::update_draft_task(&mut state.displayed_task.draft, &mut state.displayed_task.editing_link_idx, task_field_update){
                                     Self::update_modal_state(&mut state.modal_state, m);
                                 }
                             },
                             Message::TrySelectTask(maybe_task) => Self::try_select_task(state, maybe_task),
                             Message::ForceSelectTask(maybe_task) => Self::select_task(state, maybe_task), // TODO this message needs to go
                             Message::SelectDate(maybe_date) => state.selected_date = maybe_date,
-                            Message::StartTimer => Self::start_timer(&mut state.timer_state),
+                            Message::StartTimer => Self::start_timer(&mut state.displayed_task.timer),
                             Message::StopTimer => Self::stop_timer(state),
                             #[allow(clippy::single_match_else)]
                             Message::ToggleTimer => {
-                                match state.timer_state{
+                                match state.displayed_task.timer{
                                     TimerState::Timing{..} => Self::stop_timer(state),
-                                    TimerState::Stopped => Self::start_timer(&mut state.timer_state),
+                                    TimerState::Stopped => Self::start_timer(&mut state.displayed_task.timer),
                                 }
                             },
                             Message::Refresh(cache) => {
                                 state.cache = cache;
-                                if state.draft_task.finished{
+                                if state.displayed_task.draft.finished{
                                     Self::select_task(state, None);
                                 }
                             },
@@ -247,7 +254,7 @@ impl Application for Beavor {
                                     println!("Error opening '{url}'"); // TODO this should be visible in the GUI, not just the terminal
                                 };
                             },
-                            Message::SetEditingLinkID(h_id) => state.editing_link = h_id,
+                            Message::SetEditingLinkID(h_id) => state.displayed_task.editing_link_idx = h_id,
                             Message::FilterToDate(date) => state.calendar_state.filter_date = date,
                             Message::Modal(_) => panic!("Can never happen"),
                         }
@@ -272,10 +279,10 @@ impl Application for Beavor {
                         .height(Length::FillPortion(1)),
                     Rule::vertical(4),
                     task_editor(
-                        &state.draft_task,
-                        &state.timer_state,
+                        &state.displayed_task.draft,
+                        &state.displayed_task.timer,
                         &state.modal_state,
-                        state.editing_link,
+                        state.displayed_task.editing_link_idx,
                     )
                         .padding(8)
                         .width(Length::FillPortion(3))
@@ -308,9 +315,9 @@ impl Beavor{
         Self::stop_timer(state);
 
         // Don't overwrite a modified task
-        if match &state.selected_task{
-            Some(t) => *t == state.draft_task,
-            None => state.draft_task == Task::default(),
+        if match &state.displayed_task.selected{
+            Some(t) => *t == state.displayed_task.draft,
+            None => state.displayed_task.draft == Task::default(),
         }{
             Self::select_task(state, maybe_task);
         }else{
@@ -322,8 +329,8 @@ impl Beavor{
     }
 
     fn select_task(state: &mut State, maybe_task: Option<Task>){
-        state.selected_task = maybe_task.clone();
-        state.draft_task = match maybe_task{
+        state.displayed_task.selected = maybe_task.clone();
+        state.displayed_task.draft = match maybe_task{
             Some(t) =>  t.clone(),
             None => Task::default(),
         };
@@ -336,9 +343,9 @@ impl Beavor{
     }
 
     fn stop_timer(state: &mut State){
-        if let Some(minutes) = state.timer_state.num_minutes_running(){
-            state.draft_task.time_used += minutes;
-            state.timer_state = TimerState::Stopped;
+        if let Some(minutes) = state.displayed_task.timer.num_minutes_running(){
+            state.displayed_task.draft.time_used += minutes;
+            state.displayed_task.timer = TimerState::Stopped;
         }
     }
 
@@ -402,8 +409,8 @@ impl Beavor{
         // TODO this is so stupid but it works and I got tired of hacking at Arc<>
         let db_clone1 = state.db.clone();
         let db_clone2 = state.db.clone();
-        let t1 = state.draft_task.clone();
-        let t2 = state.draft_task.clone();
+        let t1 = state.displayed_task.draft.clone();
+        let t2 = state.displayed_task.draft.clone();
 
         let (tx, rx) = oneshot::channel::<()>(); // Synchronize the writes to the database with the reads that update the cache
         
@@ -423,8 +430,8 @@ impl Beavor{
                         }, |t: Task| Message::ForceSelectTask(Some(t))),
                     },
                     MutateMessage::DeleteTask => {
-                        let t = std::mem::take(&mut state.draft_task);
-                        state.selected_task = None;
+                        let t = std::mem::take(&mut state.displayed_task.draft);
+                        state.displayed_task.selected = None;
                         Command::perform(async move {
                             db_clone1.delete_task(&t).await;
                             tx.send(()).unwrap();
