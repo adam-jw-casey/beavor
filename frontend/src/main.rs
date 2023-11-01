@@ -114,7 +114,16 @@ pub struct DisplayedTask{
     selected:           Option<Task>,
     draft:              Task,
     editing_link_idx:   Option<usize>,
-    timer:        TimerState,
+    timer:              TimerState,
+}
+
+impl DisplayedTask{
+    fn is_modified(&self) -> bool{
+        match &self.selected{
+            Some(t) => *t == self.draft,
+            None => self.draft == Task::default(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -240,6 +249,8 @@ impl Application for Beavor {
                             },
                             Message::Refresh(cache) => {
                                 state.cache = cache;
+                                // This is called after mutating state, e.g., saving a task
+                                // If the task was finished, need to also clear the displayed task
                                 if state.displayed_task.draft.finished{
                                     Self::select_task(state, None);
                                 }
@@ -315,10 +326,7 @@ impl Beavor{
         Self::stop_timer(state);
 
         // Don't overwrite a modified task
-        if match &state.displayed_task.selected{
-            Some(t) => *t == state.displayed_task.draft,
-            None => state.displayed_task.draft == Task::default(),
-        }{
+        if state.displayed_task.is_modified(){
             Self::select_task(state, maybe_task);
         }else{
             Self::update_modal_state(&mut state.modal_state, ModalType::Confirm(ConfirmationRequest{
