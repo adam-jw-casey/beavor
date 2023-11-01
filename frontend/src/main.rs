@@ -128,10 +128,10 @@ impl DisplayedTask{
 #[derive(Debug, Clone)]
 pub struct State{
     db:             DatabaseManager,
+    cache:          Cache,
     displayed_task: DisplayedTask,
     modal_state:    ModalType,
     calendar_state: CalendarState,
-    cache:          Cache,
 }
 
 #[derive(Debug, Clone)]
@@ -161,6 +161,11 @@ impl Application for Beavor {
                         Err(_) => DatabaseManager::with_new_database("worklist.db").await.expect("Should be able to create database"),
                     };
                     State{
+                        cache: Cache{
+                            loaded_tasks: db.open_tasks().await.into(),
+                            loaded_schedule: db.schedule().await,
+                        },
+                        db,
                         displayed_task: DisplayedTask{
                             selected: None,
                             draft: Task::default(),
@@ -168,11 +173,6 @@ impl Application for Beavor {
                             editing_link_idx: None,
                         },
                         modal_state: ModalType::None,
-                        cache: Cache{
-                            loaded_tasks: db.open_tasks().await.into(),
-                            loaded_schedule: db.schedule().await,
-                        },
-                        db,
                         calendar_state: CalendarState::default(),
                     }
                 }, Message::Loaded),
