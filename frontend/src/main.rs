@@ -215,7 +215,7 @@ impl Application for Beavor {
                                 }));
                             },
                             Message::UpdateDraftTask(task_field_update) => {
-                                if let Some(m) = Beavor::update_draft_task(&mut state.draft_task, task_field_update){
+                                if let Some(m) = Beavor::update_draft_task(&mut state.draft_task, &mut state.editing_link, task_field_update){
                                     Self::update_modal_state(&mut state.modal_state, m);
                                 }
                             },
@@ -357,7 +357,7 @@ impl Beavor{
         }
     }
 
-    #[must_use] fn update_draft_task(draft_task: &mut Task, message: UpdateDraftTask) -> Option<ModalType>{
+    #[must_use] fn update_draft_task(draft_task: &mut Task, editing_link: &mut Option<usize>,message: UpdateDraftTask) -> Option<ModalType>{
         use UpdateDraftTask as UDT;
 
         match message{
@@ -381,6 +381,8 @@ impl Beavor{
                     UDT::Link(link_message) => match link_message{
                         LinkMessage::New => if !draft_task.links.contains(&Hyperlink::default()){
                             draft_task.links.push(Hyperlink::default());
+                            *editing_link = Some(draft_task.links.len()-1);
+
                         },
                         LinkMessage::Delete(idx) => {
                             draft_task.links.remove(idx);
