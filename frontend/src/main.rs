@@ -91,7 +91,6 @@ pub enum Message{
     ForceSelectTask(Option<Task>),
     TrySelectTask(Option<Task>),
     TryDeleteTask,
-    SelectDate(Option<NaiveDate>),
     UpdateDraftTask(UpdateDraftTask),
     StartTimer,
     StopTimer,
@@ -130,7 +129,6 @@ impl DisplayedTask{
 pub struct State{
     db:             DatabaseManager,
     displayed_task: DisplayedTask,
-    selected_date:  Option<NaiveDate>,
     modal_state:    ModalType,
     calendar_state: CalendarState,
     cache:          Cache,
@@ -169,7 +167,6 @@ impl Application for Beavor {
                             timer: TimerState::Stopped,
                             editing_link_idx: None,
                         },
-                        selected_date: None,
                         modal_state: ModalType::None,
                         cache: Cache{
                             loaded_tasks: db.open_tasks().await.into(),
@@ -237,7 +234,6 @@ impl Application for Beavor {
                             },
                             Message::TrySelectTask(maybe_task) => Self::try_select_task(state, maybe_task),
                             Message::ForceSelectTask(maybe_task) => Self::select_task(state, maybe_task), // TODO this message needs to go
-                            Message::SelectDate(maybe_date) => state.selected_date = maybe_date,
                             Message::StartTimer => Self::start_timer(&mut state.displayed_task.timer),
                             Message::StopTimer => Self::stop_timer(state),
                             #[allow(clippy::single_match_else)]
