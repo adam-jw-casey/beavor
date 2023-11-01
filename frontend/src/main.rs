@@ -123,6 +123,34 @@ impl DisplayedTask{
             None => self.draft == Task::default(),
         }
     }
+
+    fn select(&mut self, maybe_task: Option<Task>){
+        self.selected = maybe_task.clone();
+        self.draft = match maybe_task{
+            Some(t) =>  t.clone(),
+            None => Task::default(),
+        };
+    }
+
+    fn start_timer(&mut self){
+        if matches!(self.timer, TimerState::Timing{..}){
+            self.timer = TimerState::Timing{start_time: Utc::now()};
+        }
+    }
+
+    fn stop_timer(&mut self){
+        if let Some(minutes) = self.timer.num_minutes_running(){
+            self.draft.time_used += minutes;
+            self.timer = TimerState::Stopped;
+        }
+    }
+
+    fn toggle_timer(&mut self){
+        match self.timer{
+            TimerState::Timing{..} => self.stop_timer(),
+            TimerState::Stopped => self.start_timer(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -233,22 +261,17 @@ impl Application for Beavor {
                                 }
                             },
                             Message::TrySelectTask(maybe_task) => Self::try_select_task(state, maybe_task),
-                            Message::ForceSelectTask(maybe_task) => Self::select_task(state, maybe_task), // TODO this message needs to go
-                            Message::StartTimer => Self::start_timer(&mut state.displayed_task.timer),
-                            Message::StopTimer => Self::stop_timer(state),
+                            Message::ForceSelectTask(maybe_task) => state.displayed_task.select(maybe_task), // TODO this message needs to go
+                            Message::StartTimer => state.displayed_task.start_timer(),
+                            Message::StopTimer => state.displayed_task.stop_timer(),
                             #[allow(clippy::single_match_else)]
-                            Message::ToggleTimer => {
-                                match state.displayed_task.timer{
-                                    TimerState::Timing{..} => Self::stop_timer(state),
-                                    TimerState::Stopped => Self::start_timer(&mut state.displayed_task.timer),
-                                }
-                            },
+                            Message::ToggleTimer => state.displayed_task.toggle_timer(),
                             Message::Refresh(cache) => {
                                 state.cache = cache;
                                 // This is called after mutating state, e.g., saving a task
                                 // If the task was finished, need to also clear the displayed task
                                 if state.displayed_task.draft.finished{
-                                    Self::select_task(state, None);
+                                    state.displayed_task.select(None);
                                 }
                             },
                             Message::Tick(_) | Message::None => (),
@@ -319,37 +342,16 @@ impl Application for Beavor {
 impl Beavor{
      fn try_select_task(state: &mut State, maybe_task: Option<Task>){
         // Stop timer and save if timer is running
-        Self::stop_timer(state);
+        state.displayed_task.stop_timer();
 
         // Don't overwrite a modified task
         if state.displayed_task.is_modified(){
-            Self::select_task(state, maybe_task);
+            state.displayed_task.select(maybe_task);
         }else{
             Self::update_modal_state(&mut state.modal_state, ModalType::Confirm(ConfirmationRequest{
                 message: "Unsaved changes will be lost. Continue without saving?".to_string(),
                 run_on_confirm: Box::new(Message::ForceSelectTask(maybe_task))
             }));
-        }
-    }
-
-    fn select_task(state: &mut State, maybe_task: Option<Task>){
-        state.displayed_task.selected = maybe_task.clone();
-        state.displayed_task.draft = match maybe_task{
-            Some(t) =>  t.clone(),
-            None => Task::default(),
-        };
-    }
-
-    fn start_timer(timer_state: &mut TimerState){
-        if matches!(timer_state, TimerState::Timing{..}){
-            *timer_state = TimerState::Timing{start_time: Utc::now()};
-        }
-    }
-
-    fn stop_timer(state: &mut State){
-        if let Some(minutes) = state.displayed_task.timer.num_minutes_running(){
-            state.displayed_task.draft.time_used += minutes;
-            state.displayed_task.timer = TimerState::Stopped;
         }
     }
 
@@ -409,7 +411,7 @@ impl Beavor{
     }
 
     fn mutate(state: &mut State, message: &MutateMessage) -> Command<Message>{
-        Self::stop_timer(state);
+        state.displayed_task.stop_timer();
         // TODO this is so stupid but it works and I got tired of hacking at Arc<>
         let db_clone1 = state.db.clone();
         let db_clone2 = state.db.clone();
