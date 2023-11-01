@@ -40,6 +40,7 @@ use crate::{
     ModalMessage,
     widgets::hyperlink,
     ModalType,
+    DisplayedTask,
 };
 
 // TODO this still doesn't sit quite right, since why match over TimerState when you can match over
@@ -97,9 +98,9 @@ use UpdateDraftTask as UDT;
 // TODO Should buttons be disabled while a date modal is open? Or should clicking one of them
 // close the modal?
 // TODO should have a dedicated State object to pass in so don't have to keep updating arguments
-pub fn task_editor<'a>(draft_task: &'a Task, timer_state: &TimerState, date_picker_state: &ModalType, editing_link: Option<usize>) -> Column<'a, Message>{
+pub fn task_editor<'a>(displayed_task: &'a DisplayedTask, modal_state: &ModalType) -> Column<'a, Message>{
 
-    let display_time_used: u32 = draft_task.time_used * 60 + timer_state.num_seconds_running().unwrap_or(0);
+    let display_time_used: u32 = displayed_task.draft.time_used * 60 + displayed_task.timer.num_seconds_running().unwrap_or(0);
 
     // TODO this is a TON of boilerplate. Find a way to reduce this down
     column![
@@ -108,7 +109,7 @@ pub fn task_editor<'a>(draft_task: &'a Task, timer_state: &TimerState, date_pick
             text("Category").width(Length::FillPortion(1)),
             text_input(
                 "Category...",
-               &draft_task.category
+               &displayed_task.draft.category
             )
                 .on_input(|s| Message_UDT(UDT::Category(s)))
                 .width(Length::FillPortion(3))
@@ -117,7 +118,7 @@ pub fn task_editor<'a>(draft_task: &'a Task, timer_state: &TimerState, date_pick
             text("Name").width(Length::FillPortion(1)),
             text_input(
                 "Name...",
-               &draft_task.name
+               &displayed_task.draft.name
             )
                 .on_input(|s| Message_UDT(UDT::Name(s)))
 				.width(Length::FillPortion(3))
@@ -126,7 +127,7 @@ pub fn task_editor<'a>(draft_task: &'a Task, timer_state: &TimerState, date_pick
             text("Time needed").width(Length::FillPortion(1)),
             text_input(
                 "Time needed...",
-               &draft_task.time_needed.to_string()
+               &displayed_task.draft.time_needed.to_string()
             )
                 .on_input(|u| Message_UDT(UDT::TimeNeeded(u.parse().map_err(|_| ()))))
 				.width(Length::FillPortion(3))
@@ -143,18 +144,18 @@ pub fn task_editor<'a>(draft_task: &'a Task, timer_state: &TimerState, date_pick
         row![
             text("Next action")
                 .width(Length::FillPortion(1)),
-            next_action_date_picker(date_picker_state, draft_task)
+            next_action_date_picker(modal_state, &displayed_task.draft)
                 .width(Length::FillPortion(3)),
         ],
         row![
             text("Due date").width(Length::FillPortion(1)),
-            due_date_picker(date_picker_state, draft_task)
+            due_date_picker(modal_state, &displayed_task.draft)
                 .width(Length::FillPortion(3)),
         ],
         Column::with_children(
-            (0..draft_task.links.len())
+            (0..displayed_task.draft.links.len())
                 .map(|idx: usize| {
-                    hyperlink(&draft_task.links[idx], idx, editing_link)
+                    hyperlink(&displayed_task.draft.links[idx], idx, displayed_task.editing_link_idx)
                 })
                 .collect()
         )
@@ -163,7 +164,7 @@ pub fn task_editor<'a>(draft_task: &'a Task, timer_state: &TimerState, date_pick
             Space::with_width(Length::Fill),
             button("Add link")
                 .on_press_maybe(
-                    if editing_link.is_none(){
+                    if displayed_task.editing_link_idx.is_none(){
                         Some(Message_UDT(UDT::Link(LinkMessage::New)))
                     }else{None}
                 )
@@ -172,7 +173,7 @@ pub fn task_editor<'a>(draft_task: &'a Task, timer_state: &TimerState, date_pick
             text("Notes").width(Length::FillPortion(1)),
             text_input(
                 "Notes...",
-               &draft_task.notes
+               &displayed_task.draft.notes
             )
                 .on_input(|d| Message_UDT(UDT::Notes(d)))
 				.width(Length::FillPortion(3))
@@ -180,11 +181,11 @@ pub fn task_editor<'a>(draft_task: &'a Task, timer_state: &TimerState, date_pick
         row![
             checkbox(
                 "Done",
-                draft_task.finished,
+                displayed_task.draft.finished,
                 |b| Message_UDT(UDT::Finished(b)),
             ),
             button(
-                match timer_state{
+                match displayed_task.timer{
                     TimerState::Timing{..} => "Stop",
                     TimerState::Stopped => "Start",
                 }
@@ -203,10 +204,10 @@ pub fn task_editor<'a>(draft_task: &'a Task, timer_state: &TimerState, date_pick
         .align_items(Alignment::Center)
 }
 
-fn next_action_date_picker<'a>(date_picker_state: &ModalType, draft_task: &'a Task) -> Container<'a, Message>{
+fn next_action_date_picker<'a>(modal_state: &ModalType, draft_task: &'a Task) -> Container<'a, Message>{
     container(
         date_picker(
-            matches!(date_picker_state, ModalType::NextAction),
+            matches!(modal_state, ModalType::NextAction),
             draft_task.next_action_date,
             button(text(&draft_task.next_action_date.to_string())).on_press(Message::Modal(ModalMessage::Show(ModalType::NextAction))),
             Message::Modal(ModalMessage::Show(ModalType::None)),
@@ -215,11 +216,11 @@ fn next_action_date_picker<'a>(date_picker_state: &ModalType, draft_task: &'a Ta
     )
 }
 
-fn due_date_picker<'a>(date_picker_state: &ModalType, draft_task: &'a Task) -> Row<'a, Message>{
+fn due_date_picker<'a>(modal_state: &ModalType, draft_task: &'a Task) -> Row<'a, Message>{
     row![
         container(
             date_picker(
-                matches!(date_picker_state, ModalType::DueDate),
+                matches!(modal_state, ModalType::DueDate),
                 match draft_task.due_date{
                     DueDate::Date(date) => date,
                     _ => today_date(), // This will not be shown, so arbitray

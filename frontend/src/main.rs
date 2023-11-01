@@ -350,10 +350,8 @@ impl Application for Beavor {
                         .height(Length::FillPortion(1)),
                     Rule::vertical(4),
                     task_editor(
-                        &state.displayed_task.draft,
-                        &state.displayed_task.timer,
+                        &state.displayed_task,
                         &state.modal_state,
-                        state.displayed_task.editing_link_idx, // TODO just pass in displayed_task itself
                     )
                         .padding(8)
                         .width(Length::FillPortion(3))
