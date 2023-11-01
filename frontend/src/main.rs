@@ -151,6 +151,47 @@ impl DisplayedTask{
             TimerState::Stopped => self.start_timer(),
         }
     }
+
+    #[must_use] fn update_draft(&mut self, message: UpdateDraftTask) -> Option<ModalType>{
+        use UpdateDraftTask as UDT;
+
+        match message{
+            UDT::NextActionDate(next_action_date) => {
+                self.draft.next_action_date = next_action_date;
+                Some(ModalType::None)
+            },
+            UDT::DueDate(due_date) => {
+                self.draft.due_date = due_date;
+                Some(ModalType::None)
+            },
+            other => {
+                match other{
+                    UDT::NextActionDate(_) | UDT::DueDate(_) => panic!("This will never happen"),
+                    UDT::Category(category) => self.draft.category = category,
+                    UDT::Name(name) => self.draft.name = name,
+                    UDT::TimeNeeded(time_needed) => if let Ok(time_needed) = time_needed {self.draft.time_needed = time_needed},
+                    UDT::TimeUsed(time_used) => if let Ok(time_used) = time_used {self.draft.time_used = time_used},
+                    UDT::Notes(notes) => self.draft.notes = notes,
+                    UDT::Finished(finished) => self.draft.finished = finished,
+                    UDT::Link(link_message) => match link_message{
+                        LinkMessage::New => if !self.draft.links.contains(&Hyperlink::default()){
+                            self.draft.links.push(Hyperlink::default());
+                            self.editing_link_idx = Some(self.draft.links.len()-1);
+
+                        },
+                        LinkMessage::Delete(idx) => {
+                            self.draft.links.remove(idx);
+                        },
+                        LinkMessage::Update((link, idx)) => {
+                            self.draft.links[idx] = link;
+                        },
+                    }
+                }
+                None
+            }
+        }
+    }
+
 }
 
 #[derive(Debug, Clone)]
@@ -256,8 +297,8 @@ impl Application for Beavor {
                                 }));
                             },
                             Message::UpdateDraftTask(task_field_update) => {
-                                if let Some(m) = Beavor::update_draft_task(&mut state.displayed_task.draft, &mut state.displayed_task.editing_link_idx, task_field_update){
-                                    Self::update_modal_state(&mut state.modal_state, m); //TODO this whole thing could be a method on DisplayedTask
+                                if let Some(m) = state.displayed_task.update_draft(task_field_update){
+                                    Self::update_modal_state(&mut state.modal_state, m);
                                 }
                             },
                             Message::TrySelectTask(maybe_task) => Self::try_select_task(state, maybe_task),
@@ -367,46 +408,6 @@ impl Beavor{
                 *m
             },
             _ => panic!("Should never happen"),
-        }
-    }
-
-    #[must_use] fn update_draft_task(draft_task: &mut Task, editing_link: &mut Option<usize>,message: UpdateDraftTask) -> Option<ModalType>{
-        use UpdateDraftTask as UDT;
-
-        match message{
-            UDT::NextActionDate(next_action_date) => {
-                draft_task.next_action_date = next_action_date;
-                Some(ModalType::None)
-            },
-            UDT::DueDate(due_date) => {
-                draft_task.due_date = due_date;
-                Some(ModalType::None)
-            },
-            other => {
-                match other{
-                    UDT::NextActionDate(_) | UDT::DueDate(_) => panic!("This will never happen"),
-                    UDT::Category(category) => draft_task.category = category,
-                    UDT::Name(name) => draft_task.name = name,
-                    UDT::TimeNeeded(time_needed) => if let Ok(time_needed) = time_needed {draft_task.time_needed = time_needed},
-                    UDT::TimeUsed(time_used) => if let Ok(time_used) = time_used {draft_task.time_used = time_used},
-                    UDT::Notes(notes) => draft_task.notes = notes,
-                    UDT::Finished(finished) => draft_task.finished = finished,
-                    UDT::Link(link_message) => match link_message{
-                        LinkMessage::New => if !draft_task.links.contains(&Hyperlink::default()){
-                            draft_task.links.push(Hyperlink::default());
-                            *editing_link = Some(draft_task.links.len()-1);
-
-                        },
-                        LinkMessage::Delete(idx) => {
-                            draft_task.links.remove(idx);
-                        },
-                        LinkMessage::Update((link, idx)) => {
-                            draft_task.links[idx] = link;
-                        },
-                    }
-                }
-                None
-            }
         }
     }
 
