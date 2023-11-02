@@ -133,7 +133,7 @@ impl DisplayedTask{
     }
 
     fn start_timer(&mut self){
-        if matches!(self.timer, TimerState::Timing{..}){
+        if matches!(self.timer, TimerState::Stopped){
             self.timer = TimerState::Timing{start_time: Utc::now()};
         }
     }
