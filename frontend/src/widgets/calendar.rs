@@ -38,6 +38,7 @@ use crate::Message;
 #[derive(Debug, Clone, Default)]
 pub struct CalendarState{
     weeks_scrolled: u16,
+    pub clicked_date: Option<NaiveDate>,
     pub filter_date: Option<NaiveDate>,
 }
 
@@ -77,7 +78,7 @@ pub fn calendar(schedule: &Schedule, state: &CalendarState) -> Element<'static, 
                 .map(|d| Column::with_children(
                     (0..num_weeks)
                         .map(|n| *d + Days::new(7*n))
-                        .map(|d| Element::from(cal_day(d, schedule.workload_on_day(d), Some(d) == state.filter_date)))
+                        .map(|d| Element::from(cal_day(d, schedule.workload_on_day(d), Some(d) == state.filter_date, state.clicked_date.as_ref())))
                         .collect()
                     ).into()
                 ).collect()
@@ -95,7 +96,7 @@ pub fn calendar(schedule: &Schedule, state: &CalendarState) -> Element<'static, 
         .into()
 }
 
-fn cal_day(day: NaiveDate, load: Option<u32>, is_selected: bool) -> Element<'static, Message>{
+fn cal_day(day: NaiveDate, load: Option<u32>, is_selected: bool, clicked_date: Option<&NaiveDate>) -> Element<'static, Message>{
     MouseArea::new(
         column![
             text(
@@ -112,6 +113,12 @@ fn cal_day(day: NaiveDate, load: Option<u32>, is_selected: bool) -> Element<'sta
             .padding(4)
             .align_items(Alignment::Center)
     )
-        .on_release(Message::FilterToDate(Some(day)))
+        .on_press(Message::ClickDate(Some(day)))
+        .on_release(
+            if clicked_date.is_some_and(|d| *d == day){
+                Message::FilterToDate(Some(day))
+            }else{
+                Message::ClickDate(None)
+        })
         .into()
 }
