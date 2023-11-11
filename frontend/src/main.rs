@@ -99,13 +99,14 @@ pub enum Message{
     NewTask,
     Mutate(MutateMessage),
     Loaded(State),
-    ScrollDownCalendar,
-    ScrollUpCalendar,
-    ScrollUpMaxCalendar, // TODO merge these calendar messages
     SetEditingLinkID(Option<usize>),
     Open(String),
     None,
+    ScrollDownCalendar, // TODO merge these calendar messages
+    ScrollUpCalendar,
+    ScrollUpMaxCalendar,
     FilterToDate(Option<NaiveDate>), //TODO I have a feeling I'll want more filters at some point
+    ClickDate(Option<NaiveDate>),
 }
 
 #[derive(Debug, Clone)]
@@ -191,7 +192,6 @@ impl DisplayedTask{
             }
         }
     }
-
 }
 
 #[derive(Debug, Clone)]
@@ -327,6 +327,7 @@ impl Application for Beavor {
                             },
                             Message::SetEditingLinkID(h_id) => state.displayed_task.editing_link_idx = h_id,
                             Message::FilterToDate(date) => state.calendar_state.filter_date = date,
+                            Message::ClickDate(d) => state.calendar_state.clicked_date = d,
                             Message::Modal(_) => panic!("Can never happen"),
                         }
                         Command::none()
