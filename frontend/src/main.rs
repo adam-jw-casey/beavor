@@ -81,7 +81,7 @@ pub enum ModalType{
 #[derive(Debug, Clone)]
 pub enum MutateMessage{
     SaveDraftTask,
-    DeleteTask,
+    ForceDeleteTask,
 }
 
 #[derive(Debug, Clone)]
@@ -293,7 +293,7 @@ impl Application for Beavor {
                                 let name = state.displayed_task.draft.name.clone();
                                 Self::update_modal_state(&mut state.modal_state, ModalType::Confirm(ConfirmationRequest{
                                     message: format!("Are you sure you want to delete '{name}'?"),
-                                    run_on_confirm: Box::new(Message::Mutate(MutateMessage::DeleteTask))
+                                    run_on_confirm: Box::new(Message::Mutate(MutateMessage::ForceDeleteTask))
                                 }));
                             },
                             Message::UpdateDraftTask(task_field_update) => {
@@ -434,7 +434,7 @@ impl Beavor{
                             t
                         }, |t: Task| Message::ForceSelectTask(Some(t))),
                     },
-                    MutateMessage::DeleteTask => {
+                    MutateMessage::ForceDeleteTask => {
                         let t = std::mem::take(&mut displayed_task.draft);
                         displayed_task.selected = None;
                         Command::perform(async move {
