@@ -192,7 +192,7 @@ pub fn task_editor<'a>(displayed_task: &'a DisplayedTask, modal_state: &ModalTyp
             ).on_press(Message::ToggleTimer),
             text( format!("{:02}:{:02}:{:02}", display_time_used/3600, (display_time_used % 3600)/60, display_time_used % 60)),
             button("Save").on_press(Message::Mutate(MutateMessage::SaveDraftTask)),
-            button("New").on_press(Message::NewTask),
+            button("New").on_press(Message::TryNewTask),
             // TODO this should be disabled if the current task is a new one (i.e., does not exist
             // in the database
             button("Delete").on_press(Message::TryDeleteTask),
