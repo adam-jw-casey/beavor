@@ -96,7 +96,7 @@ pub enum Message{
     StopTimer,
     ToggleTimer, // Consider having separate start/stop/toggle messages
     Modal(ModalMessage),
-    NewTask,
+    TryNewTask,
     Mutate(MutateMessage),
     Loaded(State),
     ScrollDownCalendar,
@@ -287,7 +287,7 @@ impl Application for Beavor {
                     },
                     other => {
                         match other{
-                            Message::NewTask => Self::try_select_task(state, None),
+                            Message::TryNewTask => Self::try_select_task(state, None),
                             Message::TryDeleteTask => {
                                 // Confirm before deleting
                                 let name = state.displayed_task.draft.name.clone();
@@ -440,7 +440,7 @@ impl Beavor{
                         Command::perform(async move {
                             db_clone1.delete_task(&t).await;
                             tx.send(()).unwrap();
-                        }, |()| Message::NewTask)
+                        }, |()| Message::TryNewTask)
                     }
                 },
                 Command::perform(async move {
