@@ -3,7 +3,8 @@ use std::cmp::max;
 use chrono::{
     NaiveDate,
     Datelike,
-    Weekday
+    Weekday,
+    Duration,
 };
 
 use crate::{
@@ -50,14 +51,14 @@ impl Iterator for DateIterator{
 #[derive(Clone, Default, Debug)]
 pub struct Schedule{
     days_off: Vec<NaiveDate>,
-    workloads: HashMap<NaiveDate, u32>,
+    workloads: HashMap<NaiveDate, Duration>,
 }
 
 impl Schedule{
     #[must_use] pub fn new(days_off: Vec<NaiveDate>, tasks: Vec<Task>) -> Self{
         let mut schedule = Schedule{
             days_off,
-            workloads: HashMap::<NaiveDate, u32>::new(),
+            workloads: HashMap::<NaiveDate, Duration>::new(),
         };
 
         schedule.calculate_workloads(tasks);
@@ -67,8 +68,8 @@ impl Schedule{
 
     /// Calculates and returns the number of minutes per day you would have to work on the task to
     /// complete it between the day it is available and the day it is due, if there is a due date
-    fn workload_per_day(&self, task: &Task) -> Option<u32>{
-        Some(task.time_remaining() / max(1, self.num_days_to_work_on(task)?))
+    fn workload_per_day(&self, task: &Task) -> Option<Duration>{
+        Some(task.time_remaining() / max(1, self.num_days_to_work_on(task)?.try_into().expect("This should be few enough days to fit in an i32")))
     }
 
     /// Returns an iterator over the working days between two dates, including both ends
@@ -116,14 +117,14 @@ impl Schedule{
     /// Calculates and records the number of minutes that need to be worked each day
     fn calculate_workloads (&mut self, tasks: Vec<Task>){
         // Cannot be done on self.workloads in-place due to borrow rules with the filter in the for-loop below
-        let mut workloads = HashMap::<NaiveDate, u32>::new();
+        let mut workloads = HashMap::<NaiveDate, Duration>::new();
 
         for task in tasks{
             if let Some(workload_per_day) = self.workload_per_day(&task){
                 for day in self.work_days_for_task(&task).expect("We've already checked that workload_per_day is not None, so this will not be None"){
                     workloads
                         .entry(day)
-                        .and_modify(|workload| *workload += workload_per_day)
+                        .and_modify(|workload| *workload = *workload + workload_per_day)
                         .or_insert(workload_per_day);
                 }
             };
@@ -142,10 +143,10 @@ impl Schedule{
     }
 
     /// Returns the number of minutes of work that need to be done on a given date
-    #[must_use] pub fn workload_on_day(&self, date: NaiveDate) -> Option<u32>{
+    #[must_use] pub fn workload_on_day(&self, date: NaiveDate) -> Option<Duration>{
         if self.is_work_day(date) && date >= today_date(){
             Some(*self.workloads.get(&date)
-                .unwrap_or(&0))
+                .unwrap_or(&Duration::minutes(0)))
         }else{None}
     }
 
@@ -167,7 +168,7 @@ mod tests{
         let task = Task{
             next_action_date: NaiveDate::from_ymd_opt(3000, 01, 01).unwrap(),
             due_date: DueDate::Date(NaiveDate::from_ymd_opt(3000, 01, 03).unwrap()),
-            time_needed: 60,
+            time_needed: Duration::minutes(60),
             ..Default::default()
         };
 
@@ -182,6 +183,6 @@ mod tests{
         assert!(!schedule.is_work_day(NaiveDate::from_ymd_opt(3000,01,05).unwrap()));
         assert!(!schedule.is_work_day(NaiveDate::from_ymd_opt(3000,01,08).unwrap()));
 
-        assert_eq!(schedule.workload_on_day(NaiveDate::from_ymd_opt(3000,01,02).unwrap()), Some(20));
+        assert_eq!(schedule.workload_on_day(NaiveDate::from_ymd_opt(3000,01,02).unwrap()), Some(Duration::minutes(20)));
     }
 }
