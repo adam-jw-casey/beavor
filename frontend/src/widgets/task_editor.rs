@@ -100,7 +100,7 @@ use UpdateDraftTask as UDT;
 // TODO should have a dedicated State object to pass in so don't have to keep updating arguments
 pub fn task_editor<'a>(displayed_task: &'a DisplayedTask, modal_state: &ModalType) -> Column<'a, Message>{
 
-    let display_time_used: u32 = displayed_task.draft.time_used * 60 + displayed_task.timer.num_seconds_running().unwrap_or(0);
+    let display_time_used: u32 = displayed_task.draft.time_used.num_seconds() as u32 + displayed_task.timer.num_seconds_running().unwrap_or(0);
 
     // TODO this is a TON of boilerplate. Find a way to reduce this down
     column![
@@ -127,7 +127,7 @@ pub fn task_editor<'a>(displayed_task: &'a DisplayedTask, modal_state: &ModalTyp
             text("Time needed").width(Length::FillPortion(1)),
             text_input(
                 "Time needed...",
-               &displayed_task.draft.time_needed.to_string()
+               &displayed_task.draft.time_needed.num_minutes().to_string()
             )
                 .on_input(|u| Message_UDT(UDT::TimeNeeded(u.parse().map_err(|_| ()))))
 				.width(Length::FillPortion(3))
