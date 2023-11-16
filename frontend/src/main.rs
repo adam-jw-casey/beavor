@@ -85,6 +85,15 @@ pub enum MutateMessage{
     ForceDeleteTask,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum CalendarMessage{
+    ScrollDown,
+    ScrollUp,
+    ScrollUpMax,
+    FilterToDate(Option<NaiveDate>), //TODO I have a feeling I'll want more filters at some point
+    ClickDate(Option<NaiveDate>),
+}
+
 #[derive(Debug, Clone)]
 pub enum Message{
     Refresh(Cache),
@@ -103,11 +112,7 @@ pub enum Message{
     SetEditingLinkID(Option<usize>),
     Open(String),
     None,
-    ScrollDownCalendar, // TODO merge these calendar messages
-    ScrollUpCalendar,
-    ScrollUpMaxCalendar,
-    FilterToDate(Option<NaiveDate>), //TODO I have a feeling I'll want more filters at some point
-    ClickDate(Option<NaiveDate>),
+    Calendar(CalendarMessage),
 }
 
 #[derive(Debug, Clone)]
@@ -318,18 +323,14 @@ impl Application for Beavor {
                             },
                             Message::Tick(_) | Message::None => (),
                             Message::Loaded(_) | Message::Mutate(_) => panic!("Should never happen"),
-                            Message::ScrollDownCalendar => state.calendar_state.scroll_down(),
-                            Message::ScrollUpCalendar => state.calendar_state.scroll_up(),
-                            Message::ScrollUpMaxCalendar => state.calendar_state.scroll_up_max(),
                             Message::Open(url) => {
                                 if open::that(url.clone()).is_err(){
                                     println!("Error opening '{url}'"); // TODO this should be visible in the GUI, not just the terminal
                                 };
                             },
                             Message::SetEditingLinkID(h_id) => state.displayed_task.editing_link_idx = h_id,
-                            Message::FilterToDate(date) => state.calendar_state.filter_date = date,
-                            Message::ClickDate(d) => state.calendar_state.clicked_date = d,
                             Message::Modal(_) => panic!("Can never happen"),
+                            Message::Calendar(calendar_message) => state.calendar_state.update(calendar_message),
                         }
                         Command::none()
                     }
