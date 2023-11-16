@@ -23,7 +23,8 @@ use crate::{
 use chrono::{
     NaiveDate,
     Datelike,
-    Local
+    Local,
+    Duration,
 };
 
 use serde::{
@@ -39,9 +40,9 @@ impl TryFrom<SqliteRow> for Task{
             category:                     row.get::<String, &str>("Category"),
             finished:                     row.get::<bool,   &str>("Finished"),
             name:                         row.get::<String, &str>("Name"),
-            _time_budgeted:               row.get::<u32,    &str>("Budget"),
-            time_needed:                  row.get::<u32,    &str>("Time"),
-            time_used:                    row.get::<u32,    &str>("Used"),
+            _time_budgeted: Duration::minutes(row.get::<i64,    &str>("Budget")),
+            time_needed:    Duration::minutes(row.get::<i64,    &str>("Time")),
+            time_used:      Duration::minutes(row.get::<i64,    &str>("Used")),
             next_action_date: parse_date(&row.get::<String, &str>("NextAction"))?,
             due_date:                     row.get::<String, &str>("DueDate").try_into()?,
             notes:                        row.get::<String, &str>("Notes"),
@@ -131,6 +132,10 @@ impl Connection{
         let next_action_str = DueDate::Date(task.next_action_date).to_string();
         let date_added_str = DueDate::Date(task.date_added).to_string();
 
+        let time_budgeted = task.time_needed.num_minutes(); // When creating a new task, save the initial time_needed estimate as time_budgeted
+        let time_needed = task.time_needed.num_minutes();
+        let time_used = task.time_used.num_minutes();
+
         let new_rowid: i64 = sqlx::query!("
             INSERT INTO tasks
                 (
@@ -162,9 +167,9 @@ impl Connection{
             task.category,
             task.finished,
             task.name,
-            task.time_needed, // When creating a new task, save the initial time_needed estimate as time_budgeted
-            task.time_needed,
-            task.time_used,
+            time_budgeted,
+            time_needed,
+            time_used,
             next_action_str,
             due_date_str,
             task.notes,
@@ -215,6 +220,9 @@ impl Connection{
         let next_action_str = DueDate::Date(task.next_action_date).to_string();
         let due_date_str = task.due_date.to_string();
 
+        let time_needed = task.time_needed.num_minutes();
+        let time_used = task.time_used.num_minutes();
+
         if sqlx::query!("
             UPDATE tasks
             SET
@@ -232,8 +240,8 @@ impl Connection{
             task.category,
             task.finished,
             task.name,
-            task.time_needed,
-            task.time_used,
+            time_needed,
+            time_used,
             next_action_str,
             due_date_str,
             task.notes,

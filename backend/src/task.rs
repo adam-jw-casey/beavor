@@ -1,4 +1,7 @@
-use chrono::NaiveDate;
+use chrono::{
+    NaiveDate,
+    Duration,
+};
 
 use crate::utils::today_date;
 use crate::due_date::DueDate;
@@ -13,9 +16,9 @@ pub struct Task{
     pub category:         String,
     pub finished:         bool,
     pub name:             String,
-    pub _time_budgeted:   u32,
-    pub time_needed:      u32,
-    pub time_used:        u32,
+    pub _time_budgeted:   Duration,
+    pub time_needed:      Duration,
+    pub time_used:        Duration,
     pub notes:            String,
     pub date_added:       NaiveDate,
     pub next_action_date: NaiveDate,
@@ -29,8 +32,8 @@ impl Task{
         Self::default()
     }
 
-    #[must_use] pub fn time_remaining(&self) -> u32{
-        self.time_needed.saturating_sub(self.time_used)
+    #[must_use] pub fn time_remaining(&self) -> Duration{
+        self.time_needed.checked_sub(&self.time_used).unwrap_or(Duration::minutes(0))
     }
 }
 
@@ -42,9 +45,9 @@ impl std::default::Default for Task{
             date_added:         today_date(),
             finished:           false,
             name:               String::new(),
-            _time_budgeted:     0,
-            time_needed:        0,
-            time_used:          0,
+            _time_budgeted:     Duration::minutes(0),
+            time_needed:        Duration::minutes(0),
+            time_used:          Duration::minutes(0),
             notes:              String::new(),
             due_date:           DueDate::Asap,
             id:                 None,

@@ -18,6 +18,7 @@ use chrono::{
     Weekday,
     NaiveDate,
     naive::Days,
+    Duration,
 };
 
 use backend::{
@@ -96,7 +97,7 @@ pub fn calendar(schedule: &Schedule, state: &CalendarState) -> Element<'static, 
         .into()
 }
 
-fn cal_day(day: NaiveDate, load: Option<u32>, is_selected: bool, clicked_date: Option<&NaiveDate>) -> Element<'static, Message>{
+fn cal_day(day: NaiveDate, load: Option<Duration>, is_selected: bool, clicked_date: Option<&NaiveDate>) -> Element<'static, Message>{
     MouseArea::new(
         column![
             text(
@@ -107,7 +108,7 @@ fn cal_day(day: NaiveDate, load: Option<u32>, is_selected: bool, clicked_date: O
                 }
             ),
             text(
-                if let Some(load) = load {format!("{:.1}", f64::from(load)/60.0)} else{"-".to_string()}
+                if let Some(load) = load {format!("{:.1}", load.num_minutes() as f64/60.0)} else{"-".to_string()}
             )
         ]
             .padding(4)

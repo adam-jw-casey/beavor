@@ -27,6 +27,7 @@ use tokio::sync::oneshot;
 use chrono::{
     NaiveDate,
     offset::Utc,
+    Duration,
 };
 
 use backend::{
@@ -141,7 +142,7 @@ impl DisplayedTask{
 
     fn stop_timer(&mut self){
         if let Some(minutes) = self.timer.num_minutes_running(){
-            self.draft.time_used += minutes;
+            self.draft.time_used = self.draft.time_used + Duration::minutes(minutes.into());
             self.timer = TimerState::Stopped;
         }
     }
@@ -170,8 +171,8 @@ impl DisplayedTask{
                     UDT::NextActionDate(_) | UDT::DueDate(_) => panic!("This will never happen"),
                     UDT::Category(category) => self.draft.category = category,
                     UDT::Name(name) => self.draft.name = name,
-                    UDT::TimeNeeded(time_needed) => if let Ok(time_needed) = time_needed {self.draft.time_needed = time_needed},
-                    UDT::TimeUsed(time_used) => if let Ok(time_used) = time_used {self.draft.time_used = time_used},
+                    UDT::TimeNeeded(time_needed) => if let Ok(time_needed) = time_needed {self.draft.time_needed = Duration::minutes(time_needed.into())},
+                    UDT::TimeUsed(time_used) => if let Ok(time_used) = time_used {self.draft.time_used = Duration::minutes(time_used.into())},
                     UDT::Notes(notes) => self.draft.notes = notes,
                     UDT::Finished(finished) => self.draft.finished = finished,
                     UDT::Link(link_message) => match link_message{
