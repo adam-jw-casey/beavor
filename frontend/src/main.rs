@@ -24,16 +24,12 @@ use iced::{
 
 use tokio::sync::oneshot;
 
-use chrono::{
-    NaiveDate,
-    Duration,
-};
+use chrono::NaiveDate;
 
 use backend::{
     DatabaseManager,
     Task,
     Schedule,
-    Hyperlink,
 };
 
 mod widgets;
@@ -45,8 +41,7 @@ use widgets::{
     task_scroller,
     task_editor::{
         task_editor,
-        TimerState,
-        LinkMessage,
+        DisplayedTask,
     },
     confirm_modal,
 };
@@ -120,88 +115,6 @@ pub enum Message{
 }
 
 #[derive(Debug, Clone)]
-pub struct DisplayedTask{
-    selected:               Option<Task>,
-    pub draft:              Task,
-    pub editing_link_idx:   Option<usize>,
-    pub timer:              TimerState,
-}
-
-impl DisplayedTask{
-    fn is_unmodified(&self) -> bool{
-        match &self.selected{
-            Some(t) => *t == self.draft,
-            None => self.draft == Task::default(),
-        }
-    }
-
-    fn select(&mut self, maybe_task: Option<Task>){
-        self.selected = maybe_task.clone();
-        self.draft = match maybe_task{
-            Some(t) =>  t.clone(),
-            None => Task::default(),
-        };
-    }
-
-    fn stop_timer(&mut self){
-        if let Some(duration) = self.timer.stop() {
-            self.draft.time_used = self.draft.time_used + duration;
-        }
-    }
-
-    fn update_timer(&mut self, message: TimerMessage) {
-        match message{
-            TimerMessage::Start => self.timer.start(),
-            TimerMessage::Stop => self.stop_timer(),
-            TimerMessage::Toggle => match self.timer{
-                TimerState::Timing{..} => self.update_timer(TimerMessage::Stop),
-                TimerState::Stopped => self.update_timer(TimerMessage::Start),
-            },
-        }
-    }
-
-    #[must_use] fn update_draft(&mut self, message: UpdateDraftTask) -> Option<ModalType>{
-        use UpdateDraftTask as UDT;
-
-        match message{
-            UDT::NextActionDate(next_action_date) => {
-                self.draft.next_action_date = next_action_date;
-                Some(ModalType::None)
-            },
-            UDT::DueDate(due_date) => {
-                self.draft.due_date = due_date;
-                Some(ModalType::None)
-            },
-            other => {
-                match other{
-                    UDT::NextActionDate(_) | UDT::DueDate(_) => panic!("This will never happen"),
-                    UDT::Category(category) => self.draft.category = category,
-                    UDT::Name(name) => self.draft.name = name,
-                    UDT::TimeNeeded(time_needed) => if let Ok(time_needed) = time_needed {self.draft.time_needed = Duration::minutes(time_needed.into())},
-                    UDT::TimeUsed(time_used) => if let Ok(time_used) = time_used {self.draft.time_used = Duration::minutes(time_used.into())},
-                    UDT::Notes(notes) => self.draft.notes = notes,
-                    UDT::Finished(finished) => self.draft.finished = finished,
-                    UDT::Link(link_message) => match link_message{
-                        LinkMessage::New => if !self.draft.links.contains(&Hyperlink::default()){
-                            self.draft.links.push(Hyperlink::default());
-                            self.editing_link_idx = Some(self.draft.links.len()-1);
-
-                        },
-                        LinkMessage::Delete(idx) => {
-                            self.draft.links.remove(idx);
-                        },
-                        LinkMessage::Update((link, idx)) => {
-                            self.draft.links[idx] = link;
-                        },
-                    }
-                }
-                None
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
 pub struct State{
     db:             DatabaseManager,
     cache:          Cache,
@@ -242,12 +155,7 @@ impl Application for Beavor {
                             loaded_schedule: db.schedule().await,
                         },
                         db,
-                        displayed_task: DisplayedTask{
-                            selected: None,
-                            draft: Task::default(),
-                            timer: TimerState::Stopped,
-                            editing_link_idx: None,
-                        },
+                        displayed_task: DisplayedTask::default(),
                         modal_state: ModalType::None,
                         calendar_state: CalendarState::default(),
                     }
@@ -449,7 +357,7 @@ impl Beavor{
                     },
                     MutateMessage::ForceDeleteTask => {
                         let t = std::mem::take(&mut displayed_task.draft);
-                        displayed_task.selected = None;
+                        displayed_task.select(None);
                         Command::perform(async move {
                             db_clone1.delete_task(&t).await;
                             tx.send(()).unwrap();

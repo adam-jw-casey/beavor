@@ -41,8 +41,10 @@ use crate::{
     TimerMessage,
     widgets::hyperlink,
     ModalType,
-    DisplayedTask,
 };
+
+use Message::UpdateDraftTask as Message_UDT;
+use UpdateDraftTask as UDT;
 
 // time_running and immediately get the time?
 #[derive(Debug, Clone)]
@@ -53,17 +55,18 @@ pub enum TimerState{
     Stopped,
 }
 
+impl Default for TimerState{
+    fn default() -> Self {
+        Self::Stopped
+    }
+}
+
 impl TimerState{
     pub fn time_running(&self) -> Option<Duration>{
         match self{
             TimerState::Timing { start_time } => Some(Utc::now() - start_time),
             TimerState::Stopped => None,
         }
-    }
-
-    pub fn num_minutes_running(&self) -> Option<u32> {
-        Some(u32::try_from(self.time_running()?.num_minutes())
-            .expect("This will be positive (started in the past) and small enough to fit (<136 years)"))
     }
 
     pub fn num_seconds_running(&self) -> Option<u32> {
@@ -87,6 +90,89 @@ impl TimerState{
     }
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct DisplayedTask{
+    selected:               Option<Task>,
+    pub draft:              Task,
+    pub editing_link_idx:   Option<usize>,
+    pub timer:              TimerState,
+}
+
+impl DisplayedTask{
+    pub fn is_unmodified(&self) -> bool{
+        match &self.selected{
+            Some(t) => *t == self.draft,
+            None => self.draft == Task::default(),
+        }
+    }
+
+    pub fn select(&mut self, maybe_task: Option<Task>){
+        self.selected = maybe_task.clone();
+        self.draft = match maybe_task{
+            Some(t) =>  t.clone(),
+            None => Task::default(),
+        };
+    }
+
+    pub fn stop_timer(&mut self){
+        if let Some(duration) = self.timer.stop() {
+            self.draft.time_used = self.draft.time_used + duration;
+        }
+    }
+
+    pub fn update_timer(&mut self, message: TimerMessage) {
+        match message{
+            TimerMessage::Start => self.timer.start(),
+            TimerMessage::Stop => self.stop_timer(),
+            TimerMessage::Toggle => match self.timer{
+                TimerState::Timing{..} => self.update_timer(TimerMessage::Stop),
+                TimerState::Stopped => self.update_timer(TimerMessage::Start),
+            },
+        }
+    }
+
+    // This warning occurs because of the unreachable `panic!()` below
+    #[allow(clippy::missing_panics_doc)]
+    #[must_use] pub fn update_draft(&mut self, message: UpdateDraftTask) -> Option<ModalType>{
+        match message{
+            UDT::NextActionDate(next_action_date) => {
+                self.draft.next_action_date = next_action_date;
+                Some(ModalType::None)
+            },
+            UDT::DueDate(due_date) => {
+                self.draft.due_date = due_date;
+                Some(ModalType::None)
+            },
+            other => {
+                match other{
+                    UDT::NextActionDate(_) | UDT::DueDate(_) => panic!("This will never happen"),
+                    UDT::Category(category) => self.draft.category = category,
+                    UDT::Name(name) => self.draft.name = name,
+                    UDT::TimeNeeded(time_needed) => if let Ok(time_needed) = time_needed {self.draft.time_needed = Duration::minutes(time_needed.into())},
+                    UDT::TimeUsed(time_used) => if let Ok(time_used) = time_used {self.draft.time_used = Duration::minutes(time_used.into())},
+                    UDT::Notes(notes) => self.draft.notes = notes,
+                    UDT::Finished(finished) => self.draft.finished = finished,
+                    UDT::Link(link_message) => match link_message{
+                        LinkMessage::New => if !self.draft.links.contains(&Hyperlink::default()){
+                            self.draft.links.push(Hyperlink::default());
+                            self.editing_link_idx = Some(self.draft.links.len()-1);
+
+                        },
+                        LinkMessage::Delete(idx) => {
+                            self.draft.links.remove(idx);
+                        },
+                        LinkMessage::Update((link, idx)) => {
+                            self.draft.links[idx] = link;
+                        },
+                    }
+                }
+                None
+            }
+        }
+    }
+}
+
+
 #[derive(Debug, Clone)]
 pub enum LinkMessage{
     New,
@@ -106,9 +192,6 @@ pub enum UpdateDraftTask{
     Finished        (bool),
     Link            (LinkMessage),
 }
-
-use Message::UpdateDraftTask as Message_UDT;
-use UpdateDraftTask as UDT;
 
 // TODO Should buttons be disabled while a date modal is open? Or should clicking one of them
 // close the modal?
