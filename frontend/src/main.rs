@@ -93,7 +93,7 @@ pub enum CalendarMessage{
     ClickDate(Option<NaiveDate>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum TimerMessage{
     Start,
     Stop,
@@ -267,73 +267,8 @@ impl Application for Beavor {
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match self{
-            Beavor::Loading => {
-                match message{
-                    Message::Loaded(state) => {
-                        *self = Self::Loaded(state);
-                    },
-                    Message::Tick(_) | Message::None => (),
-                    m => panic!("Should never happen: {m:#?}")
-                }
-                Command::none()
-            },
-            Beavor::Loaded(state) => match message{
-                Message::Mutate(mutate_message) => Beavor::mutate(&state.db, &mut state.displayed_task, &mutate_message),
-                other => {match other{
-                    Message::Modal(modal_message) => {
-                        match modal_message{
-                            ModalMessage::Show(modal_type) => {
-                                Self::update_modal_state(&mut state.modal_state, modal_type);
-                                Command::none()
-                            },
-                            ModalMessage::Ok => {
-                                let m = Self::complete_modal(&mut state.modal_state);
-                                self.update(m)
-                            }
-                        }
-                    },
-                    other => {
-                        match other{
-                            Message::TryNewTask => Self::try_select_task(state, None),
-                            Message::TryDeleteTask => {
-                                // Confirm before deleting
-                                let name = state.displayed_task.draft.name.clone();
-                                Self::update_modal_state(&mut state.modal_state, ModalType::Confirm(ConfirmationRequest{
-                                    message: format!("Are you sure you want to delete '{name}'?"),
-                                    run_on_confirm: Box::new(Message::Mutate(MutateMessage::ForceDeleteTask))
-                                }));
-                            },
-                            Message::UpdateDraftTask(task_field_update) => {
-                                if let Some(m) = state.displayed_task.update_draft(task_field_update){
-                                    Self::update_modal_state(&mut state.modal_state, m);
-                                }
-                            },
-                            Message::TrySelectTask(maybe_task) => Self::try_select_task(state, maybe_task),
-                            Message::ForceSelectTask(maybe_task) => state.displayed_task.select(maybe_task),
-                            Message::Timer(message) => state.displayed_task.update_timer(message),
-                            Message::Refresh(cache) => {
-                                state.cache = cache;
-                                // This is called after mutating state, e.g., saving a task
-                                // If the task was finished, need to also clear the displayed task
-                                if state.displayed_task.draft.finished{
-                                    state.displayed_task.select(None);
-                                }
-                            },
-                            Message::Tick(_) | Message::None => (),
-                            Message::Loaded(_) | Message::Mutate(_) => panic!("Should never happen"),
-                            Message::Open(url) => {
-                                if open::that(url.clone()).is_err(){
-                                    println!("Error opening '{url}'"); // TODO this should be visible in the GUI, not just the terminal
-                                };
-                            },
-                            Message::SetEditingLinkID(h_id) => state.displayed_task.editing_link_idx = h_id,
-                            Message::Modal(_) => panic!("Can never happen"),
-                            Message::Calendar(calendar_message) => state.calendar_state.update(calendar_message),
-                        }
-                        Command::none()
-                    }
-                }}
-            },
+            Beavor::Loading => self.update_loading(message),
+            Beavor::Loaded(_) => self.update_loaded(message),
         }
     }
 
@@ -380,7 +315,84 @@ impl Application for Beavor {
 }
 
 impl Beavor{
-     fn try_select_task(state: &mut State, maybe_task: Option<Task>){
+    fn update_loading(&mut self, message: Message) -> Command<Message>{
+        match message{
+            Message::Loaded(state) => {
+                *self = Self::Loaded(state);
+            },
+            Message::Tick(_) | Message::None => (),
+            m => panic!("Should never happen: {m:#?}")
+        }
+        Command::none()
+    }
+
+    fn update_loaded(&mut self, message: Message) -> Command<Message>{
+        let state = match self{
+            Beavor::Loaded(state) => state,
+            Beavor::Loading => panic!("Should never happen"),
+        };
+
+        match message{
+            Message::Mutate(mutate_message) => Beavor::mutate(&state.db, &mut state.displayed_task, &mutate_message),
+            other => {match other{
+                Message::Modal(modal_message) => {
+                    match modal_message{
+                        ModalMessage::Show(modal_type) => {
+                            Self::update_modal_state(&mut state.modal_state, modal_type);
+                            Command::none()
+                        },
+                        ModalMessage::Ok => {
+                            let m = Self::complete_modal(&mut state.modal_state);
+                            self.update(m)
+                        }
+                    }
+                },
+                other => {
+                    match other{
+                        Message::TryNewTask => Self::try_select_task(state, None),
+                        Message::TryDeleteTask => {
+                            // Confirm before deleting
+                            let name = state.displayed_task.draft.name.clone();
+                            Self::update_modal_state(&mut state.modal_state, ModalType::Confirm(ConfirmationRequest{
+                                message: format!("Are you sure you want to delete '{name}'?"),
+                                run_on_confirm: Box::new(Message::Mutate(MutateMessage::ForceDeleteTask))
+                            }));
+                        },
+                        Message::UpdateDraftTask(task_field_update) => {
+                            if let Some(m) = state.displayed_task.update_draft(task_field_update){
+                                Self::update_modal_state(&mut state.modal_state, m);
+                            }
+                        },
+                        Message::TrySelectTask(maybe_task) => Self::try_select_task(state, maybe_task),
+                        Message::ForceSelectTask(maybe_task) => state.displayed_task.select(maybe_task),
+                        Message::Timer(message) => state.displayed_task.update_timer(message),
+                        Message::Refresh(cache) => {
+                            state.cache = cache;
+                            // This is called after mutating state, e.g., saving a task
+                            // If the task was finished, need to also clear the displayed task
+                            if state.displayed_task.draft.finished{
+                                state.displayed_task.select(None);
+                            }
+                        },
+                        Message::Tick(_) | Message::None => (),
+                        Message::Loaded(_) | Message::Mutate(_) => panic!("Should never happen"),
+                        Message::Open(url) => {
+                            if open::that(url.clone()).is_err(){
+                                println!("Error opening '{url}'"); // TODO this should be visible in the GUI, not just the terminal
+                            };
+                        },
+                        Message::SetEditingLinkID(h_id) => state.displayed_task.editing_link_idx = h_id,
+                        Message::Modal(_) => panic!("Can never happen"),
+                        Message::Calendar(calendar_message) => state.calendar_state.update(calendar_message),
+                    }
+                    Command::none()
+                }
+            }}
+        }
+    }
+
+
+    fn try_select_task(state: &mut State, maybe_task: Option<Task>){
         // Stop timer and save if timer is running
         state.displayed_task.stop_timer();
 
