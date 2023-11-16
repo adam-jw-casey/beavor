@@ -24,17 +24,12 @@ use iced::{
 
 use tokio::sync::oneshot;
 
-use chrono::{
-    NaiveDate,
-    offset::Utc,
-    Duration,
-};
+use chrono::NaiveDate;
 
 use backend::{
     DatabaseManager,
     Task,
     Schedule,
-    Hyperlink,
 };
 
 mod widgets;
@@ -46,8 +41,7 @@ use widgets::{
     task_scroller,
     task_editor::{
         task_editor,
-        TimerState,
-        LinkMessage,
+        DisplayedTask,
     },
     confirm_modal,
 };
@@ -85,6 +79,22 @@ pub enum MutateMessage{
     ForceDeleteTask,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum CalendarMessage{
+    ScrollDown,
+    ScrollUp,
+    ScrollUpMax,
+    FilterToDate(Option<NaiveDate>), //TODO I have a feeling I'll want more filters at some point
+    ClickDate(Option<NaiveDate>),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum TimerMessage{
+    Start,
+    Stop,
+    Toggle,
+}
+
 #[derive(Debug, Clone)]
 pub enum Message{
     Refresh(Cache),
@@ -93,9 +103,6 @@ pub enum Message{
     TrySelectTask(Option<Task>),
     TryDeleteTask,
     UpdateDraftTask(UpdateDraftTask),
-    StartTimer,
-    StopTimer,
-    ToggleTimer, // Consider having separate start/stop/toggle messages
     Modal(ModalMessage),
     TryNewTask,
     Mutate(MutateMessage),
@@ -103,96 +110,8 @@ pub enum Message{
     SetEditingLinkID(Option<usize>),
     Open(String),
     None,
-    ScrollDownCalendar, // TODO merge these calendar messages
-    ScrollUpCalendar,
-    ScrollUpMaxCalendar,
-    FilterToDate(Option<NaiveDate>), //TODO I have a feeling I'll want more filters at some point
-    ClickDate(Option<NaiveDate>),
-}
-
-#[derive(Debug, Clone)]
-pub struct DisplayedTask{
-    selected:               Option<Task>,
-    pub draft:              Task,
-    pub editing_link_idx:   Option<usize>,
-    pub timer:              TimerState,
-}
-
-impl DisplayedTask{
-    fn is_unmodified(&self) -> bool{
-        match &self.selected{
-            Some(t) => *t == self.draft,
-            None => self.draft == Task::default(),
-        }
-    }
-
-    fn select(&mut self, maybe_task: Option<Task>){
-        self.selected = maybe_task.clone();
-        self.draft = match maybe_task{
-            Some(t) =>  t.clone(),
-            None => Task::default(),
-        };
-    }
-
-    fn start_timer(&mut self){
-        if matches!(self.timer, TimerState::Stopped){
-            self.timer = TimerState::Timing{start_time: Utc::now()};
-        }
-    }
-
-    fn stop_timer(&mut self){
-        if let Some(minutes) = self.timer.num_minutes_running(){
-            self.draft.time_used = self.draft.time_used + Duration::minutes(minutes.into());
-            self.timer = TimerState::Stopped;
-        }
-    }
-
-    fn toggle_timer(&mut self){
-        match self.timer{
-            TimerState::Timing{..} => self.stop_timer(),
-            TimerState::Stopped => self.start_timer(),
-        }
-    }
-
-    #[must_use] fn update_draft(&mut self, message: UpdateDraftTask) -> Option<ModalType>{
-        use UpdateDraftTask as UDT;
-
-        match message{
-            UDT::NextActionDate(next_action_date) => {
-                self.draft.next_action_date = next_action_date;
-                Some(ModalType::None)
-            },
-            UDT::DueDate(due_date) => {
-                self.draft.due_date = due_date;
-                Some(ModalType::None)
-            },
-            other => {
-                match other{
-                    UDT::NextActionDate(_) | UDT::DueDate(_) => panic!("This will never happen"),
-                    UDT::Category(category) => self.draft.category = category,
-                    UDT::Name(name) => self.draft.name = name,
-                    UDT::TimeNeeded(time_needed) => if let Ok(time_needed) = time_needed {self.draft.time_needed = Duration::minutes(time_needed.into())},
-                    UDT::TimeUsed(time_used) => if let Ok(time_used) = time_used {self.draft.time_used = Duration::minutes(time_used.into())},
-                    UDT::Notes(notes) => self.draft.notes = notes,
-                    UDT::Finished(finished) => self.draft.finished = finished,
-                    UDT::Link(link_message) => match link_message{
-                        LinkMessage::New => if !self.draft.links.contains(&Hyperlink::default()){
-                            self.draft.links.push(Hyperlink::default());
-                            self.editing_link_idx = Some(self.draft.links.len()-1);
-
-                        },
-                        LinkMessage::Delete(idx) => {
-                            self.draft.links.remove(idx);
-                        },
-                        LinkMessage::Update((link, idx)) => {
-                            self.draft.links[idx] = link;
-                        },
-                    }
-                }
-                None
-            }
-        }
-    }
+    Calendar(CalendarMessage),
+    Timer(TimerMessage),
 }
 
 #[derive(Debug, Clone)]
@@ -236,12 +155,7 @@ impl Application for Beavor {
                             loaded_schedule: db.schedule().await,
                         },
                         db,
-                        displayed_task: DisplayedTask{
-                            selected: None,
-                            draft: Task::default(),
-                            timer: TimerState::Stopped,
-                            editing_link_idx: None,
-                        },
+                        displayed_task: DisplayedTask::default(),
                         modal_state: ModalType::None,
                         calendar_state: CalendarState::default(),
                     }
@@ -261,87 +175,15 @@ impl Application for Beavor {
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match self{
-            Beavor::Loading => {
-                match message{
-                    Message::Loaded(state) => {
-                        *self = Self::Loaded(state);
-                    },
-                    Message::Tick(_) | Message::None => (),
-                    m => panic!("Should never happen: {m:#?}")
-                }
-                Command::none()
-            },
-            Beavor::Loaded(state) => match message{
-                Message::Mutate(mutate_message) => Beavor::mutate(&state.db, &mut state.displayed_task, &mutate_message),
-                other => {match other{
-                    Message::Modal(modal_message) => {
-                        match modal_message{
-                            ModalMessage::Show(modal_type) => {
-                                Self::update_modal_state(&mut state.modal_state, modal_type);
-                                Command::none()
-                            },
-                            ModalMessage::Ok => {
-                                let m = Self::complete_modal(&mut state.modal_state);
-                                self.update(m)
-                            }
-                        }
-                    },
-                    other => {
-                        match other{
-                            Message::TryNewTask => Self::try_select_task(state, None),
-                            Message::TryDeleteTask => {
-                                // Confirm before deleting
-                                let name = state.displayed_task.draft.name.clone();
-                                Self::update_modal_state(&mut state.modal_state, ModalType::Confirm(ConfirmationRequest{
-                                    message: format!("Are you sure you want to delete '{name}'?"),
-                                    run_on_confirm: Box::new(Message::Mutate(MutateMessage::ForceDeleteTask))
-                                }));
-                            },
-                            Message::UpdateDraftTask(task_field_update) => {
-                                if let Some(m) = state.displayed_task.update_draft(task_field_update){
-                                    Self::update_modal_state(&mut state.modal_state, m);
-                                }
-                            },
-                            Message::TrySelectTask(maybe_task) => Self::try_select_task(state, maybe_task),
-                            Message::ForceSelectTask(maybe_task) => state.displayed_task.select(maybe_task), // TODO this message needs to go
-                            Message::StartTimer => state.displayed_task.start_timer(),
-                            Message::StopTimer => state.displayed_task.stop_timer(),
-                            #[allow(clippy::single_match_else)]
-                            Message::ToggleTimer => state.displayed_task.toggle_timer(), // TODO merge these timer messages. Pass directly to DisplayedTask? And through to TimerState?
-                            Message::Refresh(cache) => {
-                                state.cache = cache;
-                                // This is called after mutating state, e.g., saving a task
-                                // If the task was finished, need to also clear the displayed task
-                                if state.displayed_task.draft.finished{
-                                    state.displayed_task.select(None);
-                                }
-                            },
-                            Message::Tick(_) | Message::None => (),
-                            Message::Loaded(_) | Message::Mutate(_) => panic!("Should never happen"),
-                            Message::ScrollDownCalendar => state.calendar_state.scroll_down(),
-                            Message::ScrollUpCalendar => state.calendar_state.scroll_up(),
-                            Message::ScrollUpMaxCalendar => state.calendar_state.scroll_up_max(),
-                            Message::Open(url) => {
-                                if open::that(url.clone()).is_err(){
-                                    println!("Error opening '{url}'"); // TODO this should be visible in the GUI, not just the terminal
-                                };
-                            },
-                            Message::SetEditingLinkID(h_id) => state.displayed_task.editing_link_idx = h_id,
-                            Message::FilterToDate(date) => state.calendar_state.filter_date = date,
-                            Message::ClickDate(d) => state.calendar_state.clicked_date = d,
-                            Message::Modal(_) => panic!("Can never happen"),
-                        }
-                        Command::none()
-                    }
-                }}
-            },
+            Beavor::Loading => self.update_loading(message),
+            Beavor::Loaded(_) => self.update_loaded(message),
         }
     }
 
     fn view(&self) -> Element<'_, Self::Message> {
         let content: Element<Message> = match self{
             Beavor::Loading => text("Loading...").into(),
-            Beavor::Loaded(state) => 
+            Beavor::Loaded(state) =>
                 row![
                     task_scroller(
                         &state.cache.loaded_tasks,
@@ -381,7 +223,84 @@ impl Application for Beavor {
 }
 
 impl Beavor{
-     fn try_select_task(state: &mut State, maybe_task: Option<Task>){
+    fn update_loading(&mut self, message: Message) -> Command<Message>{
+        match message{
+            Message::Loaded(state) => {
+                *self = Self::Loaded(state);
+            },
+            Message::Tick(_) | Message::None => (),
+            m => panic!("Should never happen: {m:#?}")
+        }
+        Command::none()
+    }
+
+    fn update_loaded(&mut self, message: Message) -> Command<Message>{
+        let state = match self{
+            Beavor::Loaded(state) => state,
+            Beavor::Loading => panic!("Should never happen"),
+        };
+
+        match message{
+            Message::Mutate(mutate_message) => Beavor::mutate(&state.db, &mut state.displayed_task, &mutate_message),
+            other => {match other{
+                Message::Modal(modal_message) => {
+                    match modal_message{
+                        ModalMessage::Show(modal_type) => {
+                            Self::update_modal_state(&mut state.modal_state, modal_type);
+                            Command::none()
+                        },
+                        ModalMessage::Ok => {
+                            let m = Self::complete_modal(&mut state.modal_state);
+                            self.update(m)
+                        }
+                    }
+                },
+                other => {
+                    match other{
+                        Message::TryNewTask => Self::try_select_task(state, None),
+                        Message::TryDeleteTask => {
+                            // Confirm before deleting
+                            let name = state.displayed_task.draft.name.clone();
+                            Self::update_modal_state(&mut state.modal_state, ModalType::Confirm(ConfirmationRequest{
+                                message: format!("Are you sure you want to delete '{name}'?"),
+                                run_on_confirm: Box::new(Message::Mutate(MutateMessage::ForceDeleteTask))
+                            }));
+                        },
+                        Message::UpdateDraftTask(task_field_update) => {
+                            if let Some(m) = state.displayed_task.update_draft(task_field_update){
+                                Self::update_modal_state(&mut state.modal_state, m);
+                            }
+                        },
+                        Message::TrySelectTask(maybe_task) => Self::try_select_task(state, maybe_task),
+                        Message::ForceSelectTask(maybe_task) => state.displayed_task.select(maybe_task),
+                        Message::Timer(message) => state.displayed_task.update_timer(message),
+                        Message::Refresh(cache) => {
+                            state.cache = cache;
+                            // This is called after mutating state, e.g., saving a task
+                            // If the task was finished, need to also clear the displayed task
+                            if state.displayed_task.draft.finished{
+                                state.displayed_task.select(None);
+                            }
+                        },
+                        Message::Tick(_) | Message::None => (),
+                        Message::Loaded(_) | Message::Mutate(_) => panic!("Should never happen"),
+                        Message::Open(url) => {
+                            if open::that(url.clone()).is_err(){
+                                println!("Error opening '{url}'"); // TODO this should be visible in the GUI, not just the terminal
+                            };
+                        },
+                        Message::SetEditingLinkID(h_id) => state.displayed_task.editing_link_idx = h_id,
+                        Message::Modal(_) => panic!("Can never happen"),
+                        Message::Calendar(calendar_message) => state.calendar_state.update(calendar_message),
+                    }
+                    Command::none()
+                }
+            }}
+        }
+    }
+
+
+    fn try_select_task(state: &mut State, maybe_task: Option<Task>){
         // Stop timer and save if timer is running
         state.displayed_task.stop_timer();
 
@@ -420,7 +339,7 @@ impl Beavor{
         let t2 = displayed_task.draft.clone();
 
         let (tx, rx) = oneshot::channel::<()>(); // Synchronize the writes to the database with the reads that update the cache
-        
+
         Command::batch(
             [
                 match message{
@@ -438,7 +357,7 @@ impl Beavor{
                     },
                     MutateMessage::ForceDeleteTask => {
                         let t = std::mem::take(&mut displayed_task.draft);
-                        displayed_task.selected = None;
+                        displayed_task.select(None);
                         Command::perform(async move {
                             db_clone1.delete_task(&t).await;
                             tx.send(()).unwrap();

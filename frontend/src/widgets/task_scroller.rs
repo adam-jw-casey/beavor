@@ -24,7 +24,10 @@ use backend::{
     Schedule,
 };
 
-use crate::Message;
+use crate::{
+    Message,
+    CalendarMessage,
+};
 
 trait Filter: Display{ // TODO rather than display, should really impl Into<Element<'static, Message>>
     fn apply(&self, task: &Task) -> bool;
@@ -45,7 +48,7 @@ impl Filter for DateFilter<'_, '_>{
     }
 
     fn cancel(&self) -> Message {
-        Message::FilterToDate(None)
+        Message::Calendar(CalendarMessage::FilterToDate(None))
     }
 }
 

@@ -34,7 +34,10 @@ use iced_aw::{
     },
 };
 
-use crate::Message;
+use crate::{
+    Message,
+    CalendarMessage,
+};
 
 #[derive(Debug, Clone, Default)]
 pub struct CalendarState{
@@ -44,16 +47,26 @@ pub struct CalendarState{
 }
 
 impl CalendarState{
-    pub fn scroll_down(&mut self){
+    fn scroll_down(&mut self){
         self.weeks_scrolled += 1;
     }
 
-    pub fn scroll_up(&mut self){
+    fn scroll_up(&mut self){
         self.weeks_scrolled = self.weeks_scrolled.saturating_sub(1);
     }
 
-    pub fn scroll_up_max(&mut self) {
+    fn scroll_up_max(&mut self) {
         self.weeks_scrolled = 0;
+    }
+
+    pub fn update(&mut self, message: CalendarMessage){
+        match message{
+            CalendarMessage::ScrollDown         => self.scroll_down(),
+            CalendarMessage::ScrollUp           => self.scroll_up(),
+            CalendarMessage::ScrollUpMax        => self.scroll_up_max(),
+            CalendarMessage::FilterToDate(date) => self.filter_date = date,
+            CalendarMessage::ClickDate(d)       => self.clicked_date = d,
+        }
     }
 }
 
@@ -88,9 +101,12 @@ pub fn calendar(schedule: &Schedule, state: &CalendarState) -> Element<'static, 
             .height(Length::Shrink)
             .padding(8),
             column![
-                button(text(icon_to_char(Icon::ChevronDoubleUp)).font(ICON_FONT)).on_press_maybe(if state.weeks_scrolled > 0 {Some(Message::ScrollUpMaxCalendar)}else{None}),
-                button(text(icon_to_char(Icon::ChevronUp)).font(ICON_FONT)).on_press_maybe(if state.weeks_scrolled > 0 {Some(Message::ScrollUpCalendar)}else{None}),
-                button(text(icon_to_char(Icon::ChevronDown)).font(ICON_FONT)).on_press(Message::ScrollDownCalendar),
+                button(text(icon_to_char(Icon::ChevronDoubleUp)).font(ICON_FONT))
+                    .on_press_maybe(if state.weeks_scrolled > 0 {Some(Message::Calendar(CalendarMessage::ScrollUpMax))}else{None}),
+                button(text(icon_to_char(Icon::ChevronUp)).font(ICON_FONT))
+                    .on_press_maybe(if state.weeks_scrolled > 0 {Some(Message::Calendar(CalendarMessage::ScrollUp))}else{None}),
+                button(text(icon_to_char(Icon::ChevronDown)).font(ICON_FONT))
+                    .on_press(Message::Calendar(CalendarMessage::ScrollDown)),
             ].height(Length::Shrink)
     ]
         .align_items(Alignment::Center)
@@ -114,12 +130,12 @@ fn cal_day(day: NaiveDate, load: Option<Duration>, is_selected: bool, clicked_da
             .padding(4)
             .align_items(Alignment::Center)
     )
-        .on_press(Message::ClickDate(Some(day)))
+        .on_press(Message::Calendar(CalendarMessage::ClickDate(Some(day))))
         .on_release(
             if clicked_date.is_some_and(|d| *d == day){
-                Message::FilterToDate(Some(day))
+                Message::Calendar(CalendarMessage::FilterToDate(Some(day)))
             }else{
-                Message::ClickDate(None)
+                Message::Calendar(CalendarMessage::ClickDate(None))
         })
         .into()
 }
