@@ -26,7 +26,6 @@ use tokio::sync::oneshot;
 
 use chrono::{
     NaiveDate,
-    offset::Utc,
     Duration,
 };
 
@@ -95,6 +94,13 @@ pub enum CalendarMessage{
 }
 
 #[derive(Debug, Clone)]
+pub enum TimerMessage{
+    Start,
+    Stop,
+    Toggle,
+}
+
+#[derive(Debug, Clone)]
 pub enum Message{
     Refresh(Cache),
     Tick(Instant),
@@ -102,9 +108,6 @@ pub enum Message{
     TrySelectTask(Option<Task>),
     TryDeleteTask,
     UpdateDraftTask(UpdateDraftTask),
-    StartTimer,
-    StopTimer,
-    ToggleTimer, // Consider having separate start/stop/toggle messages
     Modal(ModalMessage),
     TryNewTask,
     Mutate(MutateMessage),
@@ -113,6 +116,7 @@ pub enum Message{
     Open(String),
     None,
     Calendar(CalendarMessage),
+    Timer(TimerMessage),
 }
 
 #[derive(Debug, Clone)]
@@ -139,23 +143,20 @@ impl DisplayedTask{
         };
     }
 
-    fn start_timer(&mut self){
-        if matches!(self.timer, TimerState::Stopped){
-            self.timer = TimerState::Timing{start_time: Utc::now()};
-        }
-    }
-
     fn stop_timer(&mut self){
-        if let Some(minutes) = self.timer.num_minutes_running(){
-            self.draft.time_used = self.draft.time_used + Duration::minutes(minutes.into());
-            self.timer = TimerState::Stopped;
+        if let Some(duration) = self.timer.stop() {
+            self.draft.time_used = self.draft.time_used + duration;
         }
     }
 
-    fn toggle_timer(&mut self){
-        match self.timer{
-            TimerState::Timing{..} => self.stop_timer(),
-            TimerState::Stopped => self.start_timer(),
+    fn update_timer(&mut self, message: TimerMessage) {
+        match message{
+            TimerMessage::Start => self.timer.start(),
+            TimerMessage::Stop => self.stop_timer(),
+            TimerMessage::Toggle => match self.timer{
+                TimerState::Timing{..} => self.update_timer(TimerMessage::Stop),
+                TimerState::Stopped => self.update_timer(TimerMessage::Start),
+            },
         }
     }
 
@@ -308,11 +309,8 @@ impl Application for Beavor {
                                 }
                             },
                             Message::TrySelectTask(maybe_task) => Self::try_select_task(state, maybe_task),
-                            Message::ForceSelectTask(maybe_task) => state.displayed_task.select(maybe_task), // TODO this message needs to go
-                            Message::StartTimer => state.displayed_task.start_timer(),
-                            Message::StopTimer => state.displayed_task.stop_timer(),
-                            #[allow(clippy::single_match_else)]
-                            Message::ToggleTimer => state.displayed_task.toggle_timer(), // TODO merge these timer messages. Pass directly to DisplayedTask? And through to TimerState?
+                            Message::ForceSelectTask(maybe_task) => state.displayed_task.select(maybe_task),
+                            Message::Timer(message) => state.displayed_task.update_timer(message),
                             Message::Refresh(cache) => {
                                 state.cache = cache;
                                 // This is called after mutating state, e.g., saving a task
@@ -342,7 +340,7 @@ impl Application for Beavor {
     fn view(&self) -> Element<'_, Self::Message> {
         let content: Element<Message> = match self{
             Beavor::Loading => text("Loading...").into(),
-            Beavor::Loaded(state) => 
+            Beavor::Loaded(state) =>
                 row![
                     task_scroller(
                         &state.cache.loaded_tasks,
@@ -421,7 +419,7 @@ impl Beavor{
         let t2 = displayed_task.draft.clone();
 
         let (tx, rx) = oneshot::channel::<()>(); // Synchronize the writes to the database with the reads that update the cache
-        
+
         Command::batch(
             [
                 match message{

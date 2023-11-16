@@ -38,12 +38,12 @@ use crate::{
     Message,
     MutateMessage,
     ModalMessage,
+    TimerMessage,
     widgets::hyperlink,
     ModalType,
     DisplayedTask,
 };
 
-// TODO this still doesn't sit quite right, since why match over TimerState when you can match over
 // time_running and immediately get the time?
 #[derive(Debug, Clone)]
 pub enum TimerState{
@@ -69,6 +69,21 @@ impl TimerState{
     pub fn num_seconds_running(&self) -> Option<u32> {
         Some(u32::try_from(self.time_running()?.num_seconds())
             .expect("This will be positive (started in the past) and small enough to fit (<136 years)"))
+    }
+
+    pub fn start(&mut self){
+        if matches!(self, TimerState::Stopped){
+            *self = TimerState::Timing{start_time: Utc::now()};
+        }
+    }
+
+    pub fn stop(&mut self) -> Option<Duration>{
+        if let Some(minutes) = self.time_running(){
+            *self = TimerState::Stopped;
+            Some(minutes)
+        }else{
+            None
+        }
     }
 }
 
@@ -189,7 +204,7 @@ pub fn task_editor<'a>(displayed_task: &'a DisplayedTask, modal_state: &ModalTyp
                     TimerState::Timing{..} => "Stop",
                     TimerState::Stopped => "Start",
                 }
-            ).on_press(Message::ToggleTimer),
+            ).on_press(Message::Timer(TimerMessage::Toggle)),
             text( format!("{:02}:{:02}:{:02}", display_time_used/3600, (display_time_used % 3600)/60, display_time_used % 60)),
             button("Save").on_press(Message::Mutate(MutateMessage::SaveDraftTask)),
             button("New").on_press(Message::TryNewTask),
