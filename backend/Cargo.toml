@@ -16,3 +16,6 @@ futures = "0.3.28"
 [build-dependencies]
 tokio = "1.26"
 sqlx = {version = "0.7.2", features = ["runtime-tokio-native-tls", "sqlite"]}
+
+[lints.clippy]
+pedantic = "warn"

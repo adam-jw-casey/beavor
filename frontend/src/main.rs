@@ -1,5 +1,3 @@
-#![warn(clippy::pedantic)]
-
 use iced::widget::{
     container,
     row,
