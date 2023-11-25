@@ -1,3 +1,11 @@
+use std::fs;
+
+use serde::{Deserialize, Serialize};
+
+use tokio::sync::oneshot;
+
+use chrono::NaiveDate;
+
 use iced::widget::{
     container,
     row,
@@ -19,10 +27,6 @@ use iced::{
     font,
     window,
 };
-
-use tokio::sync::oneshot;
-
-use chrono::NaiveDate;
 
 use backend::{
     DatabaseManager,
@@ -46,9 +50,38 @@ use widgets::{
 
 use widgets::task_editor::UpdateDraftTask;
 
+const CONFIG_FILE_PATH: &str = "./resources/config.json";
+
 fn main() {
-    Beavor::run(Settings::default())
+    // TODO eventially the setting call should be async so that a window with "loading" shows,
+    // rather than nothing
+    // TODO why on earth does iced::Settings<> not #[Derive(Serialize, Deserialize)]?
+    let default = Settings::<Flags>::default();
+
+    let flags: Flags = serde_json::from_str(
+        &fs::read_to_string(CONFIG_FILE_PATH)
+            .unwrap_or_else(|_|{
+                serde_json::to_string(&Flags::default()).expect("Flags::default() serializes correctly by definition")
+            })
+    ).expect("Panics if config file incorrectly formatted");
+
+    let settings: Settings<Flags> = Settings{
+        flags,
+        id: default.id,
+        window: default.window,
+        default_font: default.default_font,
+        default_text_size: default.default_text_size,
+        antialiasing: default.antialiasing,
+        exit_on_close_request: default.exit_on_close_request,
+    };
+
+    Beavor::run(settings)
         .expect("Application failed");
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct Flags{
+    workweek: Option<()>,
 }
 
 #[derive(Debug, Clone)]
@@ -110,6 +143,7 @@ pub enum Message{
     None,
     Calendar(CalendarMessage),
     Timer(TimerMessage),
+    UpdateFlags(Flags),
 }
 
 #[derive(Debug, Clone)]
@@ -119,6 +153,7 @@ pub struct State{
     displayed_task: DisplayedTask,
     modal_state:    ModalType,
     calendar_state: CalendarState,
+    flags:          Flags,
 }
 
 #[derive(Debug, Clone)]
@@ -136,9 +171,9 @@ impl Application for Beavor {
     type Executor = executor::Default;
     type Message = Message;
     type Theme = Theme;
-    type Flags = ();
+    type Flags = Flags;
 
-    fn new(_flags: Self::Flags) -> (Beavor, iced::Command<Message>) {
+    fn new(flags: Self::Flags) -> (Beavor, iced::Command<Message>) {
         (
             Self::Loading,
             Command::batch(vec![
@@ -156,6 +191,7 @@ impl Application for Beavor {
                         displayed_task: DisplayedTask::default(),
                         modal_state: ModalType::None,
                         calendar_state: CalendarState::default(),
+                        flags,
                     }
                 }, Message::Loaded),
                 font::load(iced_aw::graphics::icons::ICON_FONT_BYTES).map(|_| Message::None),
@@ -280,16 +316,22 @@ impl Beavor{
                                 state.displayed_task.select(None);
                             }
                         },
-                        Message::Tick(_) | Message::None => (),
-                        Message::Loaded(_) | Message::Mutate(_) => panic!("Should never happen"),
                         Message::Open(url) => {
                             if open::that(url.clone()).is_err(){
                                 println!("Error opening '{url}'"); // TODO this should be visible in the GUI, not just the terminal
                             };
                         },
                         Message::SetEditingLinkID(h_id) => state.displayed_task.editing_link_idx = h_id,
-                        Message::Modal(_) => panic!("Can never happen"),
                         Message::Calendar(calendar_message) => state.calendar_state.update(calendar_message),
+                        Message::UpdateFlags(new_flags) => {
+                            fs::write(CONFIG_FILE_PATH, serde_json::to_string(&new_flags).expect("I don't know how this could fail"))
+                                .expect("Panics if cannot write to filesystem");
+
+                            state.flags = new_flags;
+                        },
+                        Message::Tick(_) | Message::None => (),
+                        Message::Modal(_) => panic!("Can never happen"),
+                        Message::Loaded(_) | Message::Mutate(_) => panic!("Should never happen"),
                     }
                     Command::none()
                 }
