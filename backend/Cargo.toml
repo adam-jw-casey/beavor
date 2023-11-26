@@ -7,7 +7,7 @@ build = "build.rs"
 [dependencies]
 tokio = "1.26"
 sqlx = {version = "0.7.2", features = ["runtime-tokio-native-tls", "sqlite"]}
-chrono = {version="0.4.23", features=["std"]}
+chrono = {version="0.4.23", features=["std", "serde"]}
 reqwest = "0.11.20"
 serde_json = "1.0.105"
 serde = {version="1.0.186", features=["derive"]}
@@ -16,3 +16,6 @@ futures = "0.3.28"
 [build-dependencies]
 tokio = "1.26"
 sqlx = {version = "0.7.2", features = ["runtime-tokio-native-tls", "sqlite"]}
+
+[lints.clippy]
+pedantic = "warn"

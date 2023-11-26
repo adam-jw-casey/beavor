@@ -1,4 +1,3 @@
-#![warn(clippy::all, clippy::pedantic)]
 pub mod database;
 pub use database::Connection as DatabaseManager;
 

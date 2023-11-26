@@ -1,4 +1,10 @@
-#![warn(clippy::pedantic)]
+use std::fs;
+
+use serde::{Deserialize, Serialize};
+
+use tokio::sync::oneshot;
+
+use chrono::NaiveDate;
 
 use iced::widget::{
     container,
@@ -22,14 +28,11 @@ use iced::{
     window,
 };
 
-use tokio::sync::oneshot;
-
-use chrono::NaiveDate;
-
 use backend::{
     DatabaseManager,
     Task,
     Schedule,
+    schedule::WorkWeek,
 };
 
 mod widgets;
@@ -48,9 +51,44 @@ use widgets::{
 
 use widgets::task_editor::UpdateDraftTask;
 
+const CONFIG_FILE_PATH: &str = "./resources/config.json";
+
 fn main() {
-    Beavor::run(Settings::default())
+    // TODO eventially the setting call should be async so that a window with "loading" shows,
+    // rather than nothing
+    // TODO why on earth does iced::Settings<> not #[Derive(Serialize, Deserialize)]?
+    let default = Settings::<Flags>::default();
+
+    let flags: Flags = serde_json::from_str(
+        &fs::read_to_string(CONFIG_FILE_PATH)
+            .unwrap_or_else(|_|{
+                let default = serde_json::to_string_pretty(&Flags::default())
+                    .expect("Flags::default() serializes correctly by definition");
+
+                fs::write(CONFIG_FILE_PATH, &default)
+                    .expect("Panics if cannot write to filesystem");
+
+                default
+            })
+    ).expect("Panics if config file incorrectly formatted");
+
+    let settings: Settings<Flags> = Settings{
+        flags,
+        id: default.id,
+        window: default.window,
+        default_font: default.default_font,
+        default_text_size: default.default_text_size,
+        antialiasing: default.antialiasing,
+        exit_on_close_request: default.exit_on_close_request,
+    };
+
+    Beavor::run(settings)
         .expect("Application failed");
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct Flags{
+    work_week: WorkWeek,
 }
 
 #[derive(Debug, Clone)]
@@ -112,6 +150,7 @@ pub enum Message{
     None,
     Calendar(CalendarMessage),
     Timer(TimerMessage),
+    UpdateFlags(Flags),
 }
 
 #[derive(Debug, Clone)]
@@ -121,6 +160,7 @@ pub struct State{
     displayed_task: DisplayedTask,
     modal_state:    ModalType,
     calendar_state: CalendarState,
+    flags:          Flags,
 }
 
 #[derive(Debug, Clone)]
@@ -138,9 +178,9 @@ impl Application for Beavor {
     type Executor = executor::Default;
     type Message = Message;
     type Theme = Theme;
-    type Flags = ();
+    type Flags = Flags;
 
-    fn new(_flags: Self::Flags) -> (Beavor, iced::Command<Message>) {
+    fn new(flags: Self::Flags) -> (Beavor, iced::Command<Message>) {
         (
             Self::Loading,
             Command::batch(vec![
@@ -152,12 +192,13 @@ impl Application for Beavor {
                     State{
                         cache: Cache{
                             loaded_tasks: db.open_tasks().await.into(),
-                            loaded_schedule: db.schedule().await,
+                            loaded_schedule: db.schedule(flags.work_week.clone()).await,
                         },
                         db,
                         displayed_task: DisplayedTask::default(),
                         modal_state: ModalType::None,
                         calendar_state: CalendarState::default(),
+                        flags,
                     }
                 }, Message::Loaded),
                 font::load(iced_aw::graphics::icons::ICON_FONT_BYTES).map(|_| Message::None),
@@ -241,7 +282,7 @@ impl Beavor{
         };
 
         match message{
-            Message::Mutate(mutate_message) => Beavor::mutate(&state.db, &mut state.displayed_task, &mutate_message),
+            Message::Mutate(mutate_message) => Beavor::mutate(&state.db, &mut state.displayed_task, &mutate_message, &state.flags.work_week),
             other => {match other{
                 Message::Modal(modal_message) => {
                     match modal_message{
@@ -282,16 +323,24 @@ impl Beavor{
                                 state.displayed_task.select(None);
                             }
                         },
-                        Message::Tick(_) | Message::None => (),
-                        Message::Loaded(_) | Message::Mutate(_) => panic!("Should never happen"),
                         Message::Open(url) => {
                             if open::that(url.clone()).is_err(){
                                 println!("Error opening '{url}'"); // TODO this should be visible in the GUI, not just the terminal
                             };
                         },
                         Message::SetEditingLinkID(h_id) => state.displayed_task.editing_link_idx = h_id,
-                        Message::Modal(_) => panic!("Can never happen"),
                         Message::Calendar(calendar_message) => state.calendar_state.update(calendar_message),
+                        Message::UpdateFlags(new_flags) => {
+                            fs::write(
+                                CONFIG_FILE_PATH, serde_json::to_string_pretty(&new_flags)
+                                  .expect("I don't know how this could fail")
+                            ).expect("Panics if cannot write to filesystem");
+
+                            state.flags = new_flags;
+                        },
+                        Message::Tick(_) | Message::None => (),
+                        Message::Modal(_) => panic!("Can never happen"),
+                        Message::Loaded(_) | Message::Mutate(_) => panic!("Should never happen"),
                     }
                     Command::none()
                 }
@@ -330,13 +379,14 @@ impl Beavor{
         }
     }
 
-    fn mutate(db: &DatabaseManager, displayed_task: &mut DisplayedTask, message: &MutateMessage) -> Command<Message>{
+    fn mutate(db: &DatabaseManager, displayed_task: &mut DisplayedTask, message: &MutateMessage, work_week: &WorkWeek) -> Command<Message>{
         displayed_task.stop_timer();
         // TODO this is so stupid but it works and I got tired of hacking at Arc<>
         let db_clone1 = db.clone();
         let db_clone2 = db.clone();
         let t1 = displayed_task.draft.clone();
         let t2 = displayed_task.draft.clone();
+        let work_week_clone = work_week.clone();
 
         let (tx, rx) = oneshot::channel::<()>(); // Synchronize the writes to the database with the reads that update the cache
 
@@ -369,7 +419,7 @@ impl Beavor{
 
                     Cache{
                         loaded_tasks:    db_clone2.open_tasks().await.into(),
-                        loaded_schedule: db_clone2.schedule().await,
+                        loaded_schedule: db_clone2.schedule(work_week_clone).await,
                     }
                 }, Message::Refresh)
             ]

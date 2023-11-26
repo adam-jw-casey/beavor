@@ -18,6 +18,7 @@ use crate::{
     utils::parse_date,
     DueDate,
     Schedule,
+    schedule::WorkWeek,
 };
 
 use chrono::{
@@ -511,10 +512,11 @@ impl Connection{
         days_off
     }
 
-    pub async fn schedule(&self) -> Schedule{
+    pub async fn schedule(&self, work_week: WorkWeek) -> Schedule{
         Schedule::new(
             self.days_off().await,
             self.open_tasks().await,
+            work_week,
         )
     }
 }

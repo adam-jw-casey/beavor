@@ -13,3 +13,8 @@ iced_aw = { version = "0.7.0" , features = ["icons", "modal", "card"]}
 chrono = { version = "0.4.31", features = ["clock"] }
 tokio = { version = "1.33.0", features = ["sync"]}
 open = "5.0.0"
+serde_json = "1.0.108"
+serde = "1.0.193"
+
+[lints.clippy]
+pedantic = "warn"
