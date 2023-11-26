@@ -169,7 +169,7 @@ pub struct WorkWeek{
 }
 
 impl WorkWeek{
-    pub fn workdays(&self) -> Vec<Weekday>{
+    #[must_use] pub fn workdays(&self) -> Vec<Weekday>{
         self.days.iter()
             .filter(|(_, workday)| workday.hours_this_day() > 0.try_into().unwrap())
             .map(|(weekday, _)| *weekday)
@@ -210,7 +210,7 @@ impl WorkDay{
         }
     }
 
-    pub fn hours_this_day(&self) -> DayHour{
+    #[must_use] pub fn hours_this_day(&self) -> DayHour{
         match self.hours_of_work{
             Some(hours) => (hours.end_hour - hours.start_hour).expect("Start should be earlier than end"),
             None => 0.try_into().unwrap(),
