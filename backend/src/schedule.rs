@@ -164,7 +164,6 @@ impl Schedule{
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeek{
-    // TODO It would be interesting to assign different time allocations to different task categories
     days: HashMap<Weekday, WorkDay>
 }
 
@@ -219,7 +218,6 @@ impl WorkDay{
 }
 
 #[derive(Debug, Copy, Clone, Default, Serialize, Deserialize)]
-// TODO should not allow end earlier than beginning
 pub struct HourRange{
     start_hour: DayHour,
     end_hour:   DayHour,
@@ -266,8 +264,6 @@ mod tests{
     use super::*;
 
     #[test]
-    // TODO These all use the year 3000 as being arbitrarily far in the future. This is probably
-    // fine, but is still ugly
     fn test_schedule(){
         let task = Task{
             next_action_date: NaiveDate::from_ymd_opt(3000, 01, 01).unwrap(),

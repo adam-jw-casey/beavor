@@ -70,7 +70,6 @@ impl CalendarState{
     }
 }
 
-// TODO this needs day-of-week headers
 pub fn calendar(schedule: &Schedule, state: &CalendarState) -> Element<'static, Message>{
     // Get the days of the week that contains the passed day
     fn week_of(d: NaiveDate) -> Vec<NaiveDate>{

@@ -265,7 +265,6 @@ impl Connection{
             .await
             .expect("Should be able to delete links");
 
-        // TODO this is duplicated in create_task()
         for h in &task.links{
             sqlx::query!("
                 INSERT INTO hyperlinks (Url, Display, Task)
@@ -498,8 +497,6 @@ impl Connection{
             .collect()
     }
 
-    // TODO This will likely cause a crash if missing internet connection (but only first time app
-    // is launched in a given calendar year?)
     /// # Panics
     /// Panics if unable to update holidays 
     pub async fn days_off(&self) -> Vec<NaiveDate> {

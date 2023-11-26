@@ -15,8 +15,6 @@ use crate::widgets::task_editor::{UpdateDraftTask, LinkMessage};
 
 use backend::Hyperlink;
 
-// TODO some sort of URI scheme handling would be nice here, so the user doesn't have to type it in
-// manually, e.g., file://
 pub fn hyperlink <'a>(link: &Hyperlink, link_idx: usize, editing_idx: Option<usize>) -> Element<'a, Message>{
 
     // This is janky but it works?

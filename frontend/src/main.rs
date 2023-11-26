@@ -54,9 +54,6 @@ use widgets::task_editor::UpdateDraftTask;
 const CONFIG_FILE_PATH: &str = "./resources/config.json";
 
 fn main() {
-    // TODO eventially the setting call should be async so that a window with "loading" shows,
-    // rather than nothing
-    // TODO why on earth does iced::Settings<> not #[Derive(Serialize, Deserialize)]?
     let default = Settings::<Flags>::default();
 
     let flags: Flags = serde_json::from_str(
@@ -325,7 +322,7 @@ impl Beavor{
                         },
                         Message::Open(url) => {
                             if open::that(url.clone()).is_err(){
-                                println!("Error opening '{url}'"); // TODO this should be visible in the GUI, not just the terminal
+                                println!("Error opening '{url}'");
                             };
                         },
                         Message::SetEditingLinkID(h_id) => state.displayed_task.editing_link_idx = h_id,

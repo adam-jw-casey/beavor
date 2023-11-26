@@ -1,4 +1,3 @@
---TODO - Add a table to log times worked. Could be used to "undo" a timer that overran, as well as allowing analysis of time worked
 CREATE TABLE IF NOT EXISTS tasks(
 	Category   TEXT,
 	Finished   BOOLEAN,
