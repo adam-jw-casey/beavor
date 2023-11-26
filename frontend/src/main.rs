@@ -62,9 +62,10 @@ fn main() {
     let flags: Flags = serde_json::from_str(
         &fs::read_to_string(CONFIG_FILE_PATH)
             .unwrap_or_else(|_|{
-                let default = serde_json::to_string(&Flags::default()).expect("Flags::default() serializes correctly by definition");
+                let default = serde_json::to_string_pretty(&Flags::default())
+                    .expect("Flags::default() serializes correctly by definition");
 
-                fs::write(CONFIG_FILE_PATH, serde_json::to_string_pretty(&default).expect("I don't know how this could fail"))
+                fs::write(CONFIG_FILE_PATH, &default)
                     .expect("Panics if cannot write to filesystem");
 
                 default
@@ -330,8 +331,10 @@ impl Beavor{
                         Message::SetEditingLinkID(h_id) => state.displayed_task.editing_link_idx = h_id,
                         Message::Calendar(calendar_message) => state.calendar_state.update(calendar_message),
                         Message::UpdateFlags(new_flags) => {
-                            fs::write(CONFIG_FILE_PATH, serde_json::to_string_pretty(&new_flags).expect("I don't know how this could fail"))
-                                .expect("Panics if cannot write to filesystem");
+                            fs::write(
+                                CONFIG_FILE_PATH, serde_json::to_string_pretty(&new_flags)
+                                  .expect("I don't know how this could fail")
+                            ).expect("Panics if cannot write to filesystem");
 
                             state.flags = new_flags;
                         },
