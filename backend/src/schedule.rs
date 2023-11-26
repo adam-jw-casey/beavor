@@ -1,4 +1,8 @@
 use std::cmp::max;
+use std::ops::Sub;
+use std::num::IntErrorKind;
+
+use serde::{Deserialize, Serialize};
 
 use chrono::{
     NaiveDate,
@@ -52,13 +56,15 @@ impl Iterator for DateIterator{
 pub struct Schedule{
     days_off: Vec<NaiveDate>,
     workloads: HashMap<NaiveDate, Duration>,
+    work_week: WorkWeek,
 }
 
 impl Schedule{
-    #[must_use] pub fn new(days_off: Vec<NaiveDate>, tasks: Vec<Task>) -> Self{
+    #[must_use] pub fn new(days_off: Vec<NaiveDate>, tasks: Vec<Task>, work_week: WorkWeek) -> Self{
         let mut schedule = Schedule{
             days_off,
             workloads: HashMap::<NaiveDate, Duration>::new(),
+            work_week,
         };
 
         schedule.calculate_workloads(tasks);
@@ -152,7 +158,105 @@ impl Schedule{
 
     /// Returns a boolean representing whether a given date is a work day
     #[must_use] pub fn is_work_day(&self, date: NaiveDate) -> bool{
-        !self.days_off.contains(&date) && ![Weekday::Sun, Weekday::Sat].contains(&date.weekday())
+        !self.days_off.contains(&date) && self.work_week.workdays().contains(&date.weekday())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeek{
+    // TODO It would be interesting to assign different time allocations to different task categories
+    days: HashMap<Weekday, WorkDay>
+}
+
+impl WorkWeek{
+    pub fn workdays(&self) -> Vec<Weekday>{
+        self.days.iter()
+            .filter(|(_, workday)| workday.hours_this_day() > 0.try_into().unwrap())
+            .map(|(weekday, _)| *weekday)
+            .collect()
+    }
+}
+
+impl Default for WorkWeek{
+    fn default() -> Self {
+        let mut days = HashMap::new();
+
+        let full_day = HourRange{
+            start_hour: 8.try_into().unwrap(),
+            end_hour: 17.try_into().unwrap(),
+        };
+
+        days.insert(Weekday::Mon, WorkDay::new(Some(full_day)));
+        days.insert(Weekday::Tue, WorkDay::new(Some(full_day)));
+        days.insert(Weekday::Wed, WorkDay::new(Some(full_day)));
+        days.insert(Weekday::Thu, WorkDay::new(Some(full_day)));
+        days.insert(Weekday::Fri, WorkDay::new(Some(full_day)));
+        days.insert(Weekday::Sat, WorkDay::new(None));
+        days.insert(Weekday::Sun, WorkDay::new(None));
+
+        WorkWeek{days}
+    }
+}
+
+#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize)]
+pub struct WorkDay{
+    hours_of_work: Option<HourRange>,
+}
+
+impl WorkDay{
+    #[must_use] pub fn new(hours: Option<HourRange>) -> Self{
+        Self{
+            hours_of_work: hours,
+        }
+    }
+
+    pub fn hours_this_day(&self) -> DayHour{
+        match self.hours_of_work{
+            Some(hours) => (hours.end_hour - hours.start_hour).expect("Start should be earlier than end"),
+            None => 0.try_into().unwrap(),
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize)]
+// TODO should not allow end earlier than beginning
+pub struct HourRange{
+    start_hour: DayHour,
+    end_hour:   DayHour,
+}
+
+#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialEq, Eq, Ord, PartialOrd)]
+pub struct DayHour{
+    value: u8
+}
+
+impl Sub for DayHour{
+    type Output = Option<Self>;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        if self.value < rhs.value{
+            None
+        }else{
+            Some((self.value - rhs.value).try_into().unwrap())
+        }
+    }
+}
+
+impl TryFrom<u8> for DayHour{
+    type Error = IntErrorKind;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        if value > 24{
+            Err(IntErrorKind::PosOverflow)
+        }else{
+            Ok(DayHour{value})
+        }
+    }
+}
+
+impl From<DayHour> for u8{
+    fn from(val: DayHour) -> Self {
+        val.value
     }
 }
 

@@ -32,6 +32,7 @@ use backend::{
     DatabaseManager,
     Task,
     Schedule,
+    schedule::WorkWeek,
 };
 
 mod widgets;
@@ -61,7 +62,12 @@ fn main() {
     let flags: Flags = serde_json::from_str(
         &fs::read_to_string(CONFIG_FILE_PATH)
             .unwrap_or_else(|_|{
-                serde_json::to_string(&Flags::default()).expect("Flags::default() serializes correctly by definition")
+                let default = serde_json::to_string(&Flags::default()).expect("Flags::default() serializes correctly by definition");
+
+                fs::write(CONFIG_FILE_PATH, serde_json::to_string_pretty(&default).expect("I don't know how this could fail"))
+                    .expect("Panics if cannot write to filesystem");
+
+                default
             })
     ).expect("Panics if config file incorrectly formatted");
 
@@ -81,7 +87,7 @@ fn main() {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Flags{
-    workweek: Option<()>,
+    work_week: WorkWeek,
 }
 
 #[derive(Debug, Clone)]
@@ -185,7 +191,7 @@ impl Application for Beavor {
                     State{
                         cache: Cache{
                             loaded_tasks: db.open_tasks().await.into(),
-                            loaded_schedule: db.schedule().await,
+                            loaded_schedule: db.schedule(flags.work_week.clone()).await,
                         },
                         db,
                         displayed_task: DisplayedTask::default(),
@@ -275,7 +281,7 @@ impl Beavor{
         };
 
         match message{
-            Message::Mutate(mutate_message) => Beavor::mutate(&state.db, &mut state.displayed_task, &mutate_message),
+            Message::Mutate(mutate_message) => Beavor::mutate(&state.db, &mut state.displayed_task, &mutate_message, &state.flags.work_week),
             other => {match other{
                 Message::Modal(modal_message) => {
                     match modal_message{
@@ -324,7 +330,7 @@ impl Beavor{
                         Message::SetEditingLinkID(h_id) => state.displayed_task.editing_link_idx = h_id,
                         Message::Calendar(calendar_message) => state.calendar_state.update(calendar_message),
                         Message::UpdateFlags(new_flags) => {
-                            fs::write(CONFIG_FILE_PATH, serde_json::to_string(&new_flags).expect("I don't know how this could fail"))
+                            fs::write(CONFIG_FILE_PATH, serde_json::to_string_pretty(&new_flags).expect("I don't know how this could fail"))
                                 .expect("Panics if cannot write to filesystem");
 
                             state.flags = new_flags;
@@ -370,13 +376,14 @@ impl Beavor{
         }
     }
 
-    fn mutate(db: &DatabaseManager, displayed_task: &mut DisplayedTask, message: &MutateMessage) -> Command<Message>{
+    fn mutate(db: &DatabaseManager, displayed_task: &mut DisplayedTask, message: &MutateMessage, work_week: &WorkWeek) -> Command<Message>{
         displayed_task.stop_timer();
         // TODO this is so stupid but it works and I got tired of hacking at Arc<>
         let db_clone1 = db.clone();
         let db_clone2 = db.clone();
         let t1 = displayed_task.draft.clone();
         let t2 = displayed_task.draft.clone();
+        let work_week_clone = work_week.clone();
 
         let (tx, rx) = oneshot::channel::<()>(); // Synchronize the writes to the database with the reads that update the cache
 
@@ -409,7 +416,7 @@ impl Beavor{
 
                     Cache{
                         loaded_tasks:    db_clone2.open_tasks().await.into(),
-                        loaded_schedule: db_clone2.schedule().await,
+                        loaded_schedule: db_clone2.schedule(work_week_clone).await,
                     }
                 }, Message::Refresh)
             ]
