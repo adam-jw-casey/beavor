@@ -9,6 +9,7 @@ use chrono::NaiveDate;
 use iced::widget::{
     container,
     row,
+    column,
     text,
     rule::Rule,
 };
@@ -47,6 +48,8 @@ use widgets::{
         DisplayedTask,
     },
     confirm_modal,
+    command_line,
+    command_line::State as CommandLineState,
 };
 
 use widgets::task_editor::UpdateDraftTask;
@@ -142,6 +145,8 @@ pub enum Message{
     TryNewTask,
     Mutate(MutateMessage),
     Loaded(State),
+    UpdateCommandLine(Option<CommandLineState>),
+    RunCommand,
     SetEditingLinkID(Option<usize>),
     Open(String),
     None,
@@ -156,6 +161,7 @@ pub struct State{
     cache:          Cache,
     displayed_task: DisplayedTask,
     modal_state:    ModalType,
+    command_line:   Option<CommandLineState>,
     calendar_state: CalendarState,
     flags:          Flags,
 }
@@ -193,7 +199,8 @@ impl Application for Beavor {
                         },
                         db,
                         displayed_task: DisplayedTask::default(),
-                        modal_state: ModalType::None,
+                        modal_state:    ModalType::None,
+                        command_line:   None,
                         calendar_state: CalendarState::default(),
                         flags,
                     }
@@ -222,29 +229,34 @@ impl Application for Beavor {
         let content: Element<Message> = match self{
             Beavor::Loading => text("Loading...").into(),
             Beavor::Loaded(state) =>
-                row![
-                    task_scroller(
-                        &state.cache.loaded_tasks,
-                        state.calendar_state.filter_date.as_ref(),
-                        &state.cache.loaded_schedule
-                    )
-                        .width(Length::FillPortion(2))
-                        .height(Length::FillPortion(1)),
-                    Rule::vertical(4),
-                    task_editor(
-                        &state.displayed_task,
-                        &state.modal_state,
-                    )
-                        .padding(8)
-                        .width(Length::FillPortion(3))
-                        .height(Length::FillPortion(1)),
-                    Rule::vertical(4),
-                    calendar(&state.cache.loaded_schedule, &state.calendar_state),
-                    confirm_modal(&state.modal_state),
+                column![
+                    row![
+                        task_scroller(
+                            &state.cache.loaded_tasks,
+                            state.calendar_state.filter_date.as_ref(),
+                            &state.cache.loaded_schedule
+                        )
+                            .width(Length::FillPortion(2))
+                            .height(Length::FillPortion(1)),
+                        Rule::vertical(4),
+                        task_editor(
+                            &state.displayed_task,
+                            &state.modal_state,
+                        )
+                            .padding(8)
+                            .width(Length::FillPortion(3))
+                            .height(Length::FillPortion(1)),
+                        Rule::vertical(4),
+                        calendar(&state.cache.loaded_schedule, &state.calendar_state),
+                        confirm_modal(&state.modal_state),
+                    ]
+                        .align_items(Alignment::End)
+                        .height(Length::Fill)
+                        .width(Length::Fill),
+                    Rule::horizontal(4),
+                    command_line(state.command_line.as_ref()),
                 ]
-                    .align_items(Alignment::End)
-                    .height(Length::Fill)
-                    .width(Length::Fill)
+                    .spacing(8)
                     .into()
         };
 
@@ -335,6 +347,8 @@ impl Beavor{
 
                             state.flags = new_flags;
                         },
+                        Message::UpdateCommandLine(maybe_command_line_state) => state.command_line = maybe_command_line_state,
+                        Message::RunCommand => todo!(),
                         Message::Tick(_) | Message::None => (),
                         Message::Modal(_) => panic!("Can never happen"),
                         Message::Loaded(_) | Message::Mutate(_) => panic!("Should never happen"),
