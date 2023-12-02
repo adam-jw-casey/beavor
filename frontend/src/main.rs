@@ -40,7 +40,7 @@ mod widgets;
 use widgets::{
     calendar::{
         calendar,
-        CalendarState,
+        State as CalendarState,
     },
     task_scroller,
     task_editor::{

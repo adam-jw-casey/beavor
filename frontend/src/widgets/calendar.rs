@@ -40,13 +40,13 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Default)]
-pub struct CalendarState{
+pub struct State{
     weeks_scrolled: u16,
     pub clicked_date: Option<NaiveDate>,
     pub filter_date: Option<NaiveDate>,
 }
 
-impl CalendarState{
+impl State{
     fn scroll_down(&mut self){
         self.weeks_scrolled += 1;
     }
@@ -70,7 +70,7 @@ impl CalendarState{
     }
 }
 
-pub fn calendar(schedule: &Schedule, state: &CalendarState) -> Element<'static, Message>{
+pub fn calendar(schedule: &Schedule, state: &State) -> Element<'static, Message>{
     // Get the days of the week that contains the passed day
     fn week_of(d: NaiveDate) -> Vec<NaiveDate>{
         let w = d.week(Weekday::Mon);
