@@ -115,6 +115,7 @@ pub enum ModalType{
 pub enum MutateMessage{
     SaveDraftTask,
     ForceDeleteTask,
+    VacationStatus(NaiveDate, bool),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -154,6 +155,30 @@ pub enum Message{
     Timer(TimerMessage),
     UpdateFlags(Flags),
     Error(Option<String>),
+}
+
+impl TryFrom<&str> for Message{
+    type Error = String;
+
+    fn try_from(command: &str) -> Result<Message, String> {
+        let parts: Vec<_> = command.split(' ').collect();
+        if let Ok(object) = NaiveDate::parse_from_str(
+            parts.get(1).ok_or("Bad command".to_string())?,
+            "%Y-%m-%d")
+        {
+            if let Some(verb) = match parts.first(){
+                Some(&"vacation") => Some(Message::Mutate(MutateMessage::VacationStatus(object, true))),
+                Some(&"not_vacation") => Some(Message::Mutate(MutateMessage::VacationStatus(object, false))),
+                _ => None
+            }{
+                return Ok(verb)
+            }
+            return Err("Invalid command".to_string());
+        }
+        #[allow(clippy::needless_return)]
+        return Err("Invalid object!".to_string());
+
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -307,7 +332,7 @@ impl Beavor{
                     }
                 },
                 Message::RunCommand => {
-                    let m = state.command_line.try_run();
+                    let m = Self::run_command(state);
                     self.update(m)
                 },
                 Message::Open(url) => {
@@ -386,7 +411,7 @@ impl Beavor{
         *modal_state = modal_type;
     }
 
-    #[must_use] fn complete_modal(modal_state: &mut ModalType) -> Message{
+    #[must_use] fn complete_modal(modal_state: &mut ModalType) -> Message {
         match &modal_state{
             ModalType::Confirm(confirmation_request) => {
                 let m = confirmation_request.run_on_confirm.clone();
@@ -394,6 +419,16 @@ impl Beavor{
                 *m
             },
             _ => panic!("Should never happen"),
+        }
+    }
+
+    #[must_use] fn run_command(state: &mut State) -> Message {
+        match Message::try_from(state.command_line.command.as_str()) {
+            Err(e) => Message::Error(Some(e.to_string())),
+            Ok(s) => {
+                state.command_line.command = String::new();
+                s
+            },
         }
     }
 
@@ -430,7 +465,19 @@ impl Beavor{
                             db_clone1.delete_task(&t).await;
                             tx.send(()).unwrap();
                         }, |()| Message::TryNewTask)
-                    }
+                    },
+                    MutateMessage::VacationStatus(date, is_vacation) => {
+                        let date = *date; // These copies make lifetimes happy
+                        let is_vacation = *is_vacation;
+                        Command::perform(async move {
+                            if is_vacation{
+                                db_clone1.add_vacation_day(&date).await;
+                            }else{
+                                db_clone1.delete_vacation_day(&date).await;
+                            }
+                            tx.send(()).unwrap();
+                        }, |()| Message::None)
+                    },
                 },
                 Command::perform(async move {
                     rx.await.unwrap();
