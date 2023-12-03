@@ -1,6 +1,7 @@
 use chrono::{
     Local,
     NaiveDate,
+    NaiveTime,
 };
 
 use crate::due_date::ParseDateError;
@@ -23,6 +24,10 @@ pub fn parse_date(date_string: &str) -> Result<NaiveDate, ParseDateError>{
 
 #[must_use] pub fn today_date() -> NaiveDate{
     Local::now().naive_local().date()
+}
+
+#[must_use] pub fn now_time() -> NaiveTime{
+    Local::now().naive_local().time()
 }
 
 #[allow(clippy::zero_prefixed_literal)]

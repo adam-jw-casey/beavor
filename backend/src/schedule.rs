@@ -9,12 +9,16 @@ use chrono::{
     Datelike,
     Weekday,
     Duration,
+    Timelike,
 };
 
 use crate::{
     Task,
     DueDate,
-    utils::today_date,
+    utils::{
+        today_date,
+        now_time,
+    },
 };
 
 use std::collections::HashMap;
@@ -60,6 +64,16 @@ pub struct Schedule{
 }
 
 impl Schedule{
+    // These warnings occur because of the `as` below, but this operation is actually infallible
+    // due to the known range for the values involved
+    #[allow(clippy::cast_possible_wrap)]
+    #[allow(clippy::cast_possible_truncation)]
+    #[must_use] pub fn hours_remaining_today(&self) -> Option<i8> {
+        self.work_week.days[&today_date().weekday()]
+            .hours_of_work
+            .map(|hour_range| now_time().hour() as i8 - hour_range.end_hour.value as i8)
+    }
+
     #[must_use] pub fn new(days_off: Vec<NaiveDate>, tasks: Vec<Task>, work_week: WorkWeek) -> Self{
         let mut schedule = Schedule{
             days_off,
@@ -168,6 +182,8 @@ pub struct WorkWeek{
 }
 
 impl WorkWeek{
+    // The `try_into` is know to be infallible because 0 < 24
+    #[allow(clippy::missing_panics_doc)]
     #[must_use] pub fn workdays(&self) -> Vec<Weekday>{
         self.days.iter()
             .filter(|(_, workday)| workday.hours_this_day() > 0.try_into().unwrap())
