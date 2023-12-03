@@ -40,6 +40,7 @@ mod widgets;
 use widgets::{
     calendar::{
         calendar,
+        Message as CalendarMessage,
         State as CalendarState,
     },
     task_scroller,
@@ -116,15 +117,6 @@ pub enum MutateMessage{
     SaveDraftTask,
     ForceDeleteTask,
     VacationStatus(NaiveDate, bool),
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum CalendarMessage{
-    ScrollDown,
-    ScrollUp,
-    ScrollUpMax,
-    FilterToDate(Option<NaiveDate>), //TODO I have a feeling I'll want more filters at some point
-    ClickDate(Option<NaiveDate>),
 }
 
 #[derive(Debug, Clone, Copy)]
