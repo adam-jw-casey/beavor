@@ -38,7 +38,6 @@ use crate::{
     Message,
     MutateMessage,
     ModalMessage,
-    TimerMessage,
     widgets::hyperlink,
     ModalType,
 };
@@ -53,6 +52,13 @@ pub enum TimerState{
         start_time: DateTime<Utc>,
     },
     Stopped,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum TimerMessage{
+    Start,
+    Stop,
+    Toggle,
 }
 
 impl Default for TimerState{

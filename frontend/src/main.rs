@@ -47,6 +47,7 @@ use widgets::{
     task_editor::{
         task_editor,
         DisplayedTask,
+        TimerMessage,
     },
     confirm_modal,
     command_line,
@@ -117,13 +118,6 @@ pub enum MutateMessage{
     SaveDraftTask,
     ForceDeleteTask,
     VacationStatus(NaiveDate, bool),
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum TimerMessage{
-    Start,
-    Stop,
-    Toggle,
 }
 
 #[derive(Debug, Clone)]
