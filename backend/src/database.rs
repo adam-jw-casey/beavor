@@ -452,7 +452,7 @@ impl Connection{
         )
             .execute(&self.pool)
             .await
-            .expect("Should be able do delete task");
+            .expect("Should be able do delete vacation day");
     }
 
     /// # Panics

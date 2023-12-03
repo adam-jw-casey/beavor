@@ -9,6 +9,7 @@ use chrono::NaiveDate;
 use iced::widget::{
     container,
     row,
+    column,
     text,
     rule::Rule,
 };
@@ -39,7 +40,7 @@ mod widgets;
 use widgets::{
     calendar::{
         calendar,
-        CalendarState,
+        State as CalendarState,
     },
     task_scroller,
     task_editor::{
@@ -47,6 +48,8 @@ use widgets::{
         DisplayedTask,
     },
     confirm_modal,
+    command_line,
+    command_line::State as CommandLineState,
 };
 
 use widgets::task_editor::UpdateDraftTask;
@@ -112,6 +115,7 @@ pub enum ModalType{
 pub enum MutateMessage{
     SaveDraftTask,
     ForceDeleteTask,
+    VacationStatus(NaiveDate, bool),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -142,12 +146,39 @@ pub enum Message{
     TryNewTask,
     Mutate(MutateMessage),
     Loaded(State),
+    UpdateCommandLine(String),
+    RunCommand,
     SetEditingLinkID(Option<usize>),
     Open(String),
     None,
     Calendar(CalendarMessage),
     Timer(TimerMessage),
     UpdateFlags(Flags),
+    Error(Option<String>),
+}
+
+impl TryFrom<&str> for Message{
+    type Error = String;
+
+    fn try_from(command: &str) -> Result<Message, String> {
+        let parts: Vec<_> = command.split(' ').collect();
+        if let Ok(object) = NaiveDate::parse_from_str(
+            parts.get(1).ok_or("Bad command".to_string())?,
+            "%Y-%m-%d")
+        {
+            if let Some(verb) = match parts.first(){
+                Some(&"vacation") => Some(Message::Mutate(MutateMessage::VacationStatus(object, true))),
+                Some(&"not_vacation") => Some(Message::Mutate(MutateMessage::VacationStatus(object, false))),
+                _ => None
+            }{
+                return Ok(verb)
+            }
+            return Err("Invalid command".to_string());
+        }
+        #[allow(clippy::needless_return)]
+        return Err("Invalid object!".to_string());
+
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -156,6 +187,7 @@ pub struct State{
     cache:          Cache,
     displayed_task: DisplayedTask,
     modal_state:    ModalType,
+    command_line:   CommandLineState,
     calendar_state: CalendarState,
     flags:          Flags,
 }
@@ -193,7 +225,8 @@ impl Application for Beavor {
                         },
                         db,
                         displayed_task: DisplayedTask::default(),
-                        modal_state: ModalType::None,
+                        modal_state:    ModalType::None,
+                        command_line:   CommandLineState::default(),
                         calendar_state: CalendarState::default(),
                         flags,
                     }
@@ -222,29 +255,34 @@ impl Application for Beavor {
         let content: Element<Message> = match self{
             Beavor::Loading => text("Loading...").into(),
             Beavor::Loaded(state) =>
-                row![
-                    task_scroller(
-                        &state.cache.loaded_tasks,
-                        state.calendar_state.filter_date.as_ref(),
-                        &state.cache.loaded_schedule
-                    )
-                        .width(Length::FillPortion(2))
-                        .height(Length::FillPortion(1)),
-                    Rule::vertical(4),
-                    task_editor(
-                        &state.displayed_task,
-                        &state.modal_state,
-                    )
-                        .padding(8)
-                        .width(Length::FillPortion(3))
-                        .height(Length::FillPortion(1)),
-                    Rule::vertical(4),
-                    calendar(&state.cache.loaded_schedule, &state.calendar_state),
-                    confirm_modal(&state.modal_state),
+                column![
+                    row![
+                        task_scroller(
+                            &state.cache.loaded_tasks,
+                            state.calendar_state.filter_date.as_ref(),
+                            &state.cache.loaded_schedule
+                        )
+                            .width(Length::FillPortion(2))
+                            .height(Length::FillPortion(1)),
+                        Rule::vertical(4),
+                        task_editor(
+                            &state.displayed_task,
+                            &state.modal_state,
+                        )
+                            .padding(8)
+                            .width(Length::FillPortion(3))
+                            .height(Length::FillPortion(1)),
+                        Rule::vertical(4),
+                        calendar(&state.cache.loaded_schedule, &state.calendar_state),
+                        confirm_modal(&state.modal_state),
+                    ]
+                        .align_items(Alignment::End)
+                        .height(Length::Fill)
+                        .width(Length::Fill),
+                    Rule::horizontal(4),
+                    command_line(&state.command_line),
                 ]
-                    .align_items(Alignment::End)
-                    .height(Length::Fill)
-                    .width(Length::Fill)
+                    .spacing(8)
                     .into()
         };
 
@@ -293,6 +331,17 @@ impl Beavor{
                         }
                     }
                 },
+                Message::RunCommand => {
+                    let m = Self::run_command(state);
+                    self.update(m)
+                },
+                Message::Open(url) => {
+                    if open::that(url.clone()).is_err(){
+                        self.update(Message::Error(Some(format!("Error opening '{url}'"))))
+                    }else{
+                        Command::none()
+                    }
+                },
                 other => {
                     match other{
                         Message::TryNewTask => Self::try_select_task(state, None),
@@ -320,11 +369,6 @@ impl Beavor{
                                 state.displayed_task.select(None);
                             }
                         },
-                        Message::Open(url) => {
-                            if open::that(url.clone()).is_err(){
-                                println!("Error opening '{url}'");
-                            };
-                        },
                         Message::SetEditingLinkID(h_id) => state.displayed_task.editing_link_idx = h_id,
                         Message::Calendar(calendar_message) => state.calendar_state.update(calendar_message),
                         Message::UpdateFlags(new_flags) => {
@@ -335,9 +379,11 @@ impl Beavor{
 
                             state.flags = new_flags;
                         },
+                        Message::UpdateCommandLine(command) => state.command_line.command = command,
+                        Message::Error(maybe_error) => state.command_line.error = maybe_error,
                         Message::Tick(_) | Message::None => (),
                         Message::Modal(_) => panic!("Can never happen"),
-                        Message::Loaded(_) | Message::Mutate(_) => panic!("Should never happen"),
+                        Message::Loaded(_) | Message::Mutate(_) | Message::RunCommand | Message::Open(_)=> panic!("Should never happen"),
                     }
                     Command::none()
                 }
@@ -365,7 +411,7 @@ impl Beavor{
         *modal_state = modal_type;
     }
 
-    #[must_use] fn complete_modal(modal_state: &mut ModalType) -> Message{
+    #[must_use] fn complete_modal(modal_state: &mut ModalType) -> Message {
         match &modal_state{
             ModalType::Confirm(confirmation_request) => {
                 let m = confirmation_request.run_on_confirm.clone();
@@ -373,6 +419,16 @@ impl Beavor{
                 *m
             },
             _ => panic!("Should never happen"),
+        }
+    }
+
+    #[must_use] fn run_command(state: &mut State) -> Message {
+        match Message::try_from(state.command_line.command.as_str()) {
+            Err(e) => Message::Error(Some(e.to_string())),
+            Ok(s) => {
+                state.command_line.command = String::new();
+                s
+            },
         }
     }
 
@@ -409,7 +465,19 @@ impl Beavor{
                             db_clone1.delete_task(&t).await;
                             tx.send(()).unwrap();
                         }, |()| Message::TryNewTask)
-                    }
+                    },
+                    MutateMessage::VacationStatus(date, is_vacation) => {
+                        let date = *date; // These copies make lifetimes happy
+                        let is_vacation = *is_vacation;
+                        Command::perform(async move {
+                            if is_vacation{
+                                db_clone1.add_vacation_day(&date).await;
+                            }else{
+                                db_clone1.delete_vacation_day(&date).await;
+                            }
+                            tx.send(()).unwrap();
+                        }, |()| Message::None)
+                    },
                 },
                 Command::perform(async move {
                     rx.await.unwrap();
