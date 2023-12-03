@@ -136,5 +136,8 @@ fn cal_day(day: NaiveDate, load: Option<Duration>, is_selected: bool, clicked_da
             }else{
                 Message::Calendar(CalendarMessage::ClickDate(None))
         })
+        .on_right_press(
+             Message::UpdateCommandLine(format!("{} {day}", match load {None => "not_vacation", Some(_) => "vacation"}))
+        )
         .into()
 }
