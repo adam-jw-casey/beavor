@@ -145,7 +145,7 @@ pub enum Message{
     TryNewTask,
     Mutate(MutateMessage),
     Loaded(State),
-    UpdateCommandLine(Option<CommandLineState>),
+    UpdateCommandLine(String),
     RunCommand,
     SetEditingLinkID(Option<usize>),
     Open(String),
@@ -153,6 +153,7 @@ pub enum Message{
     Calendar(CalendarMessage),
     Timer(TimerMessage),
     UpdateFlags(Flags),
+    Error(Option<String>),
 }
 
 #[derive(Debug, Clone)]
@@ -161,7 +162,7 @@ pub struct State{
     cache:          Cache,
     displayed_task: DisplayedTask,
     modal_state:    ModalType,
-    command_line:   Option<CommandLineState>,
+    command_line:   CommandLineState,
     calendar_state: CalendarState,
     flags:          Flags,
 }
@@ -200,7 +201,7 @@ impl Application for Beavor {
                         db,
                         displayed_task: DisplayedTask::default(),
                         modal_state:    ModalType::None,
-                        command_line:   None,
+                        command_line:   CommandLineState::default(),
                         calendar_state: CalendarState::default(),
                         flags,
                     }
@@ -254,7 +255,7 @@ impl Application for Beavor {
                         .height(Length::Fill)
                         .width(Length::Fill),
                     Rule::horizontal(4),
-                    command_line(state.command_line.as_ref()),
+                    command_line(&state.command_line),
                 ]
                     .spacing(8)
                     .into()
@@ -305,6 +306,17 @@ impl Beavor{
                         }
                     }
                 },
+                Message::RunCommand => {
+                    let m = state.command_line.try_run();
+                    self.update(m)
+                },
+                Message::Open(url) => {
+                    if open::that(url.clone()).is_err(){
+                        self.update(Message::Error(Some(format!("Error opening '{url}'"))))
+                    }else{
+                        Command::none()
+                    }
+                },
                 other => {
                     match other{
                         Message::TryNewTask => Self::try_select_task(state, None),
@@ -332,11 +344,6 @@ impl Beavor{
                                 state.displayed_task.select(None);
                             }
                         },
-                        Message::Open(url) => {
-                            if open::that(url.clone()).is_err(){
-                                println!("Error opening '{url}'");
-                            };
-                        },
                         Message::SetEditingLinkID(h_id) => state.displayed_task.editing_link_idx = h_id,
                         Message::Calendar(calendar_message) => state.calendar_state.update(calendar_message),
                         Message::UpdateFlags(new_flags) => {
@@ -347,11 +354,11 @@ impl Beavor{
 
                             state.flags = new_flags;
                         },
-                        Message::UpdateCommandLine(maybe_command_line_state) => state.command_line = maybe_command_line_state,
-                        Message::RunCommand => todo!(),
+                        Message::UpdateCommandLine(command) => state.command_line.command = command,
+                        Message::Error(maybe_error) => state.command_line.error = maybe_error,
                         Message::Tick(_) | Message::None => (),
                         Message::Modal(_) => panic!("Can never happen"),
-                        Message::Loaded(_) | Message::Mutate(_) => panic!("Should never happen"),
+                        Message::Loaded(_) | Message::Mutate(_) | Message::RunCommand | Message::Open(_)=> panic!("Should never happen"),
                     }
                     Command::none()
                 }
