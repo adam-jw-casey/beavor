@@ -40,12 +40,14 @@ mod widgets;
 use widgets::{
     calendar::{
         calendar,
+        Message as CalendarMessage,
         State as CalendarState,
     },
     task_scroller,
     task_editor::{
         task_editor,
         DisplayedTask,
+        TimerMessage,
     },
     confirm_modal,
     command_line,
@@ -116,22 +118,6 @@ pub enum MutateMessage{
     SaveDraftTask,
     ForceDeleteTask,
     VacationStatus(NaiveDate, bool),
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum CalendarMessage{
-    ScrollDown,
-    ScrollUp,
-    ScrollUpMax,
-    FilterToDate(Option<NaiveDate>), //TODO I have a feeling I'll want more filters at some point
-    ClickDate(Option<NaiveDate>),
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum TimerMessage{
-    Start,
-    Stop,
-    Toggle,
 }
 
 #[derive(Debug, Clone)]
