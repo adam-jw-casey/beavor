@@ -292,9 +292,21 @@ pub fn task_editor<'a>(displayed_task: &'a DisplayedTask, modal_state: &ModalTyp
                 }
             ).on_press(Message::Timer(TimerMessage::Toggle)),
             text( format!("{:02}:{:02}:{:02}", display_time_used/3600, (display_time_used % 3600)/60, display_time_used % 60)),
-            button("Save").on_press(Message::Mutate(MutateMessage::SaveDraftTask)),
+            button("Save").on_press_maybe(
+                if displayed_task.draft == Task::default(){
+                    None
+                }else{
+                    Some(Message::Mutate(MutateMessage::SaveDraftTask))
+                }
+            ),
             button("New").on_press(Message::TryNewTask),
-            button("Delete").on_press(Message::TryDeleteTask),
+            button("Delete").on_press_maybe(
+                if displayed_task.draft == Task::default(){
+                    None
+                }else{
+                    Some(Message::TryDeleteTask)
+                }
+            ),
         ]
             .align_items(Alignment::Center)
             .spacing(4),
@@ -333,7 +345,7 @@ fn due_date_picker<'a>(modal_state: &ModalType, draft_task: &'a Task) -> Row<'a,
                 |d| Message_UDT(UDT::DueDate(DueDate::Date(d.into())))
             )
         ).width(Length::FillPortion(1)),
-        pick_list(
+        pick_list( // TODO this code is unpleasing. This should really be something on DueDate
             vec!["Date", "None", "ASAP"],
             Some(match draft_task.due_date{
                 DueDate::Never => "None",

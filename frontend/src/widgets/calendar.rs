@@ -19,6 +19,7 @@ use chrono::{
     NaiveDate,
     naive::Days,
     Duration,
+    Datelike,
 };
 
 use backend::{
@@ -94,12 +95,19 @@ pub fn calendar(schedule: &Schedule, state: &State) -> Element<'static, MessageW
         Row::with_children(
             week_of(today + Days::new((7*state.weeks_scrolled).into()))
                 .iter()
-                .map(|d| Column::with_children(
-                    (0..num_weeks)
-                        .map(|n| *d + Days::new(7*n))
-                        .map(|d| Element::from(cal_day(d, schedule.workload_on_day(d), Some(d) == state.filter_date, state.clicked_date.as_ref())))
-                        .collect()
-                    ).into()
+                .map(|d| column![
+                     text(d.weekday()),
+                     // TODO would be nice to throw a Rule::horizontal(4) in here, but it wants to
+                     // be wide and I haven't taken the time to figure out how to fix that
+                     Column::with_children(
+                        (0..num_weeks)
+                            .map(|n| *d + Days::new(7*n))
+                            .map(|d| Element::from(cal_day(d, schedule.workload_on_day(d), Some(d) == state.filter_date, state.clicked_date.as_ref())))
+                            .collect()
+                        )
+                    ]
+                        .align_items(Alignment::Center)
+                        .into()
                 ).collect()
         )
             .width(Length::Shrink)
@@ -129,6 +137,9 @@ fn cal_day(day: NaiveDate, load: Option<Duration>, is_selected: bool, clicked_da
                 }
             ),
             text(
+                // Casting to 64 reduces precision from 64 to 52 bits.
+                // This is ok because the number of minutes to work on a day will never occupy 52 bits
+                #[allow(clippy::cast_precision_loss)]
                 if let Some(load) = load {format!("{:.1}", load.num_minutes() as f64/60.0)} else{"-".to_string()}
             )
         ]
