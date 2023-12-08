@@ -86,6 +86,8 @@ impl Schedule{
         schedule
     }
 
+    // TODO this method is not meaningful anymore now that there are a potentially variable number
+    //      of working hours per day
     /// Calculates and returns the number of minutes per day you would have to work on the task to
     /// complete it between the day it is available and the day it is due, if there is a due date
     fn workload_per_day(&self, task: &Task) -> Option<Duration>{
