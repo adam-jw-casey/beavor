@@ -129,6 +129,9 @@ fn cal_day(day: NaiveDate, load: Option<Duration>, is_selected: bool, clicked_da
                 }
             ),
             text(
+                // Casting to 64 reduces precision from 64 to 52 bits.
+                // This is ok because the number of minutes to work on a day will never occupy 52 bits
+                #[allow(clippy::cast_precision_loss)]
                 if let Some(load) = load {format!("{:.1}", load.num_minutes() as f64/60.0)} else{"-".to_string()}
             )
         ]
