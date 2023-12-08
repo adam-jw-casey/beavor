@@ -41,9 +41,9 @@ impl TryFrom<SqliteRow> for Task{
             category:                     row.get::<String, &str>("Category"),
             finished:                     row.get::<bool,   &str>("Finished"),
             name:                         row.get::<String, &str>("Name"),
-            _time_budgeted: Duration::minutes(row.get::<i64,    &str>("Budget")),
-            time_needed:    Duration::minutes(row.get::<i64,    &str>("Time")),
-            time_used:      Duration::minutes(row.get::<i64,    &str>("Used")),
+            _time_budgeted: Duration::minutes(row.get::<i64, &str>("Budget")),
+            time_needed:    Duration::minutes(row.get::<i64, &str>("Time")),
+            time_used:      Duration::minutes(row.get::<i64, &str>("Used")),
             next_action_date: parse_date(&row.get::<String, &str>("NextAction"))?,
             due_date:                     row.get::<String, &str>("DueDate").try_into()?,
             notes:                        row.get::<String, &str>("Notes"),
@@ -181,19 +181,7 @@ impl Connection{
             .expect("Should be able to insert Task into database")
             .last_insert_rowid();
 
-        for h in &task.links{
-            sqlx::query!("
-                INSERT INTO hyperlinks (Url, Display, Task)
-                VALUES(?,?,?)
-            ",
-                h.url,
-                h.display,
-                new_rowid,
-            )
-                .execute(&self.pool)
-                .await
-                .expect("Should be able to insert new link");
-        }
+        self.insert_hyperlinks(&task.links, new_rowid).await;
 
         // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
         // return type of query! to write an impl From<T> for Task
@@ -211,7 +199,7 @@ impl Connection{
     }
 
     /// # Panics
-    /// Panics if any database queries fail
+    /// Panics if any database queries fail, or if the task has an invalid id.
     /// # Errors
     /// This returns a `RowNotFound` error if the update step fails to update any rows.
     /// This indicated that no task with an id matching the passed task exists in the database
@@ -265,20 +253,24 @@ impl Connection{
             .await
             .expect("Should be able to delete links");
 
-        for h in &task.links{
+        self.insert_hyperlinks(&task.links, task.id.expect("Task id must not be None").try_into().expect("A valid id will always fit in an i64")).await;
+        Ok(())
+    }
+
+    async fn insert_hyperlinks(&self, links: &Vec<Hyperlink>, task_id: i64) {
+        for h in links{
             sqlx::query!("
                 INSERT INTO hyperlinks (Url, Display, Task)
                 VALUES(?,?,?)
             ",
                 h.url,
                 h.display,
-                task.id,
+                task_id,
             )
                 .execute(&self.pool)
                 .await
                 .expect("Should be able to insert new link");
         }
-        Ok(())
     }
 
     /// Note: this deliberately takes ownership of task, because it will be deleted afterward and
