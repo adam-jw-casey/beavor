@@ -319,8 +319,7 @@ impl Connection{
             .map(|r: SqliteRow| Task::try_from(r).expect("Database should hold valid Tasks"))
             .collect();
 
-        #[allow(clippy::explicit_iter_loop)]
-        for task in tasks.iter_mut(){
+        for task in &mut tasks{
             task.links = sqlx::query("
                 SELECT *, rowid
                 FROM hyperlinks
