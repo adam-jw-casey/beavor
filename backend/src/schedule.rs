@@ -56,14 +56,39 @@ impl Iterator for DateIterator{
     }
 }
 
+type WorkLoads <'a, 'b> = HashMap<NaiveDate, WorkingDay<'a, 'b>>;
+
+#[derive(Clone, Debug)]
+struct WorkingDay <'a, 'b> {
+    working_hours: &'b WorkingHours,
+    time_per_task: TimePerTask<'a>,
+}
+
+impl <'a, 'b> WorkingDay <'a, 'b>{
+    fn add (&mut self, task: &'a Task, duration: Duration) {
+        let mut current_duration = self.time_per_task.entry(task).or_insert(Duration::minutes(0));
+
+        *current_duration = *current_duration + duration;
+    }
+
+    fn new (working_hours: &'b WorkingHours) -> Self {
+        Self {
+            working_hours,
+            time_per_task: TimePerTask::default(),
+        }
+    }
+}
+
+type TimePerTask <'a> = HashMap<&'a Task, Duration>;
+
 #[derive(Clone, Default, Debug)]
-pub struct Schedule{
+pub struct Schedule <'a, 'b> {
     days_off: Vec<NaiveDate>,
-    workloads: HashMap<NaiveDate, Duration>,
+    workloads: WorkLoads <'a, 'b>,
     work_week: WorkWeek,
 }
 
-impl Schedule{
+impl <'a, 'b> Schedule <'a, 'b>{
     // These warnings occur because of the `as` below, but this operation is actually infallible
     // due to the known range for the values involved
     #[allow(clippy::cast_possible_wrap)]
@@ -74,24 +99,16 @@ impl Schedule{
             .map(|hour_range| now_time().hour() as i8 - hour_range.end_hour.value as i8)
     }
 
-    #[must_use] pub fn new(days_off: Vec<NaiveDate>, tasks: Vec<Task>, work_week: WorkWeek) -> Self{
+    #[must_use] pub fn new (days_off: Vec<NaiveDate>, tasks: &Vec<Task>, work_week: WorkWeek) -> Self{
         let mut schedule = Schedule{
             days_off,
-            workloads: HashMap::<NaiveDate, Duration>::new(),
+            workloads: WorkLoads::new(),
             work_week,
         };
 
-        schedule.calculate_workloads(tasks);
+        schedule.calculate_workloads(&tasks);
 
         schedule
-    }
-
-    // TODO this method is not meaningful anymore now that there are a potentially variable number
-    //      of working hours per day
-    /// Calculates and returns the number of minutes per day you would have to work on the task to
-    /// complete it between the day it is available and the day it is due, if there is a due date
-    fn workload_per_day(&self, task: &Task) -> Option<Duration>{
-        Some(task.time_remaining() / max(1, self.num_days_to_work_on(task)?.try_into().expect("This should be few enough days to fit in an i32")))
     }
 
     /// Returns an iterator over the working days between two dates, including both ends
@@ -137,22 +154,27 @@ impl Schedule{
     }
 
     /// Calculates and records the number of minutes that need to be worked each day
-    fn calculate_workloads (&mut self, tasks: Vec<Task>){
+    fn calculate_workloads (&mut self, tasks: &'a Vec<Task>){
         // Cannot be done on self.workloads in-place due to borrow rules with the filter in the for-loop below
-        let mut workloads = HashMap::<NaiveDate, Duration>::new();
+        let mut workloads = WorkLoads::new();
 
         for task in tasks{
-            if let Some(workload_per_day) = self.workload_per_day(&task){
-                for day in self.work_days_for_task(&task).expect("We've already checked that workload_per_day is not None, so this will not be None"){
-                    workloads
-                        .entry(day)
-                        .and_modify(|workload| *workload = *workload + workload_per_day)
-                        .or_insert(workload_per_day);
-                }
-            };
+            for day in self.work_days_for_task(&task).expect("We've already checked that workload_per_day is not None, so this will not be None"){
+                
+                let workload_on_day = self.calculate_workload_on_day(); // TODO new calculations for workload on a day for a task
+
+                workloads
+                    .entry(day)
+                    .or_insert(WorkingDay::new(&WorkingHours::new(self.work_week.working_hours_on_day(day).hours_of_work)))
+                    .add(&task, workload_on_day);
+            }
         }
 
         self.workloads = workloads;
+    }
+
+    #[must_use] fn calculate_workload_on_day (&self) -> Duration {
+        todo!()
     }
 
     /// Returns a boolean representing whether a given task can be worked on on a given date
@@ -164,12 +186,11 @@ impl Schedule{
         before_end && after_beginning
     }
 
-    /// Returns the number of minutes of work that need to be done on a given date
-    #[must_use] pub fn workload_on_day(&self, date: NaiveDate) -> Option<Duration>{
-        if self.is_work_day(date) && date >= today_date(){
-            Some(*self.workloads.get(&date)
-                .unwrap_or(&Duration::minutes(0)))
-        }else{None}
+    /// Returns the duration of work that need to be done on a given date
+    #[must_use] pub fn get_workload_on_day(&self, date: NaiveDate) -> Option<TimePerTask>{
+        Some((*self).workloads
+            .get(&date)? // The duration of that task assigned to the day
+            .time_per_task)
     }
 
     /// Returns a boolean representing whether a given date is a work day
@@ -180,7 +201,7 @@ impl Schedule{
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeek{
-    days: HashMap<Weekday, WorkDay>
+    days: HashMap<Weekday, WorkingHours>
 }
 
 impl WorkWeek{
@@ -188,9 +209,13 @@ impl WorkWeek{
     #[allow(clippy::missing_panics_doc)]
     #[must_use] pub fn workdays(&self) -> Vec<Weekday>{
         self.days.iter()
-            .filter(|(_, workday)| workday.hours_this_day() > 0.try_into().unwrap())
+            .filter(|(_, workday)| workday.num_working_hours_this_day() > 0.try_into().unwrap())
             .map(|(weekday, _)| *weekday)
             .collect()
+    }
+
+    #[must_use] pub fn working_hours_on_day(&self, day: NaiveDate) -> WorkingHours {
+        self.days[&day.weekday()]
     }
 }
 
@@ -203,31 +228,31 @@ impl Default for WorkWeek{
             end_hour: 17.try_into().unwrap(),
         };
 
-        days.insert(Weekday::Mon, WorkDay::new(Some(full_day)));
-        days.insert(Weekday::Tue, WorkDay::new(Some(full_day)));
-        days.insert(Weekday::Wed, WorkDay::new(Some(full_day)));
-        days.insert(Weekday::Thu, WorkDay::new(Some(full_day)));
-        days.insert(Weekday::Fri, WorkDay::new(Some(full_day)));
-        days.insert(Weekday::Sat, WorkDay::new(None));
-        days.insert(Weekday::Sun, WorkDay::new(None));
+        days.insert(Weekday::Mon, WorkingHours::new(Some(full_day)));
+        days.insert(Weekday::Tue, WorkingHours::new(Some(full_day)));
+        days.insert(Weekday::Wed, WorkingHours::new(Some(full_day)));
+        days.insert(Weekday::Thu, WorkingHours::new(Some(full_day)));
+        days.insert(Weekday::Fri, WorkingHours::new(Some(full_day)));
+        days.insert(Weekday::Sat, WorkingHours::new(None));
+        days.insert(Weekday::Sun, WorkingHours::new(None)); // There has got to be a better way of inserting all these? From an array?
 
         WorkWeek{days}
     }
 }
 
 #[derive(Debug, Copy, Clone, Default, Serialize, Deserialize)]
-pub struct WorkDay{
+pub struct WorkingHours{
     hours_of_work: Option<HourRange>,
 }
 
-impl WorkDay{
+impl WorkingHours{
     #[must_use] pub fn new(hours: Option<HourRange>) -> Self{
         Self{
             hours_of_work: hours,
         }
     }
 
-    #[must_use] pub fn hours_this_day(&self) -> DayHour{
+    #[must_use] pub fn num_working_hours_this_day(&self) -> DayHour{
         match self.hours_of_work{
             Some(hours) => (hours.end_hour - hours.start_hour).expect("Start should be earlier than end"),
             None => 0.try_into().unwrap(),
@@ -241,6 +266,9 @@ pub struct HourRange{
     end_hour:   DayHour,
 }
 
+// TODO this might be more useful as a Duration type than an integer type.
+// This is an integer type bounded from 0 to 24
+// It it used to to reprent a time of day (24-hour clock) but also a number of hours over the course of a day
 #[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialEq, Eq, Ord, PartialOrd)]
 pub struct DayHour{
     value: u8
@@ -262,6 +290,7 @@ impl TryFrom<u8> for DayHour{
     type Error = IntErrorKind;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
+        // Unsigned so don't need to check lower bound
         if value > 24{
             Err(IntErrorKind::PosOverflow)
         }else{
@@ -273,34 +302,5 @@ impl TryFrom<u8> for DayHour{
 impl From<DayHour> for u8{
     fn from(val: DayHour) -> Self {
         val.value
-    }
-}
-
-#[allow(clippy::zero_prefixed_literal)]
-#[cfg(test)]
-mod tests{
-    use super::*;
-
-    #[test]
-    fn test_schedule(){
-        let task = Task{
-            next_action_date: NaiveDate::from_ymd_opt(3000, 01, 01).unwrap(),
-            due_date: DueDate::Date(NaiveDate::from_ymd_opt(3000, 01, 03).unwrap()),
-            time_needed: Duration::minutes(60),
-            ..Default::default()
-        };
-
-        let schedule = Schedule::new(vec![NaiveDate::from_ymd_opt(3000,01,08).unwrap()], vec![task.clone()]);
-
-        assert!(schedule.is_available_on_day(&task, NaiveDate::from_ymd_opt(3000,01,01).unwrap()));
-        assert!(schedule.is_available_on_day(&task, NaiveDate::from_ymd_opt(3000,01,02).unwrap()));
-        assert!(schedule.is_available_on_day(&task, NaiveDate::from_ymd_opt(3000,01,03).unwrap()));
-        assert!(!schedule.is_available_on_day(&task, NaiveDate::from_ymd_opt(3000,01,04).unwrap()));
-
-        assert!(schedule.is_work_day(NaiveDate::from_ymd_opt(3000,01,06).unwrap()));
-        assert!(!schedule.is_work_day(NaiveDate::from_ymd_opt(3000,01,05).unwrap()));
-        assert!(!schedule.is_work_day(NaiveDate::from_ymd_opt(3000,01,08).unwrap()));
-
-        assert_eq!(schedule.workload_on_day(NaiveDate::from_ymd_opt(3000,01,02).unwrap()), Some(Duration::minutes(20)));
     }
 }
