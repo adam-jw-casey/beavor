@@ -56,22 +56,22 @@ impl Iterator for DateIterator{
     }
 }
 
-type WorkLoads <'a, 'b> = HashMap<NaiveDate, WorkingDay<'a, 'b>>;
+type WorkLoads <'a> = HashMap<NaiveDate, WorkingDay<'a>>;
 
 #[derive(Clone, Debug)]
-struct WorkingDay <'a, 'b> {
-    working_hours: &'b WorkingHours,
+struct WorkingDay <'a> {
+    working_hours: WorkingHours,
     time_per_task: TimePerTask<'a>,
 }
 
-impl <'a, 'b> WorkingDay <'a, 'b>{
+impl <'a> WorkingDay <'a>{
     fn add (&mut self, task: &'a Task, duration: Duration) {
-        let mut current_duration = self.time_per_task.entry(task).or_insert(Duration::minutes(0));
+        let current_duration = self.time_per_task.entry(task).or_insert(Duration::minutes(0));
 
         *current_duration = *current_duration + duration;
     }
 
-    fn new (working_hours: &'b WorkingHours) -> Self {
+    fn new (working_hours: WorkingHours) -> Self {
         Self {
             working_hours,
             time_per_task: TimePerTask::default(),
@@ -82,13 +82,13 @@ impl <'a, 'b> WorkingDay <'a, 'b>{
 type TimePerTask <'a> = HashMap<&'a Task, Duration>;
 
 #[derive(Clone, Default, Debug)]
-pub struct Schedule <'a, 'b> {
+pub struct Schedule <'a> {
     days_off: Vec<NaiveDate>,
-    workloads: WorkLoads <'a, 'b>,
+    workloads: WorkLoads <'a>,
     work_week: WorkWeek,
 }
 
-impl <'a, 'b> Schedule <'a, 'b>{
+impl <'a> Schedule <'a>{
     // These warnings occur because of the `as` below, but this operation is actually infallible
     // due to the known range for the values involved
     #[allow(clippy::cast_possible_wrap)]
@@ -99,7 +99,7 @@ impl <'a, 'b> Schedule <'a, 'b>{
             .map(|hour_range| now_time().hour() as i8 - hour_range.end_hour.value as i8)
     }
 
-    #[must_use] pub fn new (days_off: Vec<NaiveDate>, tasks: &Vec<Task>, work_week: WorkWeek) -> Self{
+    #[must_use] pub fn new (days_off: Vec<NaiveDate>, tasks: &'a Vec<Task>, work_week: WorkWeek) -> Self{
         let mut schedule = Schedule{
             days_off,
             workloads: WorkLoads::new(),
@@ -165,7 +165,7 @@ impl <'a, 'b> Schedule <'a, 'b>{
 
                 workloads
                     .entry(day)
-                    .or_insert(WorkingDay::new(&WorkingHours::new(self.work_week.working_hours_on_day(day).hours_of_work)))
+                    .or_insert(WorkingDay::new(WorkingHours::new(self.work_week.working_hours_on_day(day).hours_of_work)))
                     .add(&task, workload_on_day);
             }
         }
@@ -187,8 +187,8 @@ impl <'a, 'b> Schedule <'a, 'b>{
     }
 
     /// Returns the duration of work that need to be done on a given date
-    #[must_use] pub fn get_workload_on_day(&self, date: NaiveDate) -> Option<TimePerTask>{
-        Some((*self).workloads
+    #[must_use] pub fn get_workload_on_day(&self, date: NaiveDate) -> Option<&TimePerTask>{
+        Some(&self.workloads
             .get(&date)? // The duration of that task assigned to the day
             .time_per_task)
     }

@@ -500,10 +500,10 @@ impl Connection{
         days_off
     }
 
-    pub async fn schedule(&self, work_week: WorkWeek) -> Schedule{
+    pub async fn schedule <'b, 'a: 'b>(&'b self, work_week: WorkWeek, tasks: &'a Vec<Task>) -> Schedule{
         Schedule::new(
             self.days_off().await,
-            self.open_tasks().await,
+            tasks,
             work_week,
         )
     }
