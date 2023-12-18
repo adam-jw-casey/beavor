@@ -208,7 +208,7 @@ impl Application for Beavor {
                     State{
                         cache: Cache{
                             loaded_tasks: tasks,
-                            loaded_schedule: db.schedule(flags.work_week.clone(), &Vec::from(tasks)).await,
+                            loaded_schedule: db.schedule(flags.work_week.clone(), &tasks.into()).await,
                         },
                         db,
                         displayed_task: DisplayedTask::default(),
@@ -468,10 +468,11 @@ impl Beavor{
                 },
                 Command::perform(async move {
                     rx.await.unwrap();
+                    let tasks = db_clone2.open_tasks().await.into();
 
                     Cache{
-                        loaded_tasks:    db_clone2.open_tasks().await.into(),
-                        loaded_schedule: db_clone2.schedule(work_week_clone).await,
+                        loaded_tasks: tasks,
+                        loaded_schedule: db_clone2.schedule(work_week_clone, &tasks.into()).await,
                     }
                 }, Message::Refresh)
             ]
