@@ -57,7 +57,7 @@ impl Iterator for DateIterator{
     }
 }
 
-type WorkLoads = HashMap<NaiveDate, WorkingDay>;
+pub type WorkLoads = HashMap<NaiveDate, WorkingDay>;
 
 #[derive(Clone, Debug)]
 struct WorkingDay  {
@@ -80,7 +80,7 @@ impl WorkingDay {
     }
 }
 
-type TimePerTask = HashMap<Id, Duration>;
+pub type TimePerTask = HashMap<Id, Duration>;
 
 #[derive(Clone, Default, Debug)]
 pub struct Schedule  {
