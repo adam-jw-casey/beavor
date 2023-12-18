@@ -14,6 +14,7 @@ use chrono::{
 
 use crate::{
     Task,
+    task::Id,
     DueDate,
     utils::{
         today_date,
@@ -56,17 +57,17 @@ impl Iterator for DateIterator{
     }
 }
 
-type WorkLoads <'task> = HashMap<NaiveDate, WorkingDay<'task>>;
+type WorkLoads = HashMap<NaiveDate, WorkingDay>;
 
 #[derive(Clone, Debug)]
-struct WorkingDay <'task> {
+struct WorkingDay  {
     working_hours: WorkingHours,
-    time_per_task: TimePerTask<'task>,
+    time_per_task: TimePerTask,
 }
 
-impl <'task> WorkingDay <'task>{
-    fn add (&mut self, task: &'task Task, duration: Duration) {
-        let current_duration = self.time_per_task.entry(task).or_insert(Duration::minutes(0));
+impl WorkingDay {
+    fn add (&mut self, task: &Task, duration: Duration) {
+        let current_duration = self.time_per_task.entry(task.id).or_insert(Duration::minutes(0));
 
         *current_duration = *current_duration + duration;
     }
@@ -79,16 +80,16 @@ impl <'task> WorkingDay <'task>{
     }
 }
 
-type TimePerTask <'task> = HashMap<&'task Task, Duration>;
+type TimePerTask = HashMap<Id, Duration>;
 
 #[derive(Clone, Default, Debug)]
-pub struct Schedule <'task> {
+pub struct Schedule  {
     days_off: Vec<NaiveDate>,
-    workloads: WorkLoads <'task>,
+    workloads: WorkLoads,
     work_week: WorkWeek,
 }
 
-impl <'task> Schedule <'task>{
+impl Schedule {
     // These warnings occur because of the `as` below, but this operation is actually infallible
     // due to the known range for the values involved
     #[allow(clippy::cast_possible_wrap)]
@@ -99,7 +100,7 @@ impl <'task> Schedule <'task>{
             .map(|hour_range| now_time().hour() as i8 - hour_range.end_hour.value as i8)
     }
 
-    #[must_use] pub fn new (days_off: Vec<NaiveDate>, tasks: &'task Vec<Task>, work_week: WorkWeek) -> Self{
+    #[must_use] pub fn new (days_off: Vec<NaiveDate>, tasks: &Vec<Task>, work_week: WorkWeek) -> Self{
         let mut schedule = Schedule{
             days_off,
             workloads: WorkLoads::new(),
@@ -154,7 +155,7 @@ impl <'task> Schedule <'task>{
     }
 
     /// Calculates and records the number of minutes that need to be worked each day
-    fn calculate_workloads (&mut self, tasks: &'task Vec<Task>){
+    fn calculate_workloads (&mut self, tasks: &Vec<Task>){
         // Cannot be done on self.workloads in-place due to borrow rules with the filter in the for-loop below
         let mut workloads = WorkLoads::new();
 

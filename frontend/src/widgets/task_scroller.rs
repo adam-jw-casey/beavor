@@ -36,7 +36,7 @@ trait Filter: Display{ // TODO rather than display, should really impl Into<Elem
 
 struct DateFilter<'date, 'schedule>{
     date: &'date NaiveDate,
-    schedule: &'schedule Schedule<'schedule>,
+    schedule: &'schedule Schedule,
 }
 
 impl Filter for DateFilter<'_, '_>{
