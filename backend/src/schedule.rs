@@ -60,7 +60,7 @@ impl Iterator for DateIterator{
 pub type WorkLoads = HashMap<NaiveDate, WorkingDay>;
 
 #[derive(Clone, Debug)]
-struct WorkingDay  {
+pub struct WorkingDay  {
     working_hours: WorkingHours,
     time_per_task: TimePerTask,
 }
@@ -162,7 +162,7 @@ impl Schedule {
         for task in tasks{
             for day in self.work_days_for_task(task).expect("We've already checked that workload_per_day is not None, so this will not be None"){
                 
-                let workload_on_day = self.calculate_workload_on_day(); // TODO new calculations for workload on a day for a task
+                let workload_on_day = self.calculate_workload_on_day(day);
 
                 workloads
                     .entry(day)
@@ -174,7 +174,10 @@ impl Schedule {
         self.workloads = workloads;
     }
 
-    #[must_use] fn calculate_workload_on_day (&self) -> Duration {
+    // Calculates and returns the amount of time that should be spent on each task on a given day.
+    // Note that this depends on time already allocated to other tasks
+    // TODO 
+    #[must_use] fn calculate_workload_on_day (&self, date: NaiveDate) -> Duration {
         todo!()
     }
 
