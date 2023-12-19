@@ -179,7 +179,7 @@ impl Schedule {
     }
 
     /// Returns a boolean representing whether a given task can be worked on on a given date
-    #[must_use] pub fn is_available_on_day(&self, task: &Task, date: NaiveDate) -> bool{
+    #[must_use] pub fn is_available_on_day(&self, task: &Task, date: NaiveDate) -> bool {
         let before_end = self.last_available_date_for_task(task).map_or(true, |available_date| date <= available_date);
 
         let after_beginning = task.next_action_date <= date;
@@ -188,14 +188,19 @@ impl Schedule {
     }
 
     /// Returns the duration of work that need to be done on a given date
-    #[must_use] pub fn get_workload_on_day(&self, date: NaiveDate) -> Option<&TimePerTask>{
+    #[must_use] pub fn get_time_per_task_on_day(&self, date: NaiveDate) -> Option<&TimePerTask> {
         Some(&self.workloads
             .get(&date)? // The duration of that task assigned to the day
             .time_per_task)
     }
 
+    #[must_use] pub fn get_workload_on_day(&self, date: NaiveDate) -> Option<Duration> {
+        self.get_time_per_task_on_day(date)
+            .map(|tpt| tpt.iter().map(|(_id, d)| d).sum())
+    }
+
     /// Returns a boolean representing whether a given date is a work day
-    #[must_use] pub fn is_work_day(&self, date: NaiveDate) -> bool{
+    #[must_use] pub fn is_work_day(&self, date: NaiveDate) -> bool {
         !self.days_off.contains(&date) && self.work_week.workdays().contains(&date.weekday())
     }
 }
