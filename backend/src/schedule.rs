@@ -100,7 +100,6 @@ impl Schedule {
         schedule
     }
 
-    // TODO this could return a duration, rather than a number of hours
     // These warnings occur because of the `as` below, but this operation is actually infallible
     // due to the known range for the values involved
     #[allow(clippy::cast_possible_wrap)]
@@ -121,7 +120,7 @@ impl Schedule {
     }
 
     /// Returns an iterator over the working days between two dates, including both ends
-    fn work_days_from(&self, d1: NaiveDate, d2: NaiveDate) -> impl Iterator<Item = NaiveDate> + '_{
+    fn work_days_from(&self, d1: NaiveDate, d2: NaiveDate) -> impl Iterator<Item = NaiveDate> + '_ {
         DateIterator::new(d1, Some(d2))
             .filter(|d| self.is_work_day(*d))
     }
@@ -226,16 +225,18 @@ impl Schedule {
         before_end && after_beginning
     }
 
+    // TODO this should return an empty hashmap, not None, if there are no tasks on that day. It might be be that nothing was scheduled.
     /// Returns the duration of work that need to be done on a given date
     #[must_use] pub fn get_time_per_task_on_day(&self, date: NaiveDate) -> Option<&TimePerTask> {
         Some(
             &self.workloads
-                .get(&date)? // The duration of that task assigned to the day
+                .get(&date)? // The duration of each task assigned to the day
                 .time_per_task
         )
     }
 
     // TODO very inconsistent use of word "workload" to refer to the WorkLoad type vs. a duration
+    // TODO this should be a thin wrapper around a method on WorkDay
     #[must_use] pub fn get_workload_on_day(&self, date: NaiveDate) -> Option<Duration> {
         if self.is_work_day(date) {
             Some(self.get_time_per_task_on_day(date)
