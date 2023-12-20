@@ -1,6 +1,4 @@
 use std::cmp::{max, min};
-use std::ops::Sub;
-use std::num::IntErrorKind;
 
 use serde::{Deserialize, Serialize};
 
@@ -10,6 +8,7 @@ use chrono::{
     Weekday,
     Duration,
     Timelike,
+    NaiveTime,
 };
 
 use crate::{
@@ -107,16 +106,16 @@ impl Schedule {
     // due to the known range for the values involved
     #[allow(clippy::cast_possible_wrap)]
     #[allow(clippy::cast_possible_truncation)]
-    #[must_use] pub fn hours_remaining_today(&self) -> Option<i8> {
+    #[must_use] pub fn time_remaining_today(&self) -> Option<Duration> {
         self.work_week.days[&today_date().weekday()]
             .hours_of_work
-            .map(|hour_range| now_time().hour() as i8 - hour_range.end_hour.value as i8)
+            .map(|hour_range| hour_range.end - max(now_time(), hour_range.start))
     }
 
     // TODO methods like these should absolutely be on WorkDay
     #[must_use] pub fn time_available_on_date(&self, date: NaiveDate) -> Option<Duration> {
         if self.is_work_day(date) {
-            Some(Duration::hours(self.work_week.working_hours_on_day(date).num_working_hours_this_day().value.into()) - self.get_workload_on_day(date).unwrap_or(Duration::hours(0)))
+            Some(self.work_week.working_hours_on_day(date).working_time() - self.get_workload_on_day(date).unwrap_or(Duration::hours(0)))
         } else {
             None
         }
@@ -266,7 +265,7 @@ impl WorkWeek{
     #[allow(clippy::missing_panics_doc)]
     #[must_use] pub fn workdays(&self) -> Vec<Weekday>{
         self.days.iter()
-            .filter(|(_, workday)| workday.num_working_hours_this_day() > 0.try_into().unwrap())
+            .filter(|(_, workday)| workday.working_time() > Duration::hours(0))
             .map(|(weekday, _)| *weekday)
             .collect()
     }
@@ -280,10 +279,8 @@ impl Default for WorkWeek{
     fn default() -> Self {
         let mut days = HashMap::new();
 
-        let full_day = HourRange{
-            start_hour: 8.try_into().unwrap(),
-            end_hour: 17.try_into().unwrap(),
-        };
+        #[allow(deprecated)]
+        let full_day = HourRange::new(NaiveTime::from_hms(8,0,0), NaiveTime::from_hms(17,0,0)).expect("This is const and will never fail");
 
         days.insert(Weekday::Mon, WorkingHours::new(Some(full_day)));
         days.insert(Weekday::Tue, WorkingHours::new(Some(full_day)));
@@ -309,55 +306,30 @@ impl WorkingHours{
         }
     }
 
-    #[must_use] pub fn num_working_hours_this_day(&self) -> DayHour{
+    #[must_use] pub fn working_time(&self) -> Duration{
         match self.hours_of_work{
-            Some(hours) => (hours.end_hour - hours.start_hour).expect("Start should be earlier than end"),
-            None => 0.try_into().unwrap(),
+            Some(hours) => hours.duration(),
+            None => Duration::hours(0),
         }
     }
 }
 
 #[derive(Debug, Copy, Clone, Default, Serialize, Deserialize)]
 pub struct HourRange{
-    start_hour: DayHour,
-    end_hour:   DayHour,
+    start: NaiveTime,
+    end:   NaiveTime,
 }
 
-// TODO this might be more useful as a Duration type than an integer type.
-// This is an integer type bounded from 0 to 24
-// It it used to to reprent a time of day (24-hour clock) but also a number of hours over the course of a day
-#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialEq, Eq, Ord, PartialOrd)]
-pub struct DayHour{
-    value: u8
-}
-
-impl Sub for DayHour{
-    type Output = Option<Self>;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        if self.value < rhs.value{
+impl HourRange {
+    pub fn new(start: NaiveTime, end: NaiveTime) -> Option<Self> {
+        if end > start {
+            Some(Self{start, end})
+        } else {
             None
-        }else{
-            Some((self.value - rhs.value).try_into().unwrap())
         }
     }
-}
 
-impl TryFrom<u8> for DayHour{
-    type Error = IntErrorKind;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        // Unsigned so don't need to check lower bound
-        if value > 24{
-            Err(IntErrorKind::PosOverflow)
-        }else{
-            Ok(DayHour{value})
-        }
-    }
-}
-
-impl From<DayHour> for u8{
-    fn from(val: DayHour) -> Self {
-        val.value
+    pub fn duration(&self) -> Duration {
+        self.end - self.start
     }
 }
