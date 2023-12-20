@@ -76,6 +76,16 @@ impl WorkDay {
             time_per_task: TimePerTask::default(),
         }
     }
+
+    fn time_available (&self) -> Duration {
+        self.working_hours.working_time() - self.time_assigned()
+    }
+
+    fn time_assigned (&self) -> Duration {
+        self.time_per_task
+            .values()
+            .sum()
+    }
 }
 
 pub type TimePerTask = HashMap<Id, Duration>;
@@ -110,10 +120,9 @@ impl Schedule {
             .map(|hour_range| hour_range.end - max(now_time(), hour_range.start))
     }
 
-    // TODO methods like these should absolutely be on WorkDay
     #[must_use] pub fn time_available_on_date(&self, date: NaiveDate) -> Option<Duration> {
         if self.is_work_day(date) {
-            Some(self.work_week.working_hours_on_day(date).working_time() - self.get_workload_on_day(date).unwrap_or(Duration::hours(0)))
+            Some(self.workloads[&date].time_available())
         } else {
             None
         }
@@ -236,14 +245,10 @@ impl Schedule {
     }
 
     // TODO very inconsistent use of word "workload" to refer to the WorkLoad type vs. a duration
-    // TODO this should be a thin wrapper around a method on WorkDay
     #[must_use] pub fn get_workload_on_day(&self, date: NaiveDate) -> Option<Duration> {
         if self.is_work_day(date) {
-            Some(self.get_time_per_task_on_day(date)
-                .unwrap_or(&HashMap::new())
-                .iter()
-                .map(|(_id, d)| *d)
-                .sum())
+            // TODO this will return None if no time was assigned to a day, but it's still a working day
+            Some(self.workloads.get(&date)?.time_assigned())
         } else {
             None
         }
