@@ -7,7 +7,6 @@ use chrono::{
     Datelike,
     Weekday,
     Duration,
-    Timelike,
     NaiveTime,
 };
 
@@ -321,7 +320,7 @@ pub struct HourRange{
 }
 
 impl HourRange {
-    pub fn new(start: NaiveTime, end: NaiveTime) -> Option<Self> {
+    #[must_use] pub fn new(start: NaiveTime, end: NaiveTime) -> Option<Self> {
         if end > start {
             Some(Self{start, end})
         } else {
@@ -329,7 +328,7 @@ impl HourRange {
         }
     }
 
-    pub fn duration(&self) -> Duration {
+    #[must_use] pub fn duration(&self) -> Duration {
         self.end - self.start
     }
 }
