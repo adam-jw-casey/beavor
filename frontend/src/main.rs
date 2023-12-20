@@ -470,7 +470,7 @@ impl Beavor{
                 },
                 Command::perform(async move {
                     rx.await.unwrap();
-                    let tasks = db_clone2.open_tasks().await.into();
+                    let tasks = db_clone2.open_tasks().await;
 
                     Cache{
                         loaded_schedule: db_clone2.schedule(work_week_clone, &tasks).await,
