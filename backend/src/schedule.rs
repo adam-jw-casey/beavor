@@ -58,14 +58,20 @@ pub type WorkDays = HashMap<NaiveDate, WorkDay>;
 pub type TimePerTask = HashMap<Id, Duration>;
 
 #[derive(Clone, Debug)]
-pub struct WorkDay  {
+pub struct WorkDay {
     working_hours: WorkingHours,
     time_per_task: TimePerTask,
 }
 
 impl WorkDay {
+    /// Assign time equal to `duration` to the task `task` on this day
+    ///
+    /// # Panics
+    /// Panics if passed a negative `Duration` of time
     fn add (&mut self, task: &Task, duration: Duration) {
-        let current_duration = self.time_per_task.entry(task.id).or_insert(Duration::minutes(0));
+        assert!(duration >= Duration::zero(), "Cannot add negative time to a workday!");
+
+        let current_duration = self.time_per_task.entry(task.id).or_insert(Duration::zero());
 
         *current_duration = *current_duration + duration;
     }
@@ -77,8 +83,11 @@ impl WorkDay {
         }
     }
 
+    /// Returns the amount of time still available on this day
+    /// i.e., the number of working hours minus the time already assigned
+    /// If more time has been assigned than is available, returns a 0 duration
     fn time_available (&self) -> Duration {
-        self.working_hours.working_time() - self.time_assigned()
+        max(Duration::zero(), self.working_hours.working_time() - self.time_assigned())
     }
 
     fn time_assigned (&self) -> Duration {
@@ -121,13 +130,20 @@ impl Schedule {
     #[must_use] pub fn time_remaining_today(&self) -> Option<Duration> {
         self.work_week.days[&today_date().weekday()]
             .hours_of_work
-            .map(|hour_range| hour_range.end - max(now_time(), hour_range.start))
+            .map(|hour_range| max(
+                Duration::zero(),
+                hour_range.end - max(now_time(), hour_range.start)
+            ))
     }
 
     /// Returns the amount of time still available on a date
     /// i.e., the number of working hours minus the number of hours of work assigned to the day
     #[must_use] pub fn time_available_on_date(&self, date: NaiveDate) -> Option<Duration> {
-        Some(self.get(date)?.time_available())
+        if date == today_date() {
+            self.time_remaining_today()
+        } else {
+            Some(self.get(date)?.time_available())
+        }
     }
 
     /// Returns an iterator over the working days between two dates, including both ends
@@ -179,6 +195,7 @@ impl Schedule {
 
     /// One variant of the workload calculation
     /// This sorts the tasks from first due to last, and schedules work as early as possible
+    // TODO a lot of this code counts on `Duration`s being positive, but the chrono `Duration` doesn't make this guarantee
     fn assign_time_by_frontloading_work (&mut self, tasks: &Vec<Task>){
         // Cannot be done on self.work_days in-place due to borrow rules with the filter in the for-loop below
         let mut work_days = WorkDays::new();
@@ -198,7 +215,10 @@ impl Schedule {
                     }
                     
                     // Find how much time can be allocated to this day from this task
-                    let workload_for_day = min(self.time_available_on_date(day).expect("This will be some because all work days have non-None time"), time_to_assign);
+                    let workload_for_day = min(
+                        self.time_available_on_date(day).expect("This will be some because all work days have non-None time"),
+                        time_to_assign
+                    );
                     // Remove the time to be allocated from the remaining time for the task
                     time_to_assign = time_to_assign - workload_for_day;
 
@@ -283,7 +303,7 @@ pub struct WorkWeek{
 impl WorkWeek{
     #[must_use] pub fn workdays(&self) -> Vec<Weekday>{
         self.days.iter()
-            .filter(|(_, workday)| workday.working_time() > Duration::hours(0))
+            .filter(|(_, workday)| workday.working_time() > Duration::zero())
             .map(|(weekday, _)| *weekday)
             .collect()
     }
@@ -327,7 +347,7 @@ impl WorkingHours{
     #[must_use] pub fn working_time(&self) -> Duration{
         match self.hours_of_work{
             Some(hours) => hours.duration(),
-            None => Duration::hours(0),
+            None => Duration::zero(),
         }
     }
 }

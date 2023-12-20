@@ -1,3 +1,5 @@
+use std::cmp::max;
+
 use chrono::{
     NaiveDate,
     Duration,
@@ -33,7 +35,7 @@ impl Task{
     }
 
     #[must_use] pub fn time_remaining(&self) -> Duration{
-        self.time_needed.checked_sub(&self.time_used).unwrap_or(Duration::minutes(0))
+        max(self.time_needed - self.time_used, Duration::zero())
     }
 }
 
@@ -45,9 +47,9 @@ impl std::default::Default for Task{
             date_added:         today_date(),
             finished:           false,
             name:               String::new(),
-            _time_budgeted:     Duration::minutes(0),
-            time_needed:        Duration::minutes(0),
-            time_used:          Duration::minutes(0),
+            _time_budgeted:     Duration::zero(),
+            time_needed:        Duration::zero(),
+            time_used:          Duration::zero(),
             notes:              String::new(),
             due_date:           DueDate::Asap,
             id:                 None,
