@@ -103,7 +103,7 @@ pub fn calendar(schedule: &Schedule, state: &State) -> Element<'static, MessageW
                      Column::with_children(
                         (0..num_weeks)
                             .map(|n| *d + Days::new(7*n))
-                            .map(|d| Element::from(cal_day(d, schedule.get_workload_on_day(d), Some(d) == state.filter_date, state.clicked_date.as_ref())))
+                            .map(|d| Element::from(cal_day(d, schedule.get_time_assigned_on_day(d), Some(d) == state.filter_date, state.clicked_date.as_ref())))
                             .collect()
                         )
                     ]

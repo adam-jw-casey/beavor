@@ -96,6 +96,8 @@ pub struct Schedule  {
 }
 
 impl Schedule {
+    /// Construct a `Schedule` with the passed `days_off` and `work_week`
+    /// Calculates workloads in-place from `tasks`
     #[must_use] pub fn new (days_off: Vec<NaiveDate>, tasks: &Vec<Task>, work_week: WorkWeek) -> Self{
         let mut schedule = Schedule{
             days_off,
@@ -103,7 +105,7 @@ impl Schedule {
             work_week,
         };
 
-        schedule.calculate_workloads(tasks);
+        schedule.assign_time_to_days(tasks);
 
         schedule
     }
@@ -171,13 +173,13 @@ impl Schedule {
     }
 
     /// Calculates and records the number of minutes that need to be worked each day
-    fn calculate_workloads (&mut self, tasks: &Vec<Task>){
-        self.frontload_workloads(tasks);
+    fn assign_time_to_days (&mut self, tasks: &Vec<Task>){
+        self.assign_time_by_frontloading_work(tasks);
     }
 
     /// One variant of the workload calculation
     /// This sorts the tasks from first due to last, and schedules work as early as possible
-    fn frontload_workloads (&mut self, tasks: &Vec<Task>){
+    fn assign_time_by_frontloading_work (&mut self, tasks: &Vec<Task>){
         // Cannot be done on self.work_days in-place due to borrow rules with the filter in the for-loop below
         let mut work_days = WorkDays::new();
 
@@ -234,7 +236,6 @@ impl Schedule {
         before_end && after_beginning
     }
 
-    // TODO this should return an empty hashmap, not None, if there are no tasks on that day. It might be be that nothing was scheduled.
     /// Returns the duration of work that need to be done on a given date
     #[must_use] pub fn get_time_per_task_on_day(&self, date: NaiveDate) -> Option<&TimePerTask> {
         Some(
@@ -244,8 +245,7 @@ impl Schedule {
         )
     }
 
-    // TODO very inconsistent use of word "workload" to refer to the WorkLoad type vs. a duration
-    #[must_use] pub fn get_workload_on_day(&self, date: NaiveDate) -> Option<Duration> {
+    #[must_use] pub fn get_time_assigned_on_day(&self, date: NaiveDate) -> Option<Duration> {
         Some(self.get(date)?.time_assigned())
     }
 
