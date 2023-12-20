@@ -40,7 +40,7 @@ impl DateIterator{
     }
 }
 
-impl Iterator for DateIterator{
+impl Iterator for DateIterator {
     type Item = NaiveDate;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -261,8 +261,6 @@ pub struct WorkWeek{
 }
 
 impl WorkWeek{
-    // The `try_into` is know to be infallible because 0 < 24
-    #[allow(clippy::missing_panics_doc)]
     #[must_use] pub fn workdays(&self) -> Vec<Weekday>{
         self.days.iter()
             .filter(|(_, workday)| workday.working_time() > Duration::hours(0))
