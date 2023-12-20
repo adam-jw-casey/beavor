@@ -258,7 +258,7 @@ impl Schedule {
     /// If there is no work assigned to that `WorkDay`, returns an empty `WorkDay` with the correct
     /// hours of work.
     #[must_use] pub fn get (&self, date: NaiveDate) -> Option<WorkDay> {
-        if self.is_work_day(date) {
+        if self.is_work_day(date) && date >= today_date() {
             Some(self.work_days
                 .get(&date)
                 .unwrap_or(
