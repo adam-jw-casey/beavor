@@ -82,6 +82,7 @@ pub fn calendar(schedule: &Schedule, state: &State) -> Element<'static, MessageW
     fn week_of(d: NaiveDate) -> Vec<NaiveDate>{
         let w = d.week(Weekday::Mon);
 
+        // TODO this should respect the actual schedule that's loaded in
         // Monday to Friday
         (0..=4)
             .map(|n| w.first_day() + Days::new(n))
