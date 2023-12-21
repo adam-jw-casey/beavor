@@ -12,6 +12,7 @@ use iced::widget::{
     column,
     text,
     rule::Rule,
+    text_input,
 };
 
 use iced::{
@@ -368,7 +369,10 @@ impl Beavor{
 
                             state.flags = new_flags;
                         },
-                        Message::UpdateCommandLine(command) => state.command_line.command = command,
+                        Message::UpdateCommandLine(command) => {
+                            state.command_line.command = command;
+                            text_input::focus();
+                        },
                         Message::Error(maybe_error) => state.command_line.error = maybe_error,
                         Message::Tick(_) | Message::None => (),
                         Message::Modal(_) => panic!("Can never happen"),
