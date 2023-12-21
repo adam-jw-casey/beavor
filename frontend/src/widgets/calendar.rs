@@ -82,6 +82,7 @@ pub fn calendar(schedule: &Schedule, state: &State) -> Element<'static, MessageW
     fn week_of(d: NaiveDate) -> Vec<NaiveDate>{
         let w = d.week(Weekday::Mon);
 
+        // TODO this should respect the actual schedule that's loaded in
         // Monday to Friday
         (0..=4)
             .map(|n| w.first_day() + Days::new(n))
@@ -102,7 +103,7 @@ pub fn calendar(schedule: &Schedule, state: &State) -> Element<'static, MessageW
                      Column::with_children(
                         (0..num_weeks)
                             .map(|n| *d + Days::new(7*n))
-                            .map(|d| Element::from(cal_day(d, schedule.workload_on_day(d), Some(d) == state.filter_date, state.clicked_date.as_ref())))
+                            .map(|d| Element::from(cal_day(d, schedule.get_time_assigned_on_day(d), Some(d) == state.filter_date, state.clicked_date.as_ref())))
                             .collect()
                         )
                     ]

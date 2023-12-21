@@ -179,12 +179,12 @@ pub struct State{
 }
 
 #[derive(Debug, Clone)]
-pub struct Cache{
-    loaded_tasks: Box<[Task]>,
+pub struct Cache {
+    loaded_tasks: Vec<Task>,
     loaded_schedule: Schedule,
 }
 
-enum Beavor{
+enum Beavor {
     Loading,
     Loaded(State),
 }
@@ -204,10 +204,13 @@ impl Application for Beavor {
                         Ok(db) => db,
                         Err(_) => DatabaseManager::with_new_database("worklist.db").await.expect("Should be able to create database"),
                     };
+
+                    let tasks = db.open_tasks().await;
+
                     State{
                         cache: Cache{
-                            loaded_tasks: db.open_tasks().await.into(),
-                            loaded_schedule: db.schedule(flags.work_week.clone()).await,
+                            loaded_schedule: db.schedule(flags.work_week.clone(), &tasks).await,
+                            loaded_tasks: tasks,
                         },
                         db,
                         displayed_task: DisplayedTask::default(),
@@ -467,10 +470,11 @@ impl Beavor{
                 },
                 Command::perform(async move {
                     rx.await.unwrap();
+                    let tasks = db_clone2.open_tasks().await;
 
                     Cache{
-                        loaded_tasks:    db_clone2.open_tasks().await.into(),
-                        loaded_schedule: db_clone2.schedule(work_week_clone).await,
+                        loaded_schedule: db_clone2.schedule(work_week_clone, &tasks).await,
+                        loaded_tasks: tasks,
                     }
                 }, Message::Refresh)
             ]

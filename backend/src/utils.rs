@@ -1,27 +1,10 @@
 use chrono::{
     Local,
     NaiveDate,
+    NaiveTime,
 };
 
 use crate::due_date::ParseDateError;
-
-/// TODO val must be between low and high for this to behave properly
-#[must_use] pub fn green_red_scale(low: f32, high: f32, val: f32) -> String {
-    let frac = f32::max(0.0,f32::min(1.0,(val-low)/(high-low)));
-
-    let red: u8;
-    let green: u8;
-
-    if frac > 0.5{
-        red = 255;
-        green = ((2.0-2.0*frac) * 255.0) as u8;
-    }else{
-        red = ((2.0*frac) * 255.0) as u8;
-        green = 255;
-    }
-
-    format!("#{red:02X}{green:02X}00")
-}
 
 #[must_use] pub fn format_date(date: NaiveDate) -> String{
     format_date_borrowed(&date)
@@ -43,18 +26,16 @@ pub fn parse_date(date_string: &str) -> Result<NaiveDate, ParseDateError>{
     Local::now().naive_local().date()
 }
 
+#[must_use] pub fn now_time() -> NaiveTime{
+    Local::now().naive_local().time()
+}
+
 #[allow(clippy::zero_prefixed_literal)]
 #[cfg(test)]
 mod tests{
     use chrono::NaiveDate;
 
     use super::*;
-
-    #[test]
-    fn test_green_red_scale(){
-        assert_eq!(green_red_scale(0.0,100.0,100.0), "#FF0000");
-        assert_eq!(green_red_scale(0.0,100.0,0.0), "#00FF00");
-    }
 
     #[test]
     fn test_parse_format_date_today(){

@@ -1,6 +1,4 @@
-use std::cmp::max;
-use std::ops::Sub;
-use std::num::IntErrorKind;
+use std::cmp::{max, min};
 
 use serde::{Deserialize, Serialize};
 
@@ -9,18 +7,22 @@ use chrono::{
     Datelike,
     Weekday,
     Duration,
+    NaiveTime,
 };
 
 use crate::{
     Task,
+    task::Id,
     DueDate,
-    utils::today_date,
+    utils::{
+        today_date,
+        now_time,
+    },
 };
 
 use std::collections::HashMap;
 
-/// This stores more state than necessary but I don't feel like optimizing it and I doubt it'll be
-/// a bottleneck anytime soon
+/// This stores more state than necessary but I don't feel like optimizing it and I doubt it'll be a bottleneck anytime soon
 pub struct DateIterator{
     prev: NaiveDate,
     next: NaiveDate,
@@ -37,7 +39,7 @@ impl DateIterator{
     }
 }
 
-impl Iterator for DateIterator{
+impl Iterator for DateIterator {
     type Item = NaiveDate;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -52,34 +54,100 @@ impl Iterator for DateIterator{
     }
 }
 
+pub type WorkDays = HashMap<NaiveDate, WorkDay>;
+pub type TimePerTask = HashMap<Id, Duration>;
+
+#[derive(Clone, Debug)]
+pub struct WorkDay {
+    working_hours: WorkingHours,
+    time_per_task: TimePerTask,
+}
+
+impl WorkDay {
+    /// Assign time equal to `duration` to the task `task` on this day
+    ///
+    /// # Panics
+    /// Panics if passed a negative `Duration` of time
+    fn add (&mut self, task: &Task, duration: Duration) {
+        assert!(duration >= Duration::zero(), "Cannot add negative time to a workday!");
+
+        let current_duration = self.time_per_task.entry(task.id).or_insert(Duration::zero());
+
+        *current_duration = *current_duration + duration;
+    }
+
+    fn new (working_hours: WorkingHours) -> Self {
+        Self {
+            working_hours,
+            time_per_task: TimePerTask::default(),
+        }
+    }
+
+    /// Returns the amount of time still available on this day
+    /// i.e., the number of working hours minus the time already assigned
+    /// If more time has been assigned than is available, returns a 0 duration
+    fn time_available (&self) -> Duration {
+        max(Duration::zero(), self.working_hours.working_time() - self.time_assigned())
+    }
+
+    fn time_assigned (&self) -> Duration {
+        self.time_per_task
+            .values()
+            .sum()
+    }
+}
+
 #[derive(Clone, Default, Debug)]
-pub struct Schedule{
+pub struct Schedule  {
     days_off: Vec<NaiveDate>,
-    workloads: HashMap<NaiveDate, Duration>,
+    work_days: WorkDays,
     work_week: WorkWeek,
 }
 
-impl Schedule{
-    #[must_use] pub fn new(days_off: Vec<NaiveDate>, tasks: Vec<Task>, work_week: WorkWeek) -> Self{
+impl Schedule {
+    /// Construct a `Schedule` with the passed `days_off` and `work_week`
+    /// Calculates workloads in-place from `tasks`
+    #[must_use] pub fn new (days_off: Vec<NaiveDate>, tasks: &Vec<Task>, work_week: WorkWeek) -> Self{
         let mut schedule = Schedule{
             days_off,
-            workloads: HashMap::<NaiveDate, Duration>::new(),
+            work_days: WorkDays::new(),
             work_week,
         };
 
-        schedule.calculate_workloads(tasks);
+        schedule.assign_time_to_days(tasks);
 
         schedule
     }
 
-    /// Calculates and returns the number of minutes per day you would have to work on the task to
-    /// complete it between the day it is available and the day it is due, if there is a due date
-    fn workload_per_day(&self, task: &Task) -> Option<Duration>{
-        Some(task.time_remaining() / max(1, self.num_days_to_work_on(task)?.try_into().expect("This should be few enough days to fit in an i32")))
+    /// Return the amount of time left to work today
+    /// If the current time is before the start time, return the total time available today
+    /// Otherwise, return the time between now and the end of the day
+    /// If there are no hours of work today, return None
+    // These warnings occur because of the `as` below, but this operation is actually infallible
+    // due to the known range for the values involved
+    #[allow(clippy::cast_possible_wrap)]
+    #[allow(clippy::cast_possible_truncation)]
+    #[must_use] pub fn time_remaining_today(&self) -> Option<Duration> {
+        self.work_week.days[&today_date().weekday()]
+            .hours_of_work
+            .map(|hour_range| max(
+                Duration::zero(),
+                hour_range.end - max(now_time(), hour_range.start)
+            ))
+    }
+
+    /// Returns the amount of time still available on a date
+    /// i.e., the number of working hours minus the number of hours of work assigned to the day
+    #[must_use] pub fn time_available_on_date(&self, date: NaiveDate) -> Option<Duration> {
+        if date == today_date() {
+            self.time_remaining_today()
+        } else {
+            Some(self.get(date)?.time_available())
+        }
     }
 
     /// Returns an iterator over the working days between two dates, including both ends
-    fn work_days_from(&self, d1: NaiveDate, d2: NaiveDate) -> impl Iterator<Item = NaiveDate> + '_{
+    fn work_days_from(&self, d1: NaiveDate, d2: NaiveDate) -> impl Iterator<Item = NaiveDate> + '_ {
         DateIterator::new(d1, Some(d2))
             .filter(|d| self.is_work_day(*d))
     }
@@ -121,26 +189,66 @@ impl Schedule{
     }
 
     /// Calculates and records the number of minutes that need to be worked each day
-    fn calculate_workloads (&mut self, tasks: Vec<Task>){
-        // Cannot be done on self.workloads in-place due to borrow rules with the filter in the for-loop below
-        let mut workloads = HashMap::<NaiveDate, Duration>::new();
+    fn assign_time_to_days (&mut self, tasks: &Vec<Task>){
+        self.assign_time_by_frontloading_work(tasks);
+    }
 
-        for task in tasks{
-            if let Some(workload_per_day) = self.workload_per_day(&task){
-                for day in self.work_days_for_task(&task).expect("We've already checked that workload_per_day is not None, so this will not be None"){
-                    workloads
+    /// One variant of the workload calculation
+    /// This sorts the tasks from first due to last, and schedules work as early as possible
+    // TODO a lot of this code counts on `Duration`s being positive, but the chrono `Duration` doesn't make this guarantee
+    fn assign_time_by_frontloading_work (&mut self, tasks: &Vec<Task>){
+        // Cannot be done on self.work_days in-place due to borrow rules with the filter in the for-loop below
+        let mut work_days = WorkDays::new();
+
+        // Sort from first to last due
+        let mut sorted_tasks = tasks.clone();
+        sorted_tasks.sort_unstable_by(|t1, t2| t1.due_date.cmp(&t2.due_date));
+
+        for task in tasks {
+            // Track the time that has not yet been assigned to a day
+            let mut time_to_assign = task.time_remaining();
+
+            if let Some(task_days) = self.work_days_for_task(task) {
+                for day in task_days {
+                    if time_to_assign.num_seconds() == 0 {
+                        break; // Don't continue looping once all time is assigned
+                    }
+                    
+                    // Find how much time can be allocated to this day from this task
+                    let workload_for_day = min(
+                        self.time_available_on_date(day).expect("This will be some because all work days have non-None time"),
+                        time_to_assign
+                    );
+                    // Remove the time to be allocated from the remaining time for the task
+                    time_to_assign = time_to_assign - workload_for_day;
+
+                    work_days
                         .entry(day)
-                        .and_modify(|workload| *workload = *workload + workload_per_day)
-                        .or_insert(workload_per_day);
+                        .or_insert(WorkDay::new(WorkingHours::new(self.work_week.working_hours_on_day(day).hours_of_work)))
+                        .add(task, workload_for_day);
                 }
-            };
+
+                // If time remains, assign to final day
+                if time_to_assign.num_seconds() != 0 {
+                    work_days.get_mut(
+                            &self.work_days_for_task(task)
+                                .expect("We already checked this is not None")
+                                .last()
+                                .expect("work_days_for_task never returns an empty iterator")
+                        )
+                        .expect("This will not be None because we've already inserted a value in the previous loop")
+                        .add(task, time_to_assign);
+                }
+            } else {
+                todo!("TBD how to handle tasks that are not available for any days")
+            }
         }
 
-        self.workloads = workloads;
+        self.work_days = work_days;
     }
 
     /// Returns a boolean representing whether a given task can be worked on on a given date
-    #[must_use] pub fn is_available_on_day(&self, task: &Task, date: NaiveDate) -> bool{
+    #[must_use] pub fn is_available_on_day(&self, task: &Task, date: NaiveDate) -> bool {
         let before_end = self.last_available_date_for_task(task).map_or(true, |available_date| date <= available_date);
 
         let after_beginning = task.next_action_date <= date;
@@ -148,31 +256,60 @@ impl Schedule{
         before_end && after_beginning
     }
 
-    /// Returns the number of minutes of work that need to be done on a given date
-    #[must_use] pub fn workload_on_day(&self, date: NaiveDate) -> Option<Duration>{
-        if self.is_work_day(date) && date >= today_date(){
-            Some(*self.workloads.get(&date)
-                .unwrap_or(&Duration::minutes(0)))
-        }else{None}
+    /// Returns the duration of work that need to be done on a given date
+    #[must_use] pub fn get_time_per_task_on_day(&self, date: NaiveDate) -> Option<&TimePerTask> {
+        Some(
+            &self.work_days
+                .get(&date)? // The duration of each task assigned to the day
+                .time_per_task
+        )
+    }
+
+    #[must_use] pub fn get_time_assigned_on_day(&self, date: NaiveDate) -> Option<Duration> {
+        Some(self.get(date)?.time_assigned())
     }
 
     /// Returns a boolean representing whether a given date is a work day
-    #[must_use] pub fn is_work_day(&self, date: NaiveDate) -> bool{
+    #[must_use] pub fn is_work_day(&self, date: NaiveDate) -> bool {
         !self.days_off.contains(&date) && self.work_week.workdays().contains(&date.weekday())
+    }
+
+    /// Returns the `WorkDay` at the date indicated
+    /// If there is no work assigned to that `WorkDay`, returns an empty `WorkDay` with the correct
+    /// hours of work.
+    #[must_use] pub fn get (&self, date: NaiveDate) -> Option<WorkDay> {
+        if self.is_work_day(date) && date >= today_date() {
+            Some(self.work_days
+                .get(&date)
+                .unwrap_or(
+                    &WorkDay{
+                        time_per_task: TimePerTask::new(),
+                        working_hours: self.work_week.working_hours_on_day(date)
+                    }
+                )
+                .clone()
+            )
+        } else {
+            None
+        }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeek{
-    days: HashMap<Weekday, WorkDay>
+    days: HashMap<Weekday, WorkingHours>
 }
 
 impl WorkWeek{
     #[must_use] pub fn workdays(&self) -> Vec<Weekday>{
         self.days.iter()
-            .filter(|(_, workday)| workday.hours_this_day() > 0.try_into().unwrap())
+            .filter(|(_, workday)| workday.working_time() > Duration::zero())
             .map(|(weekday, _)| *weekday)
             .collect()
+    }
+
+    #[must_use] pub fn working_hours_on_day(&self, day: NaiveDate) -> WorkingHours {
+        self.days[&day.weekday()]
     }
 }
 
@@ -180,109 +317,57 @@ impl Default for WorkWeek{
     fn default() -> Self {
         let mut days = HashMap::new();
 
-        let full_day = HourRange{
-            start_hour: 8.try_into().unwrap(),
-            end_hour: 17.try_into().unwrap(),
-        };
+        #[allow(deprecated)]
+        let full_day = HourRange::new(NaiveTime::from_hms(8,0,0), NaiveTime::from_hms(17,0,0)).expect("This is const and will never fail");
 
-        days.insert(Weekday::Mon, WorkDay::new(Some(full_day)));
-        days.insert(Weekday::Tue, WorkDay::new(Some(full_day)));
-        days.insert(Weekday::Wed, WorkDay::new(Some(full_day)));
-        days.insert(Weekday::Thu, WorkDay::new(Some(full_day)));
-        days.insert(Weekday::Fri, WorkDay::new(Some(full_day)));
-        days.insert(Weekday::Sat, WorkDay::new(None));
-        days.insert(Weekday::Sun, WorkDay::new(None));
+        days.insert(Weekday::Mon, WorkingHours::new(Some(full_day)));
+        days.insert(Weekday::Tue, WorkingHours::new(Some(full_day)));
+        days.insert(Weekday::Wed, WorkingHours::new(Some(full_day)));
+        days.insert(Weekday::Thu, WorkingHours::new(Some(full_day)));
+        days.insert(Weekday::Fri, WorkingHours::new(Some(full_day)));
+        days.insert(Weekday::Sat, WorkingHours::new(None));
+        days.insert(Weekday::Sun, WorkingHours::new(None)); // There has got to be a better way of inserting all these? From an array?
 
         WorkWeek{days}
     }
 }
 
 #[derive(Debug, Copy, Clone, Default, Serialize, Deserialize)]
-pub struct WorkDay{
+pub struct WorkingHours{
     hours_of_work: Option<HourRange>,
 }
 
-impl WorkDay{
+impl WorkingHours{
     #[must_use] pub fn new(hours: Option<HourRange>) -> Self{
         Self{
             hours_of_work: hours,
         }
     }
 
-    #[must_use] pub fn hours_this_day(&self) -> DayHour{
+    #[must_use] pub fn working_time(&self) -> Duration{
         match self.hours_of_work{
-            Some(hours) => (hours.end_hour - hours.start_hour).expect("Start should be earlier than end"),
-            None => 0.try_into().unwrap(),
+            Some(hours) => hours.duration(),
+            None => Duration::zero(),
         }
     }
 }
 
 #[derive(Debug, Copy, Clone, Default, Serialize, Deserialize)]
 pub struct HourRange{
-    start_hour: DayHour,
-    end_hour:   DayHour,
+    start: NaiveTime,
+    end:   NaiveTime,
 }
 
-#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialEq, Eq, Ord, PartialOrd)]
-pub struct DayHour{
-    value: u8
-}
-
-impl Sub for DayHour{
-    type Output = Option<Self>;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        if self.value < rhs.value{
+impl HourRange {
+    #[must_use] pub fn new(start: NaiveTime, end: NaiveTime) -> Option<Self> {
+        if end > start {
+            Some(Self{start, end})
+        } else {
             None
-        }else{
-            Some((self.value - rhs.value).try_into().unwrap())
         }
     }
-}
 
-impl TryFrom<u8> for DayHour{
-    type Error = IntErrorKind;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        if value > 24{
-            Err(IntErrorKind::PosOverflow)
-        }else{
-            Ok(DayHour{value})
-        }
-    }
-}
-
-impl From<DayHour> for u8{
-    fn from(val: DayHour) -> Self {
-        val.value
-    }
-}
-
-#[allow(clippy::zero_prefixed_literal)]
-#[cfg(test)]
-mod tests{
-    use super::*;
-
-    #[test]
-    fn test_schedule(){
-        let task = Task{
-            next_action_date: NaiveDate::from_ymd_opt(3000, 01, 01).unwrap(),
-            due_date: DueDate::Date(NaiveDate::from_ymd_opt(3000, 01, 03).unwrap()),
-            time_needed: Duration::minutes(60),
-            ..Default::default()
-        };
-
-        let schedule = Schedule::new(vec![NaiveDate::from_ymd_opt(3000,01,08).unwrap()], vec![task.clone()]);
-
-        assert!(schedule.is_available_on_day(&task, NaiveDate::from_ymd_opt(3000,01,01).unwrap()));
-        assert!(schedule.is_available_on_day(&task, NaiveDate::from_ymd_opt(3000,01,02).unwrap()));
-        assert!(schedule.is_available_on_day(&task, NaiveDate::from_ymd_opt(3000,01,03).unwrap()));
-        assert!(!schedule.is_available_on_day(&task, NaiveDate::from_ymd_opt(3000,01,04).unwrap()));
-
-        assert!(schedule.is_work_day(NaiveDate::from_ymd_opt(3000,01,06).unwrap()));
-        assert!(!schedule.is_work_day(NaiveDate::from_ymd_opt(3000,01,05).unwrap()));
-        assert!(!schedule.is_work_day(NaiveDate::from_ymd_opt(3000,01,08).unwrap()));
-
-        assert_eq!(schedule.workload_on_day(NaiveDate::from_ymd_opt(3000,01,02).unwrap()), Some(Duration::minutes(20)));
+    #[must_use] pub fn duration(&self) -> Duration {
+        self.end - self.start
     }
 }

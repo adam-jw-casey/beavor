@@ -34,9 +34,9 @@ trait Filter: Display{ // TODO rather than display, should really impl Into<Elem
     fn cancel(&self) -> Message;
 }
 
-struct DateFilter<'a, 'b>{
-    date: &'a NaiveDate,
-    schedule: &'b Schedule,
+struct DateFilter<'date, 'schedule>{
+    date: &'date NaiveDate,
+    schedule: &'schedule Schedule,
 }
 
 impl Filter for DateFilter<'_, '_>{
