@@ -1,4 +1,5 @@
 use std::fs;
+use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 
@@ -34,6 +35,7 @@ use backend::{
     Task,
     Schedule,
     schedule::WorkWeek,
+    TimeSheet,
 };
 
 mod widgets;
@@ -57,6 +59,8 @@ use widgets::{
 use widgets::task_editor::UpdateDraftTask;
 
 const CONFIG_FILE_PATH: &str = "./resources/config.json";
+const WORKLIST_PATH:    &str = "worklist.db";
+const TIMESHEET_PATH:   &str = "timesheet.csv";
 
 fn main() {
     let default = Settings::<Flags>::default();
@@ -170,6 +174,7 @@ impl TryFrom<&str> for Message{
 #[derive(Debug, Clone)]
 pub struct State{
     db:             DatabaseManager,
+    timesheet:      Arc<Mutex<TimeSheet>>,
     cache:          Cache,
     displayed_task: DisplayedTask,
     modal_state:    ModalType,
@@ -200,12 +205,17 @@ impl Application for Beavor {
             Self::Loading,
             Command::batch(vec![
                 Command::perform(async{
-                    let db = match DatabaseManager::new("worklist.db").await{
+                    let db = match DatabaseManager::new(WORKLIST_PATH).await{
                         Ok(db) => db,
-                        Err(_) => DatabaseManager::with_new_database("worklist.db").await.expect("Should be able to create database"),
+                        Err(_) => DatabaseManager::with_new_database(WORKLIST_PATH).await.expect("Should be able to create database"),
                     };
 
                     let tasks = db.open_tasks().await;
+
+                    let timesheet: Arc<Mutex<TimeSheet>> = Arc::new(Mutex::new(match TimeSheet::new_timesheet(TIMESHEET_PATH) {
+                        Ok(logger) => logger,
+                        Err(_) => TimeSheet::open(TIMESHEET_PATH).expect("Should be able to open timesheet"),
+                    }));
 
                     State{
                         cache: Cache{
@@ -213,6 +223,7 @@ impl Application for Beavor {
                             loaded_tasks: tasks,
                         },
                         db,
+                        timesheet,
                         displayed_task: DisplayedTask::default(),
                         modal_state:    ModalType::None,
                         command_line:   CommandLineState::default(),
@@ -306,7 +317,7 @@ impl Beavor{
         };
 
         match message{
-            Message::Mutate(mutate_message) => Beavor::mutate(&state.db, &mut state.displayed_task, &mutate_message, &state.flags.work_week),
+            Message::Mutate(mutate_message) => Beavor::mutate(&state.db, &mut state.displayed_task, &mutate_message, &state.flags.work_week, state.timesheet.clone()),
             other => {match other{
                 Message::Modal(modal_message) => {
                     match modal_message{
@@ -426,12 +437,12 @@ impl Beavor{
         }
     }
 
-    fn mutate(db: &DatabaseManager, displayed_task: &mut DisplayedTask, message: &MutateMessage, work_week: &WorkWeek) -> Command<Message>{
+    fn mutate(db: &DatabaseManager, displayed_task: &mut DisplayedTask, message: &MutateMessage, work_week: &WorkWeek, timesheet: Arc<Mutex<TimeSheet>>) -> Command<Message>{
         displayed_task.stop_timer();
         // TODO this is so stupid but it works and I got tired of hacking at Arc<>
         let db_clone1 = db.clone();
         let db_clone2 = db.clone();
-        let t1 = displayed_task.draft.clone();
+        let t1 = displayed_task.clone();
         let t2 = displayed_task.draft.clone();
         let work_week_clone = work_week.clone();
 
@@ -440,14 +451,24 @@ impl Beavor{
         Command::batch(
             [
                 match message{
-                    MutateMessage::SaveDraftTask => match t1.id{
+                    MutateMessage::SaveDraftTask => match t1.draft.id{
                         Some(_) => Command::perform(async move {
-                            db_clone1.update_task(&t1).await
+                            // Log time worked to the timesheet
+                            timesheet
+                                .lock().
+                                expect("Fails if mutex is poisoned")
+                                .log_time(t1.added_time().expect("We've checked that the id is Some, so the task already exists and this will also be Some"), &t1.draft)
+                                .expect("Fails if cannot write to timesheet csv file");
+
+                            // Update the database with the new task
+                            db_clone1.update_task(&t1.draft).await
                                 .expect("The task should already exist");
+
+                            // Done - let the cache refresh
                             tx.send(()).unwrap();
                         }, |()| Message::ForceSelectTask(Some(t2))),
                         None => Command::perform(async move {
-                            let t: Task = db_clone1.create_task(&t1).await;
+                            let t: Task = db_clone1.create_task(&t1.draft).await;
                             tx.send(()).unwrap();
                             t
                         }, |t: Task| Message::ForceSelectTask(Some(t))),
@@ -457,6 +478,8 @@ impl Beavor{
                         displayed_task.select(None);
                         Command::perform(async move {
                             db_clone1.delete_task(&t).await;
+
+                            // Done - let the cache refresh
                             tx.send(()).unwrap();
                         }, |()| Message::TryNewTask)
                     },

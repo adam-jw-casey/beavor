@@ -105,6 +105,10 @@ pub struct DisplayedTask{
 }
 
 impl DisplayedTask{
+    pub fn added_time(&self) -> Option<Duration> {
+        Some(self.draft.time_used - self.selected.clone()?.time_used)
+    }
+
     pub fn is_unmodified(&self) -> bool{
         match &self.selected{
             Some(t) => *t == self.draft,
