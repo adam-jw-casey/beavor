@@ -240,7 +240,7 @@ impl Schedule {
                         .add(task, time_to_assign);
                 }
             } else {
-                todo!("TBD how to handle tasks that are not available for any days")
+                // TODO TBD how to handle tasks that are not available for any days
             }
         }
 
