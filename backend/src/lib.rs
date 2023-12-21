@@ -11,3 +11,6 @@ pub mod utils;
 
 pub mod schedule;
 pub use schedule::Schedule;
+
+pub mod time_logger;
+pub use time_logger::TimeLogger;
