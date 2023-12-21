@@ -216,7 +216,8 @@ impl Schedule {
                     
                     // Find how much time can be allocated to this day from this task
                     let workload_for_day = min(
-                        self.time_available_on_date(day).expect("This will be some because all work days have non-None time"),
+                        self.time_available_on_date(day)
+                            .expect("This will be Some because all work days have non-None time, and this loops over work days only"),
                         time_to_assign
                     );
                     // Remove the time to be allocated from the remaining time for the task
