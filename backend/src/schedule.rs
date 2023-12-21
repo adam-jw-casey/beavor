@@ -86,6 +86,7 @@ impl WorkDay {
     /// Returns the amount of time still available on this day
     /// i.e., the number of working hours minus the time already assigned
     /// If more time has been assigned than is available, returns a 0 duration
+    // TODO this is incorrect for today's date
     fn time_available (&self) -> Duration {
         max(Duration::zero(), self.working_hours.working_time() - self.time_assigned())
     }
@@ -136,11 +137,19 @@ impl Schedule {
             ))
     }
 
+    // TODO this should probably be implented on the WorkDay type?
+    // TODO This is a mess. Need to be consistent with when today_date() is called, i.e., which functions are pure 
+    //      What should be implemented on `WorkDay` vs. on `Schedule`?
+    fn time_available_today(&self) -> Option<Duration> {
+        Some(max(Duration::zero(), self.time_remaining_today()? - self.get(today_date())?.time_assigned()))
+
+    }
+
     /// Returns the amount of time still available on a date
     /// i.e., the number of working hours minus the number of hours of work assigned to the day
     #[must_use] pub fn time_available_on_date(&self, date: NaiveDate) -> Option<Duration> {
         if date == today_date() {
-            self.time_remaining_today()
+            self.time_available_today()
         } else {
             Some(self.get(date)?.time_available())
         }
