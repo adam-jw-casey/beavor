@@ -26,8 +26,16 @@ pub fn parse_date(date_string: &str) -> Result<NaiveDate, ParseDateError>{
     Local::now().naive_local().date()
 }
 
+#[must_use] pub fn format_time(time: NaiveTime) -> String {
+    time.format("%H:%M:%S").to_string()
+}
+
 #[must_use] pub fn now_time() -> NaiveTime{
     Local::now().naive_local().time()
+}
+
+#[must_use] pub fn now_string() -> String {
+    format_time(now_time())
 }
 
 #[allow(clippy::zero_prefixed_literal)]

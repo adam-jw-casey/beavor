@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::fs::{File, OpenOptions,};
 use std::path::Path;
 use std::io::{Error, ErrorKind,};
 
@@ -8,27 +8,34 @@ use anyhow::Result;
 use csv::Writer;
 
 use crate::Task;
+use crate::utils::{today_string, now_string};
 
-struct TimeLogger {
+#[derive(Debug)]
+pub struct TimeSheet {
     writer: Writer<File>,
 }
 
-impl TimeLogger {
-    pub fn new_logfile(path: &str) -> Result<Self> {
+impl TimeSheet {
+    pub fn new_timesheet(path: &str) -> Result<Self> {
         if Path::exists(Path::new(path)) {
             return Err(Error::new(ErrorKind::AlreadyExists, format!("Cannot create a logfile at: {path}\nFile exists!")).into());
         }
 
-        let mut logger = Self::open(path)?;
+        let mut logger = Self{writer:Writer::from_path(path)?};
 
-        logger.writer.write_record(["Task", "TaskID", "Time Worked"])?;
+        logger.writer.write_record(["Task", "TaskID", "Time Worked", "Date", "Time"])?;
 
         Ok(logger)
     }
 
     pub fn open (path: &str) -> Result<Self> {
         Ok(Self {
-            writer: Writer::from_path(path)?
+            writer: Writer::from_writer(
+                OpenOptions::new()
+                    .write(true)
+                    .append(true)
+                    .open(path)?
+            )
         })
     }
 
@@ -36,7 +43,9 @@ impl TimeLogger {
         Ok(self.writer.write_record([
             &task.name,
             &task.id.expect("The task should have an id").to_string(),
-            &time.to_string()]
-        )?)
+            &time.to_string(),
+            &today_string(),
+            &now_string(),
+        ])?)
     }
 }
