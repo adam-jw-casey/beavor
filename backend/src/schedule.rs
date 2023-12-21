@@ -190,13 +190,13 @@ impl Schedule {
 
     /// Calculates and records the number of minutes that need to be worked each day
     fn assign_time_to_days (&mut self, tasks: &Vec<Task>){
-        self.assign_time_by_frontloading_work(tasks);
+        self.work_days = self.assign_time_by_frontloading_work(tasks);
     }
 
     /// One variant of the workload calculation
     /// This sorts the tasks from first due to last, and schedules work as early as possible
     // TODO a lot of this code counts on `Duration`s being positive, but the chrono `Duration` doesn't make this guarantee
-    fn assign_time_by_frontloading_work (&mut self, tasks: &Vec<Task>){
+    fn assign_time_by_frontloading_work (&self, tasks: &Vec<Task>) -> WorkDays {
         // Cannot be done on self.work_days in-place due to borrow rules with the filter in the for-loop below
         let mut work_days = WorkDays::new();
 
@@ -244,7 +244,7 @@ impl Schedule {
             }
         }
 
-        self.work_days = work_days;
+        work_days
     }
 
     /// Returns a boolean representing whether a given task can be worked on on a given date
