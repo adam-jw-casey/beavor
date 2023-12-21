@@ -137,7 +137,6 @@ impl Schedule {
             ))
     }
 
-    // TODO this should probably be implented on the WorkDay type?
     // TODO This is a mess. Need to be consistent with when today_date() is called, i.e., which functions are pure 
     //      What should be implemented on `WorkDay` vs. on `Schedule`?
     fn time_available_today(&self) -> Option<Duration> {
@@ -163,14 +162,14 @@ impl Schedule {
 
     /// Returns an iterator over the days a task can be worked on, or nothing if the task has no due
     /// date (i.e., the range is undefined)
-    fn work_days_for_task(&self, task: &Task) -> Option<Box<impl Iterator<Item = NaiveDate> + '_>> {
+    fn work_days_for_task(&self, task: &Task) -> Option<Vec<NaiveDate>> {
         self.last_available_date_for_task(task)
-            .map(|due_date| Box::new(self.work_days_from(self.first_available_date_for_task(task), due_date)))
+            .map(|due_date| self.work_days_from(self.first_available_date_for_task(task), due_date).collect())
     }
 
     /// Returns the number of days a task can be worked on, if there is a due date
     fn num_days_to_work_on(&self, task: &Task) -> Option<u32> {
-        Some(self.work_days_for_task(task)?.count().try_into().expect("This fails on huge numbers"))
+        Some(self.work_days_for_task(task)?.len().try_into().expect("This fails on huge numbers"))
     }
 
     /// Returns the date of the soonest work day, including today
@@ -199,15 +198,13 @@ impl Schedule {
 
     /// Calculates and records the number of minutes that need to be worked each day
     fn assign_time_to_days (&mut self, tasks: &Vec<Task>){
-        self.work_days = self.assign_time_by_frontloading_work(tasks);
+        self.assign_time_by_frontloading_work(tasks);
     }
 
     /// One variant of the workload calculation
     /// This sorts the tasks from first due to last, and schedules work as early as possible
     // TODO a lot of this code counts on `Duration`s being positive, but the chrono `Duration` doesn't make this guarantee
-    fn assign_time_by_frontloading_work (&self, tasks: &Vec<Task>) -> WorkDays {
-        // Cannot be done on self.work_days in-place due to borrow rules with the filter in the for-loop below
-        let mut work_days = WorkDays::new();
+    fn assign_time_by_frontloading_work (&mut self, tasks: &Vec<Task>) {
 
         // Sort from first to last due
         let mut sorted_tasks = tasks.clone();
@@ -232,7 +229,7 @@ impl Schedule {
                     // Remove the time to be allocated from the remaining time for the task
                     time_to_assign = time_to_assign - workload_for_day;
 
-                    work_days
+                    self.work_days
                         .entry(day)
                         .or_insert(WorkDay::new(WorkingHours::new(self.work_week.working_hours_on_day(day).hours_of_work)))
                         .add(task, workload_for_day);
@@ -240,8 +237,8 @@ impl Schedule {
 
                 // If time remains, assign to final day
                 if time_to_assign.num_seconds() != 0 {
-                    work_days.get_mut(
-                            &self.work_days_for_task(task)
+                    self.work_days.get_mut(
+                            self.work_days_for_task(task)
                                 .expect("We already checked this is not None")
                                 .last()
                                 .expect("work_days_for_task never returns an empty iterator")
@@ -253,8 +250,6 @@ impl Schedule {
                 // TODO TBD how to handle tasks that are not available for any days
             }
         }
-
-        work_days
     }
 
     /// Returns a boolean representing whether a given task can be worked on on a given date
