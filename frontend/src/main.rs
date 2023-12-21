@@ -358,7 +358,7 @@ impl Beavor{
                                 state.displayed_task.select(None);
                             }
                         },
-                        Message::SetEditingLinkID(h_id) => state.displayed_task.editing_link_idx = h_id,
+                        Message::SetEditingLinkID(h_id) => Self::set_editing_link_id(state, h_id),
                         Message::Calendar(calendar_message) => state.calendar_state.update(calendar_message),
                         Message::UpdateFlags(new_flags) => {
                             fs::write(
@@ -380,10 +380,15 @@ impl Beavor{
         }
     }
 
+    fn set_editing_link_id(state: &mut State, id: Option<usize>) {
+        state.displayed_task.editing_link_idx = id;
+    }
 
     fn try_select_task(state: &mut State, maybe_task: Option<Task>){
         // Stop timer and save if timer is running
         state.displayed_task.stop_timer();
+        // Close the links list
+        Self::set_editing_link_id(state, None);
 
         // Don't overwrite a modified task
         if state.displayed_task.is_unmodified(){
