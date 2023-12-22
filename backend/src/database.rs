@@ -1,5 +1,5 @@
-use std::error::Error;
 use std::str::FromStr;
+use anyhow::Result;
 
 use sqlx::sqlite::{
     SqlitePool,
@@ -353,7 +353,7 @@ impl Connection{
     ///
     /// # Errors
     /// Returns an error if unable to connect to the holiday server or unable to parse the response
-    pub async fn try_update_holidays(&self) -> Result<(), Box<dyn Error>>{
+    pub async fn try_update_holidays(&self) -> Result<()>{
         // If database already has holidays from the current year, exit
         if self.holidays()
             .await
