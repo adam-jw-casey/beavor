@@ -52,8 +52,8 @@ use widgets::{
         TimerMessage,
     },
     confirm_modal,
-    command_line,
-    command_line::State as CommandLineState,
+    error_bar,
+    error_bar::State as ErrorBarState,
 };
 
 use widgets::task_editor::UpdateDraftTask;
@@ -136,8 +136,6 @@ pub enum Message{
     TryNewTask,
     Mutate(MutateMessage),
     Loaded(State),
-    UpdateCommandLine(String),
-    RunCommand,
     SetEditingLinkID(Option<usize>),
     Open(String),
     None,
@@ -147,30 +145,6 @@ pub enum Message{
     Error(Option<String>),
 }
 
-impl TryFrom<&str> for Message{
-    type Error = String;
-
-    fn try_from(command: &str) -> Result<Message, String> {
-        let parts: Vec<_> = command.split(' ').collect();
-        if let Ok(object) = NaiveDate::parse_from_str(
-            parts.get(1).ok_or("Bad command".to_string())?,
-            "%Y-%m-%d")
-        {
-            if let Some(verb) = match parts.first(){
-                Some(&"vacation") => Some(Message::Mutate(MutateMessage::VacationStatus(object, true))),
-                Some(&"not_vacation") => Some(Message::Mutate(MutateMessage::VacationStatus(object, false))),
-                _ => None
-            }{
-                return Ok(verb)
-            }
-            return Err("Invalid command".to_string());
-        }
-        #[allow(clippy::needless_return)]
-        return Err("Invalid object!".to_string());
-
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct State{
     db:             DatabaseManager,
@@ -178,7 +152,7 @@ pub struct State{
     cache:          Cache,
     displayed_task: DisplayedTask,
     modal_state:    ModalType,
-    command_line:   CommandLineState,
+    error_bar:      ErrorBarState,
     calendar_state: CalendarState,
     flags:          Flags,
 }
@@ -226,7 +200,7 @@ impl Application for Beavor {
                         timesheet,
                         displayed_task: DisplayedTask::default(),
                         modal_state:    ModalType::None,
-                        command_line:   CommandLineState::default(),
+                        error_bar:   ErrorBarState::default(),
                         calendar_state: CalendarState::default(),
                         flags,
                     }
@@ -280,7 +254,7 @@ impl Application for Beavor {
                         .height(Length::Fill)
                         .width(Length::Fill),
                     Rule::horizontal(4),
-                    command_line(&state.command_line),
+                    error_bar(&state.error_bar),
                 ]
                     .spacing(8)
                     .into()
@@ -331,10 +305,6 @@ impl Beavor{
                         }
                     }
                 },
-                Message::RunCommand => {
-                    let m = Self::run_command(state);
-                    self.update(m)
-                },
                 Message::Open(url) => {
                     if open::that(url.clone()).is_err(){
                         self.update(Message::Error(Some(format!("Error opening '{url}'"))))
@@ -379,11 +349,10 @@ impl Beavor{
 
                             state.flags = new_flags;
                         },
-                        Message::UpdateCommandLine(command) => state.command_line.command = command,
-                        Message::Error(maybe_error) => state.command_line.error = maybe_error,
+                        Message::Error(maybe_error) => state.error_bar.error = maybe_error,
                         Message::Tick(_) | Message::None => (),
                         Message::Modal(_) => panic!("Can never happen"),
-                        Message::Loaded(_) | Message::Mutate(_) | Message::RunCommand | Message::Open(_)=> panic!("Should never happen"),
+                        Message::Loaded(_) | Message::Mutate(_) |  Message::Open(_)=> panic!("Should never happen"),
                     }
                     Command::none()
                 }
@@ -424,16 +393,6 @@ impl Beavor{
                 *m
             },
             _ => panic!("Should never happen"),
-        }
-    }
-
-    #[must_use] fn run_command(state: &mut State) -> Message {
-        match Message::try_from(state.command_line.command.as_str()) {
-            Err(e) => Message::Error(Some(e.to_string())),
-            Ok(s) => {
-                state.command_line.command = String::new();
-                s
-            },
         }
     }
 
