@@ -13,5 +13,5 @@ pub use hyperlink::hyperlink;
 pub mod confirm_modal;
 pub use confirm_modal::confirm_modal;
 
-pub mod command_line;
-pub use command_line::command_line;
+pub mod error_bar;
+pub use error_bar::error_bar;

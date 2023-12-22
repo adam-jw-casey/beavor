@@ -36,6 +36,7 @@ use iced_aw::{
 };
 
 use crate::Message as MessageWrapper;
+use crate::MutateMessage;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Message{
@@ -155,7 +156,7 @@ fn cal_day(day: NaiveDate, load: Option<Duration>, is_selected: bool, clicked_da
                 MessageWrapper::Calendar(Message::ClickDate(None))
         })
         .on_right_press(
-             MessageWrapper::UpdateCommandLine(format!("{} {day}", match load {None => "not_vacation", Some(_) => "vacation"}))
+             MessageWrapper::Mutate(MutateMessage::VacationStatus(day, load.is_some()))
         )
         .into()
 }
