@@ -1,4 +1,5 @@
 use std::fs;
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
@@ -13,6 +14,7 @@ use iced::widget::{
     column,
     text,
     rule::Rule,
+    combo_box::State as ComboBoxState,
 };
 
 use iced::{
@@ -124,6 +126,7 @@ pub enum MutateMessage{
     VacationStatus(NaiveDate, bool),
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
 pub enum Message{
     Refresh(Cache),
@@ -161,6 +164,7 @@ pub struct State{
 pub struct Cache {
     loaded_tasks: Vec<Task>,
     loaded_schedule: Schedule,
+    categories: ComboBoxState<String>,
 }
 
 enum Beavor {
@@ -194,8 +198,9 @@ impl Application for Beavor {
                     State{
                         cache: Cache{
                             loaded_schedule: db.schedule(flags.work_week.clone(), &tasks).await,
+                            categories: ComboBoxState::new(Self::unique_categories(&tasks)),
                             loaded_tasks: tasks,
-                        },
+                        }, // TODO this should call the same code that refreshes the cache
                         db,
                         timesheet,
                         displayed_task: DisplayedTask::default(),
@@ -242,6 +247,7 @@ impl Application for Beavor {
                         task_editor(
                             &state.displayed_task,
                             &state.modal_state,
+                            &state.cache.categories
                         )
                             .padding(8)
                             .width(Length::FillPortion(3))
@@ -461,10 +467,20 @@ impl Beavor{
 
                     Cache{
                         loaded_schedule: db_clone2.schedule(work_week_clone, &tasks).await,
+                        categories: ComboBoxState::new(Self::unique_categories(&tasks)),
                         loaded_tasks: tasks,
                     }
                 }, Message::Refresh)
             ]
         )
+    }
+
+    fn unique_categories(tasks: &[Task]) -> Vec<String> {
+        tasks
+            .iter()
+            .map(|t| t.category.clone())
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect()
     }
 }
