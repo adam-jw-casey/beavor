@@ -18,6 +18,8 @@ use iced::widget::{
     container,
     Container,
     pick_list,
+    ComboBox,
+    combo_box::State as ComboBoxState,
 };
 
 use iced::{
@@ -203,8 +205,13 @@ pub enum UpdateDraftTask{
     Link            (LinkMessage),
 }
 
-pub fn task_editor<'a>(displayed_task: &'a DisplayedTask, modal_state: &ModalType) -> Column<'a, Message>{
+#[allow(clippy::too_many_lines)]
+pub fn task_editor<'a, 'b>(displayed_task: &'a DisplayedTask, modal_state: &ModalType, combo_box_state: &'b ComboBoxState<String>) -> Column<'a, Message>
+where 'b: 'a
+{
 
+    #[allow(clippy::cast_possible_truncation)]
+    #[allow(clippy::cast_sign_loss)]
     let display_time_used: u32 = displayed_task.draft.time_used.num_seconds() as u32 + displayed_task.timer.num_seconds_running().unwrap_or(0);
 
     // TODO this is a TON of boilerplate. Find a way to reduce this down
@@ -212,11 +219,13 @@ pub fn task_editor<'a>(displayed_task: &'a DisplayedTask, modal_state: &ModalTyp
         Space::new(Length::Fill, Length::Fill),
         row![
             text("Category").width(Length::FillPortion(1)),
-            text_input(
+            ComboBox::new(
+                combo_box_state,
                 "Category...",
-               &displayed_task.draft.category
+                Some(&displayed_task.draft.category),
+                |s| Message_UDT(UDT::Category(s.to_string()))
             )
-                .on_input(|s| Message_UDT(UDT::Category(s)))
+                .on_input(|s| Message_UDT(UDT::Category(s.to_string())))
                 .width(Length::FillPortion(3))
         ],
         row![
