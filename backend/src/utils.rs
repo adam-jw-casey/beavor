@@ -4,36 +4,53 @@ use chrono::{
     NaiveTime,
 };
 
-use crate::due_date::ParseDateError;
+use anyhow::Result;
 
+/// Pure
 #[must_use] pub fn format_date(date: NaiveDate) -> String{
     format_date_borrowed(&date)
 }
 
+/// Pure
 #[must_use] pub fn format_date_borrowed(date: &NaiveDate) -> String{
     date.format("%F").to_string()
 }
 
-pub fn parse_date(date_string: &str) -> Result<NaiveDate, ParseDateError>{
-    NaiveDate::parse_from_str(date_string, "%F").or(Err(ParseDateError))
+/// Pure
+/// # Errors
+/// Returns an error if the string cannot be parsed as a date
+pub fn parse_date(date_string: &str) -> Result<NaiveDate>{
+    Ok(NaiveDate::parse_from_str(date_string, "%F")?)
 }
 
+/// Impure
 #[must_use] pub fn today_string() -> String{
     format_date(today_date())
 }
 
+/// Impure
 #[must_use] pub fn today_date() -> NaiveDate{
     Local::now().naive_local().date()
 }
 
+/// Pure
 #[must_use] pub fn format_time(time: NaiveTime) -> String {
     time.format("%H:%M:%S").to_string()
 }
 
+/// Pure
+/// # Errors
+/// Returns an error if the string cannot be parsed as a `%H:%M:%S` time
+pub fn parse_time(time_string: &str) -> Result<NaiveTime> {
+    Ok(NaiveTime::parse_from_str(time_string, "%H:%M:%S")?)
+}
+
+/// Impure
 #[must_use] pub fn now_time() -> NaiveTime{
     Local::now().naive_local().time()
 }
 
+/// Impure
 #[must_use] pub fn now_string() -> String {
     format_time(now_time())
 }

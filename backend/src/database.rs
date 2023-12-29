@@ -14,7 +14,6 @@ use sqlx::{
 use crate::{
     Task,
     Hyperlink,
-    due_date::ParseDateError,
     utils::parse_date,
     DueDate,
     Schedule,
@@ -34,7 +33,7 @@ use serde::{
 };
 
 impl TryFrom<SqliteRow> for Task{
-    type Error = ParseDateError;
+    type Error = anyhow::Error;
 
     fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
         Ok(Task{

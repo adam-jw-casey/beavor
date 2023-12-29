@@ -57,11 +57,8 @@ impl Ord for DueDate {
     }
 }
 
-#[derive(Debug)]
-pub struct ParseDateError;
-
 impl FromStr for DueDate{
-    type Err = ParseDateError;
+    type Err = anyhow::Error;
 
     fn from_str(date_string: &str) -> Result<Self, Self::Err> {
         Ok(match date_string{
@@ -73,7 +70,7 @@ impl FromStr for DueDate{
 }
 
 impl TryFrom<String> for DueDate{
-    type Error = ParseDateError;
+    type Error = anyhow::Error;
 
     fn try_from(date_string: String) -> Result<Self, Self::Error> {
         DueDate::from_str(&date_string)
