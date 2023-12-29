@@ -16,6 +16,7 @@ pub struct TimeSheet {
 }
 
 impl TimeSheet {
+    /// Impure (writes to file)
     /// # Errors
     /// Returns an error if:
     /// 1. A file already exists at the passed path
@@ -33,6 +34,7 @@ impl TimeSheet {
         Ok(logger)
     }
 
+    /// Impure (opens file)
     /// # Errors
     /// Returns an error if the path cannot be opened for writing
     pub fn open (path: &str) -> Result<Self> {
@@ -46,6 +48,7 @@ impl TimeSheet {
         })
     }
 
+    /// Impure (writes to file)
     /// # Panics
     /// Panics if passed a task with a `None` `id`
     ///

@@ -23,12 +23,12 @@ pub fn parse_date(date_string: &str) -> Result<NaiveDate>{
     Ok(NaiveDate::parse_from_str(date_string, "%F")?)
 }
 
-/// Impure
+/// Impure (reads system clock)
 #[must_use] pub fn today_string() -> String{
     format_date(today_date())
 }
 
-/// Impure
+/// Impure (reads system clock)
 #[must_use] pub fn today_date() -> NaiveDate{
     Local::now().naive_local().date()
 }
@@ -45,12 +45,12 @@ pub fn parse_time(time_string: &str) -> Result<NaiveTime> {
     Ok(NaiveTime::parse_from_str(time_string, "%H:%M:%S")?)
 }
 
-/// Impure
+/// Impure (reads system clock)
 #[must_use] pub fn now_time() -> NaiveTime{
     Local::now().naive_local().time()
 }
 
-/// Impure
+/// Impure (reads system clock)
 #[must_use] pub fn now_string() -> String {
     format_time(now_time())
 }
