@@ -22,7 +22,7 @@ use crate::{
 
 use std::collections::HashMap;
 
-/// This stores more state than necessary but I don't feel like optimizing it and I doubt it'll be a bottleneck anytime soon
+/// TODO This stores more state than necessary but I don't feel like optimizing it and I doubt it'll be a bottleneck anytime soon
 pub struct DateIterator{
     prev: NaiveDate,
     next: NaiveDate,
@@ -87,10 +87,11 @@ impl WorkDay {
     /// i.e., the number of working hours minus the time already assigned
     /// If more time has been assigned than is available, returns a 0 duration
     // TODO this is incorrect for today's date
-    fn time_available (&self) -> Duration {
+    fn raw_time_available (&self) -> Duration {
         max(Duration::zero(), self.working_hours.working_time() - self.time_assigned())
     }
 
+    /// Pure
     fn time_assigned (&self) -> Duration {
         self.time_per_task
             .values()
@@ -146,11 +147,13 @@ impl Schedule {
 
     /// Returns the amount of time still available on a date
     /// i.e., the number of working hours minus the number of hours of work assigned to the day
+    ///
+    /// NOTE: This can be incorrect for today's date, since some time might have already passed
     #[must_use] pub fn time_available_on_date(&self, date: NaiveDate) -> Option<Duration> {
         if date == today_date() {
             self.time_available_today()
         } else {
-            Some(self.get(date)?.time_available())
+            Some(self.get(date)?.raw_time_available())
         }
     }
 
@@ -349,6 +352,7 @@ impl WorkingHours{
         }
     }
 
+    /// Pure
     #[must_use] pub fn working_time(&self) -> Duration{
         match self.hours_of_work{
             Some(hours) => hours.duration(),
