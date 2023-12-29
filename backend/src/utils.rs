@@ -69,4 +69,10 @@ mod tests{
 
         assert_eq!(today_date(), parse_date(&today_string()).unwrap());
     }
+
+    #[test]
+    fn test_parse_format_time(){
+        let t = NaiveTime::from_hms_opt(7,01,10).unwrap();
+        assert_eq!(parse_time(&format_time(t)).unwrap(), t);
+    }
 }
