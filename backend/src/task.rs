@@ -14,7 +14,7 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature="serde", derive(Serialize, Deserialize))]
-pub struct Task{
+pub struct Task {
     pub category:         String,
     pub finished:         bool,
     pub name:             String,
@@ -29,19 +29,27 @@ pub struct Task{
     pub links:            Vec<Hyperlink>,
 }
 
-impl Task{
-    #[must_use] pub fn new() -> Self{
+impl Task {
+    /// Equivalent to `Task::default()`
+    /// # Examples
+    /// ```
+    /// use backend::Task;
+    ///
+    /// assert_eq!(Task::default(), Task::new());
+    /// ```
+    #[must_use] pub fn new() -> Self {
         Self::default()
     }
 
-    #[must_use] pub fn time_remaining(&self) -> Duration{
+    /// Returns the amount of time that still needs to be worked on the task
+    #[must_use] pub fn time_remaining(&self) -> Duration {
         max(self.time_needed - self.time_used, Duration::zero())
     }
 }
 
-impl std::default::Default for Task{
-    fn default() -> Self{
-        Task{
+impl std::default::Default for Task {
+    fn default() -> Self {
+        Task {
             category:           "Work".into(),
             next_action_date:   today_date(),
             date_added:         today_date(),
@@ -58,8 +66,9 @@ impl std::default::Default for Task{
     }
 }
 
+/// Stores the data for a hyperlink. This is a thin data class
 #[derive(Clone, Debug, Serialize, Deserialize, Hash, PartialEq, Eq, Default)]
-pub struct Hyperlink{
+pub struct Hyperlink {
     pub url:     String,
     pub display: String,
     pub id:      usize,
