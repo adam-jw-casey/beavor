@@ -22,7 +22,7 @@ use crate::{
 
 use std::collections::HashMap;
 
-/// TODO This stores more state than necessary but I don't feel like optimizing it and I doubt it'll be a bottleneck anytime soon
+// TODO This stores more state than necessary but I don't feel like optimizing it and I doubt it'll be a bottleneck anytime soon
 pub struct DateIterator{
     prev: NaiveDate,
     next: NaiveDate,
@@ -30,7 +30,28 @@ pub struct DateIterator{
 }
 
 impl DateIterator{
-    fn new(start: NaiveDate, end: Option<NaiveDate>) -> Self{
+    /// Creates an iterator that will return every date, in order, from start to end, inclusive
+    /// # Examples
+    /// ```
+    /// use backend::schedule::DateIterator;
+    /// use chrono::NaiveDate;
+    ///
+    /// let it = DateIterator::new(NaiveDate::from_ymd(2024,01,01), Some(NaiveDate::from_ymd(2024,01,05)));
+    ///
+    /// let dates: Vec<NaiveDate> = it.collect();
+    ///
+    /// assert_eq!(
+    ///     dates,
+    ///     vec![
+    ///         NaiveDate::from_ymd(2024,01,01),
+    ///         NaiveDate::from_ymd(2024,01,02),
+    ///         NaiveDate::from_ymd(2024,01,03),
+    ///         NaiveDate::from_ymd(2024,01,04),
+    ///         NaiveDate::from_ymd(2024,01,05)
+    ///     ]
+    /// )
+    /// ```
+    #[must_use] pub fn new(start: NaiveDate, end: Option<NaiveDate>) -> Self{
         DateIterator{
             prev: start,
             next: start,
@@ -55,6 +76,9 @@ impl Iterator for DateIterator {
 }
 
 pub type WorkDays = HashMap<NaiveDate, WorkDay>;
+
+/// This maps task ids to a duration of time.
+/// This type is intended to represent a single day of work
 pub type TimePerTask = HashMap<Id, Duration>;
 
 #[derive(Clone, Debug)]
@@ -68,6 +92,7 @@ impl WorkDay {
     ///
     /// # Panics
     /// Panics if passed a negative `Duration` of time
+    // TODO This should use `std::Duration` or some other data structure that is non-negative
     fn add (&mut self, task: &Task, duration: Duration) {
         assert!(duration >= Duration::zero(), "Cannot add negative time to a workday!");
 
@@ -86,7 +111,8 @@ impl WorkDay {
     /// Returns the amount of time still available on this day
     /// i.e., the number of working hours minus the time already assigned
     /// If more time has been assigned than is available, returns a 0 duration
-    // TODO this is incorrect for today's date
+    ///
+    /// NOTE: This can be incorrect for today's date, since some time might have already passed
     fn raw_time_available (&self) -> Duration {
         max(Duration::zero(), self.working_hours.working_time() - self.time_assigned())
     }
@@ -121,6 +147,8 @@ impl Schedule {
         schedule
     }
 
+    /// Impure (calls `today_date`)
+    ///
     /// Return the amount of time left to work today
     /// If the current time is before the start time, return the total time available today
     /// Otherwise, return the time between now and the end of the day
@@ -138,6 +166,8 @@ impl Schedule {
             ))
     }
 
+    /// Impure (calls `time_remaining_today`, `today_date`)
+    ///
     // TODO This is a mess. Need to be consistent with when today_date() is called, i.e., which functions are pure 
     //      What should be implemented on `WorkDay` vs. on `Schedule`?
     fn time_available_today(&self) -> Option<Duration> {
@@ -145,10 +175,10 @@ impl Schedule {
 
     }
 
+    /// Impure (calls `time_available_today`)
+    ///
     /// Returns the amount of time still available on a date
     /// i.e., the number of working hours minus the number of hours of work assigned to the day
-    ///
-    /// NOTE: This can be incorrect for today's date, since some time might have already passed
     #[must_use] pub fn time_available_on_date(&self, date: NaiveDate) -> Option<Duration> {
         if date == today_date() {
             self.time_available_today()
@@ -157,12 +187,16 @@ impl Schedule {
         }
     }
 
+    /// Pure
+    ///
     /// Returns an iterator over the working days between two dates, including both ends
     fn work_days_from(&self, d1: NaiveDate, d2: NaiveDate) -> impl Iterator<Item = NaiveDate> + '_ {
         DateIterator::new(d1, Some(d2))
             .filter(|d| self.is_work_day(*d))
     }
 
+    /// Impure (calls `last_available_date_for_task`, `first_available_date_for_task`)
+    ///
     /// Returns an iterator over the days a task can be worked on, or nothing if the task has no due
     /// date (i.e., the range is undefined)
     fn work_days_for_task(&self, task: &Task) -> Option<Vec<NaiveDate>> {
@@ -170,11 +204,15 @@ impl Schedule {
             .map(|due_date| self.work_days_from(self.first_available_date_for_task(task), due_date).collect())
     }
 
+    /// Impure (call `work_days_for_task`)
+    ///
     /// Returns the number of days a task can be worked on, if there is a due date
     fn num_days_to_work_on(&self, task: &Task) -> Option<u32> {
         Some(self.work_days_for_task(task)?.len().try_into().expect("This fails on huge numbers"))
     }
 
+    /// Impure (calls `today_date`)
+    ///
     /// Returns the date of the soonest work day, including today
     fn next_work_day(&self) -> NaiveDate {
         let mut day = today_date();
@@ -185,11 +223,15 @@ impl Schedule {
         day
     }
 
+    /// Impure (calls `next_work_day`)
+    ///
     /// Returns first date that a task can be worked on
     #[must_use] pub fn first_available_date_for_task(&self, task: &Task) -> NaiveDate{
         max(task.next_action_date, self.next_work_day())
     }
 
+    /// Impure (calls `next_work_day`, `first_available_date_for_task`)
+    ///
     /// Returns the last date that a task can be worked on
     #[must_use] pub fn last_available_date_for_task(&self, task: &Task) -> Option<NaiveDate>{
         match task.due_date{
@@ -255,6 +297,8 @@ impl Schedule {
         }
     }
 
+    /// Impure (calls `last_available_date_for_task`)
+    ///
     /// Returns a boolean representing whether a given task can be worked on on a given date
     #[must_use] pub fn is_available_on_day(&self, task: &Task, date: NaiveDate) -> bool {
         let before_end = self.last_available_date_for_task(task).map_or(true, |available_date| date <= available_date);
@@ -264,6 +308,8 @@ impl Schedule {
         before_end && after_beginning
     }
 
+    /// Pure
+    ///
     /// Returns the duration of work that need to be done on a given date
     #[must_use] pub fn get_time_per_task_on_day(&self, date: NaiveDate) -> Option<&TimePerTask> {
         Some(
@@ -273,15 +319,21 @@ impl Schedule {
         )
     }
 
+    /// Pure
+    ///
     #[must_use] pub fn get_time_assigned_on_day(&self, date: NaiveDate) -> Option<Duration> {
         Some(self.get(date)?.time_assigned())
     }
 
+    /// Pure
+    ///
     /// Returns a boolean representing whether a given date is a work day
     #[must_use] pub fn is_work_day(&self, date: NaiveDate) -> bool {
         !self.days_off.contains(&date) && self.work_week.workdays().contains(&date.weekday())
     }
 
+    /// Pure
+    ///
     /// Returns the `WorkDay` at the date indicated
     /// If there is no work assigned to that `WorkDay`, returns an empty `WorkDay` with the correct
     /// hours of work.
@@ -309,6 +361,7 @@ pub struct WorkWeek{
 }
 
 impl WorkWeek{
+    /// Pure
     #[must_use] pub fn workdays(&self) -> Vec<Weekday>{
         self.days.iter()
             .filter(|(_, workday)| workday.working_time() > Duration::zero())
@@ -316,6 +369,7 @@ impl WorkWeek{
             .collect()
     }
 
+    /// Pure
     #[must_use] pub fn working_hours_on_day(&self, day: NaiveDate) -> WorkingHours {
         self.days[&day.weekday()]
     }
