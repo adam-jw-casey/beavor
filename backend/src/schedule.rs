@@ -234,21 +234,35 @@ impl Schedule {
         day
     }
 
-    /// Impure (calls `next_work_day`)
+    /// Impure (calls `today_date`)
     ///
     /// Returns first date that a task can be worked on
     #[must_use] pub fn first_available_date_for_task(&self, task: &Task) -> NaiveDate {
-        max(task.next_action_date, self.next_work_day())
+        self.first_available_date_for_task_from(task, today_date())
     }
 
-    /// Impure (calls `next_work_day`, `first_available_date_for_task`)
+    /// Pure
+    ///
+    /// Pure version of `first_available_date_for_task`
+    #[must_use] fn first_available_date_for_task_from(&self, task: &Task, date: NaiveDate) -> NaiveDate {
+        max(task.next_action_date, self.next_work_day_from(date))
+    }
+
+    /// Impure (calls `today_date`)
     ///
     /// Returns the last date that a task can be worked on
     #[must_use] pub fn last_available_date_for_task(&self, task: &Task) -> Option<NaiveDate> {
+        self.last_available_date_for_task_from(task, today_date())
+    }
+
+    /// Pure
+    ///
+    /// Pure version of  `last_available_date_for_task`
+    #[must_use] fn last_available_date_for_task_from (&self, task: &Task,  date: NaiveDate) -> Option<NaiveDate> {
         match task.due_date {
             DueDate::Never => None,
-            DueDate::Date(due_date) => Some(max(due_date, self.next_work_day())),
-            DueDate::Asap => Some(self.first_available_date_for_task(task)),
+            DueDate::Date(due_date) => Some(max(due_date, self.next_work_day_from(date))),
+            DueDate::Asap => Some(self.first_available_date_for_task_from(task, date)),
         }
     }
 
@@ -316,6 +330,9 @@ impl Schedule {
     ///
     /// Returns a boolean representing whether a given task can be worked on on a given date.
     #[must_use] pub fn is_available_on_day(&self, task: &Task, date: NaiveDate) -> bool {
+         // TODO the impurity is really hidden in here. The only reason this needs to be impure is
+         //      that a task due on one date can be worked on on a subsequent date iff it is already
+         //      passed the due date. This isn't obvious from reading this code.
         let before_end = self.last_available_date_for_task(task).map_or(true, |available_date| date <= available_date);
 
         let after_beginning = task.next_action_date <= date;
