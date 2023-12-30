@@ -93,7 +93,7 @@ impl WorkDay {
     /// # Panics
     /// Panics if passed a negative `Duration` of time
     // TODO This should use `std::Duration` or some other data structure that is non-negative
-    fn add (&mut self, task: &Task, duration: Duration) {
+    pub fn add (&mut self, task: &Task, duration: Duration) {
         assert!(duration >= Duration::zero(), "Cannot add negative time to a workday!");
 
         let current_duration = self.time_per_task.entry(task.id).or_insert(Duration::zero());
@@ -101,7 +101,7 @@ impl WorkDay {
         *current_duration = *current_duration + duration;
     }
 
-    fn new (working_hours: WorkingHours) -> Self {
+    #[must_use] pub fn new (working_hours: WorkingHours) -> Self {
         Self {
             working_hours,
             time_per_task: TimePerTask::default(),
@@ -113,12 +113,12 @@ impl WorkDay {
     /// If more time has been assigned than is available, returns a 0 duration
     ///
     /// NOTE: This can be incorrect for today's date, since some time might have already passed
-    fn raw_time_available (&self) -> Duration {
+    #[must_use] pub fn raw_time_available (&self) -> Duration {
         max(Duration::zero(), self.working_hours.working_time() - self.time_assigned())
     }
 
     /// Pure
-    fn time_assigned (&self) -> Duration {
+    #[must_use] pub fn time_assigned (&self) -> Duration {
         self.time_per_task
             .values()
             .sum()
