@@ -40,7 +40,7 @@ pub fn parse_date(date_string: &str) -> Result<NaiveDate> {
 
 /// Pure
 /// # Errors
-/// Returns an error if the string cannot be parsed as a `%H:%M:%S` time
+/// Returns an error if the string cannot be parsed as an `%H:%M:%S` time
 pub fn parse_time(time_string: &str) -> Result<NaiveTime> {
     Ok(NaiveTime::parse_from_str(time_string, "%H:%M:%S")?)
 }
