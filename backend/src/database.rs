@@ -492,7 +492,7 @@ impl Connection {
     pub async fn days_off(&self) -> Vec<NaiveDate> {
         let mut days_off = Vec::new();
 
-        self.try_update_holidays().await.unwrap();
+        self.try_update_holidays().await.unwrap(); // TODO Rather than unwrapping, should just print an error message or something
         days_off.append(&mut self.holidays().await);
         days_off.append(&mut self.vacation_days().await);
 
