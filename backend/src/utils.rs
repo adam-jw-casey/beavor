@@ -17,6 +17,7 @@ use anyhow::Result;
 }
 
 /// Pure
+///
 /// # Errors
 /// Returns an error if the string cannot be parsed as a date
 pub fn parse_date(date_string: &str) -> Result<NaiveDate> {
@@ -63,10 +64,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_format_date_today() {
+    fn test_parse_format_date() {
         let d = NaiveDate::from_ymd_opt(1971,01,10).unwrap();
         assert_eq!(parse_date(&format_date(d)).unwrap(), d);
+    }
 
+    #[test]
+    fn test_parse_format_today() {
         assert_eq!(today_date(), parse_date(&today_string()).unwrap());
     }
 

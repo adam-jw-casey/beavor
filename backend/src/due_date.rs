@@ -89,7 +89,7 @@ impl From<&DueDate> for String {
 
 impl Display for DueDate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, " {}", String::from(self))
+        write!(f, "{}", String::from(self))
     }
 }
 
@@ -125,6 +125,13 @@ mod tests {
         assert!(DueDate::Date(NaiveDate::from_ymd_opt(1971,01,01).unwrap()) == DueDate::Date(NaiveDate::from_ymd_opt(1971,01,01).unwrap()));
         assert!(DueDate::Date(NaiveDate::from_ymd_opt(1971,01,01).unwrap()) < DueDate::Date(NaiveDate::from_ymd_opt(1971,01,02).unwrap()));
         assert!(DueDate::Date(NaiveDate::from_ymd_opt(1971,01,01).unwrap()) > DueDate::Date(NaiveDate::from_ymd_opt(1970,12,31).unwrap()));
+    }
+
+    #[test]
+    fn test_due_date_to_string() {
+        assert_eq!(DueDate::Asap.to_string(), "ASAP");
+        assert_eq!(DueDate::Never.to_string(), "None");
+        assert_eq!(DueDate::Date(NaiveDate::from_ymd_opt(1971,01,01).unwrap()).to_string(), "1971-01-01");
     }
 
     #[test]
