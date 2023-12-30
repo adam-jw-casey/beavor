@@ -153,10 +153,6 @@ impl Schedule {
     /// If the current time is before the start time, return the total time available today
     /// Otherwise, return the time between now and the end of the day
     /// If there are no hours of work today, return None
-    // These warnings occur because of the `as` below, but this operation is actually infallible
-    // due to the known range for the values involved
-    #[allow(clippy::cast_possible_wrap)]
-    #[allow(clippy::cast_possible_truncation)]
     #[must_use] pub fn time_remaining_today(&self) -> Option<Duration> {
         self.work_week.days[&today_date().weekday()]
             .hours_of_work
