@@ -147,34 +147,48 @@ impl Schedule {
         schedule
     }
 
-    /// Impure (calls `today_date`)
+    /// Impure (calls `today_date` and `now_time`)
     ///
     /// Return the amount of time left to work today
     /// If the current time is before the start time, return the total time available today
     /// Otherwise, return the time between now and the end of the day
     /// If there are no hours of work today, return None
     #[must_use] pub fn time_remaining_today(&self) -> Option<Duration> {
-        self.work_week.days[&today_date().weekday()]
+        Self::time_remaining_of_hours(
+            &self.work_week.days[&today_date().weekday()],
+            now_time()
+        )
+    }
+
+    /// Pure
+    ///
+    /// Calculates how much time remains in a `WorkingHours` at a given time.
+    /// Used for `time_remaining_today`.
+    #[must_use] fn time_remaining_of_hours (day: &WorkingHours, time: NaiveTime) -> Option<Duration>{
+        day
             .hours_of_work
             .map(|hour_range| max(
                 Duration::zero(),
-                hour_range.end - max(now_time(), hour_range.start)
+                hour_range.end - max(time, hour_range.start)
             ))
     }
 
     /// Impure (calls `time_remaining_today`, `today_date`)
-    ///
-    // TODO This is a mess. Need to be consistent with when today_date() is called, i.e., which functions are pure 
-    //      What should be implemented on `WorkDay` vs. on `Schedule`?
+    /// 
+    /// Returns the duration of time that is still available today, i.e., time within today's
+    /// working hours that has not yet passed and does not already have  work assigned to it.
     fn time_available_today(&self) -> Option<Duration> {
-        Some(max(Duration::zero(), self.time_remaining_today()? - self.get(today_date())?.time_assigned()))
+        Some(max(
+            Duration::zero(),
+            self.time_remaining_today()? - self.get(today_date())?.time_assigned()
+        ))
 
     }
 
     /// Impure (calls `time_available_today`)
     ///
-    /// Returns the amount of time still available on a date
-    /// i.e., the number of working hours minus the number of hours of work assigned to the day
+    /// Returns the amount of time still available on a date, i.e., the number of working hours
+    /// minus the number of hours of work assigned to the day.
     #[must_use] pub fn time_available_on_date(&self, date: NaiveDate) -> Option<Duration> {
         if date == today_date() {
             self.time_available_today()
@@ -200,18 +214,19 @@ impl Schedule {
             .map(|due_date| self.work_days_from(self.first_available_date_for_task(task), due_date).collect())
     }
 
-    /// Impure (call `work_days_for_task`)
-    ///
-    /// Returns the number of days a task can be worked on, if there is a due date
-    fn num_days_to_work_on(&self, task: &Task) -> Option<u32> {
-        Some(self.work_days_for_task(task)?.len().try_into().expect("This fails on huge numbers"))
-    }
-
     /// Impure (calls `today_date`)
     ///
     /// Returns the date of the soonest work day, including today
     fn next_work_day(&self) -> NaiveDate {
-        let mut day = today_date();
+        self.next_work_day_from(today_date())
+    }
+
+    /// Pure
+    ///
+    /// This is the pure version of `next_work_day`. Returns the date of the first work day after
+    /// and including the passed date.
+    fn next_work_day_from(&self, date: NaiveDate) -> NaiveDate {
+        let mut day = date;
         while !self.is_work_day(day) {
             day = day.succ_opt().expect("This will fail on huge dates");
         }
@@ -237,11 +252,15 @@ impl Schedule {
         }
     }
 
+    /// Impure (modifies self)
+    ///
     /// Calculates and records the number of minutes that need to be worked each day
     fn assign_time_to_days (&mut self, tasks: &Vec<Task>) {
         self.assign_time_by_frontloading_work(tasks);
     }
 
+    /// Impure (modifies self)
+    ///
     /// One variant of the workload calculation
     /// This sorts the tasks from first due to last, and schedules work as early as possible
     // TODO a lot of this code counts on `Duration`s being positive, but the chrono `Duration` doesn't make this guarantee
@@ -295,7 +314,7 @@ impl Schedule {
 
     /// Impure (calls `last_available_date_for_task`)
     ///
-    /// Returns a boolean representing whether a given task can be worked on on a given date
+    /// Returns a boolean representing whether a given task can be worked on on a given date.
     #[must_use] pub fn is_available_on_day(&self, task: &Task, date: NaiveDate) -> bool {
         let before_end = self.last_available_date_for_task(task).map_or(true, |available_date| date <= available_date);
 
@@ -306,7 +325,7 @@ impl Schedule {
 
     /// Pure
     ///
-    /// Returns the duration of work that need to be done on a given date
+    /// Returns the duration of work that need to be done on a given date.
     #[must_use] pub fn get_time_per_task_on_day(&self, date: NaiveDate) -> Option<&TimePerTask> {
         Some(
             &self.work_days
@@ -317,20 +336,21 @@ impl Schedule {
 
     /// Pure
     ///
+    // TODO kinda useless method
     #[must_use] pub fn get_time_assigned_on_day(&self, date: NaiveDate) -> Option<Duration> {
         Some(self.get(date)?.time_assigned())
     }
 
     /// Pure
     ///
-    /// Returns a boolean representing whether a given date is a work day
+    /// Returns a boolean representing whether a given date is a work day.
     #[must_use] pub fn is_work_day(&self, date: NaiveDate) -> bool {
         !self.days_off.contains(&date) && self.work_week.workdays().contains(&date.weekday())
     }
 
     /// Pure
     ///
-    /// Returns the `WorkDay` at the date indicated
+    /// Returns the `WorkDay` at the date indicated.
     /// If there is no work assigned to that `WorkDay`, returns an empty `WorkDay` with the correct
     /// hours of work.
     #[must_use] pub fn get (&self, date: NaiveDate) -> Option<WorkDay> {
