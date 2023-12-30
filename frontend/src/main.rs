@@ -442,7 +442,7 @@ impl Beavor {
                         let t = std::mem::take(&mut displayed_task.draft);
                         displayed_task.select(None);
                         Command::perform(async move {
-                            db_clone1.delete_task(&t).await;
+                            db_clone1.delete_task(t).await;
 
                             // Done - let the cache refresh
                             tx.send(()).unwrap();
