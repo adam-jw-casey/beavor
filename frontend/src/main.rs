@@ -69,7 +69,7 @@ fn main() {
 
     let flags: Flags = serde_json::from_str(
         &fs::read_to_string(CONFIG_FILE_PATH)
-            .unwrap_or_else(|_|{
+            .unwrap_or_else(|_| {
                 let default = serde_json::to_string_pretty(&Flags::default())
                     .expect("Flags::default() serializes correctly by definition");
 
@@ -80,7 +80,7 @@ fn main() {
             })
     ).expect("Panics if config file incorrectly formatted");
 
-    let settings: Settings<Flags> = Settings{
+    let settings: Settings<Flags> = Settings {
         flags,
         id: default.id,
         window: default.window,
@@ -95,24 +95,24 @@ fn main() {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct Flags{
+pub struct Flags {
     work_week: WorkWeek,
 }
 
 #[derive(Debug, Clone)]
-pub struct ConfirmationRequest{
+pub struct ConfirmationRequest {
     message: String,
     run_on_confirm: Box<Message>,
 }
 
 #[derive(Debug, Clone)]
-pub enum ModalMessage{
+pub enum ModalMessage {
     Show(ModalType),
     Ok,
 }
 
 #[derive(Debug, Clone)]
-pub enum ModalType{
+pub enum ModalType {
     None,
     NextAction,
     DueDate,
@@ -120,7 +120,7 @@ pub enum ModalType{
 }
 
 #[derive(Debug, Clone)]
-pub enum MutateMessage{
+pub enum MutateMessage {
     SaveDraftTask,
     ForceDeleteTask,
     VacationStatus(NaiveDate, bool),
@@ -128,7 +128,7 @@ pub enum MutateMessage{
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
-pub enum Message{
+pub enum Message {
     Refresh(Cache),
     Tick(Instant),
     ForceSelectTask(Option<Task>),
@@ -149,7 +149,7 @@ pub enum Message{
 }
 
 #[derive(Debug, Clone)]
-pub struct State{
+pub struct State {
     db:             DatabaseManager,
     timesheet:      Arc<Mutex<TimeSheet>>,
     cache:          Cache,
@@ -182,8 +182,8 @@ impl Application for Beavor {
         (
             Self::Loading,
             Command::batch(vec![
-                Command::perform(async{
-                    let db = match DatabaseManager::new(WORKLIST_PATH).await{
+                Command::perform(async {
+                    let db = match DatabaseManager::new(WORKLIST_PATH).await {
                         Ok(db) => db,
                         Err(_) => DatabaseManager::with_new_database(WORKLIST_PATH).await.expect("Should be able to create database"),
                     };
@@ -195,8 +195,8 @@ impl Application for Beavor {
                         Err(_) => TimeSheet::open(TIMESHEET_PATH).expect("Should be able to open timesheet"),
                     }));
 
-                    State{
-                        cache: Cache{
+                    State {
+                        cache: Cache {
                             loaded_schedule: db.schedule(flags.work_week.clone(), &tasks).await,
                             categories: ComboBoxState::new(Self::unique_categories(&tasks)),
                             loaded_tasks: tasks,
@@ -224,14 +224,14 @@ impl Application for Beavor {
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
-        match self{
+        match self {
             Beavor::Loading => self.update_loading(message),
             Beavor::Loaded(_) => self.update_loaded(message),
         }
     }
 
     fn view(&self) -> Element<'_, Self::Message> {
-        let content: Element<Message> = match self{
+        let content: Element<Message> = match self {
             Beavor::Loading => text("Loading...").into(),
             Beavor::Loaded(state) =>
                 column![
@@ -273,14 +273,14 @@ impl Application for Beavor {
             .into()
     }
 
-    fn subscription(&self) -> Subscription<Self::Message>{
+    fn subscription(&self) -> Subscription<Self::Message> {
         iced::time::every(iced::time::Duration::from_secs(1)).map(Message::Tick)
     }
 }
 
-impl Beavor{
-    fn update_loading(&mut self, message: Message) -> Command<Message>{
-        match message{
+impl Beavor {
+    fn update_loading(&mut self, message: Message) -> Command<Message> {
+        match message {
             Message::Loaded(state) => {
                 *self = Self::Loaded(state);
             },
@@ -290,17 +290,17 @@ impl Beavor{
         Command::none()
     }
 
-    fn update_loaded(&mut self, message: Message) -> Command<Message>{
-        let state = match self{
+    fn update_loaded(&mut self, message: Message) -> Command<Message> {
+        let state = match self {
             Beavor::Loaded(state) => state,
             Beavor::Loading => panic!("Should never happen"),
         };
 
-        match message{
+        match message {
             Message::Mutate(mutate_message) => Beavor::mutate(&state.db, &mut state.displayed_task, &mutate_message, &state.flags.work_week, state.timesheet.clone()),
-            other => {match other{
+            other => {match other {
                 Message::Modal(modal_message) => {
-                    match modal_message{
+                    match modal_message {
                         ModalMessage::Show(modal_type) => {
                             Self::update_modal_state(&mut state.modal_state, modal_type);
                             Command::none()
@@ -312,25 +312,25 @@ impl Beavor{
                     }
                 },
                 Message::Open(url) => {
-                    if open::that(url.clone()).is_err(){
-                        self.update(Message::Error(Some(format!("Error opening '{url}'"))))
-                    }else{
+                    if open::that(url.clone()).is_err() {
+                        self.update(Message::Error(Some(format!("Error opening ' {url}'"))))
+                    }else {
                         Command::none()
                     }
                 },
                 other => {
-                    match other{
+                    match other {
                         Message::TryNewTask => Self::try_select_task(state, None),
                         Message::TryDeleteTask => {
                             // Confirm before deleting
                             let name = state.displayed_task.draft.name.clone();
-                            Self::update_modal_state(&mut state.modal_state, ModalType::Confirm(ConfirmationRequest{
-                                message: format!("Are you sure you want to delete '{name}'?"),
+                            Self::update_modal_state(&mut state.modal_state, ModalType::Confirm(ConfirmationRequest {
+                                message: format!("Are you sure you want to delete ' {name}'?"),
                                 run_on_confirm: Box::new(Message::Mutate(MutateMessage::ForceDeleteTask))
                             }));
                         },
                         Message::UpdateDraftTask(task_field_update) => {
-                            if let Some(m) = state.displayed_task.update_draft(task_field_update){
+                            if let Some(m) = state.displayed_task.update_draft(task_field_update) {
                                 Self::update_modal_state(&mut state.modal_state, m);
                             }
                         },
@@ -341,7 +341,7 @@ impl Beavor{
                             state.cache = cache;
                             // This is called after mutating state, e.g., saving a task
                             // If the task was finished, need to also clear the displayed task
-                            if state.displayed_task.draft.finished{
+                            if state.displayed_task.draft.finished {
                                 state.displayed_task.select(None);
                             }
                         },
@@ -370,29 +370,29 @@ impl Beavor{
         state.displayed_task.editing_link_idx = id;
     }
 
-    fn try_select_task(state: &mut State, maybe_task: Option<Task>){
+    fn try_select_task(state: &mut State, maybe_task: Option<Task>) {
         // Stop timer and save if timer is running
         state.displayed_task.stop_timer();
         // Close the links list
         Self::set_editing_link_id(state, None);
 
         // Don't overwrite a modified task
-        if state.displayed_task.is_unmodified(){
+        if state.displayed_task.is_unmodified() {
             state.displayed_task.select(maybe_task);
-        }else{
-            Self::update_modal_state(&mut state.modal_state, ModalType::Confirm(ConfirmationRequest{
+        }else {
+            Self::update_modal_state(&mut state.modal_state, ModalType::Confirm(ConfirmationRequest {
                 message: "Unsaved changes will be lost. Continue without saving?".to_string(),
                 run_on_confirm: Box::new(Message::ForceSelectTask(maybe_task))
             }));
         }
     }
 
-    fn update_modal_state(modal_state: &mut ModalType, modal_type: ModalType){
+    fn update_modal_state(modal_state: &mut ModalType, modal_type: ModalType) {
         *modal_state = modal_type;
     }
 
     #[must_use] fn complete_modal(modal_state: &mut ModalType) -> Message {
-        match &modal_state{
+        match &modal_state {
             ModalType::Confirm(confirmation_request) => {
                 let m = confirmation_request.run_on_confirm.clone();
                 *modal_state = ModalType::None; // this bypasses the update function
@@ -402,7 +402,7 @@ impl Beavor{
         }
     }
 
-    fn mutate(db: &DatabaseManager, displayed_task: &mut DisplayedTask, message: &MutateMessage, work_week: &WorkWeek, timesheet: Arc<Mutex<TimeSheet>>) -> Command<Message>{
+    fn mutate(db: &DatabaseManager, displayed_task: &mut DisplayedTask, message: &MutateMessage, work_week: &WorkWeek, timesheet: Arc<Mutex<TimeSheet>>) -> Command<Message> {
         displayed_task.stop_timer();
         // TODO this is so stupid but it works and I got tired of hacking at Arc<>
         let db_clone1 = db.clone();
@@ -415,8 +415,8 @@ impl Beavor{
 
         Command::batch(
             [
-                match message{
-                    MutateMessage::SaveDraftTask => match t1.draft.id{
+                match message {
+                    MutateMessage::SaveDraftTask => match t1.draft.id {
                         Some(_) => Command::perform(async move {
                             // Log time worked to the timesheet
                             timesheet
@@ -452,9 +452,9 @@ impl Beavor{
                         let date = *date; // These copies make lifetimes happy
                         let is_vacation = *is_vacation;
                         Command::perform(async move {
-                            if is_vacation{
+                            if is_vacation {
                                 db_clone1.add_vacation_day(&date).await;
-                            }else{
+                            }else {
                                 db_clone1.delete_vacation_day(&date).await;
                             }
                             tx.send(()).unwrap();
@@ -465,7 +465,7 @@ impl Beavor{
                     rx.await.unwrap();
                     let tasks = db_clone2.open_tasks().await;
 
-                    Cache{
+                    Cache {
                         loaded_schedule: db_clone2.schedule(work_week_clone, &tasks).await,
                         categories: ComboBoxState::new(Self::unique_categories(&tasks)),
                         loaded_tasks: tasks,

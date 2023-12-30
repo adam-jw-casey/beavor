@@ -23,13 +23,13 @@ use crate::{
 use std::collections::HashMap;
 
 // TODO This stores more state than necessary but I don't feel like optimizing it and I doubt it'll be a bottleneck anytime soon
-pub struct DateIterator{
+pub struct DateIterator {
     prev: NaiveDate,
     next: NaiveDate,
     last: Option<NaiveDate>,
 }
 
-impl DateIterator{
+impl DateIterator {
     /// Creates an iterator that will return every date, in order, from start to end, inclusive
     /// # Examples
     /// ```
@@ -51,8 +51,8 @@ impl DateIterator{
     ///     ]
     /// )
     /// ```
-    #[must_use] pub fn new(start: NaiveDate, end: Option<NaiveDate>) -> Self{
-        DateIterator{
+    #[must_use] pub fn new(start: NaiveDate, end: Option<NaiveDate>) -> Self {
+        DateIterator {
             prev: start,
             next: start,
             last: end,
@@ -64,7 +64,7 @@ impl Iterator for DateIterator {
     type Item = NaiveDate;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.last{
+        match self.last {
             Some(date) => {
                 self.prev = self.next;
                 self.next = self.prev.succ_opt().expect("This panics on huge dates");
@@ -135,8 +135,8 @@ pub struct Schedule  {
 impl Schedule {
     /// Construct a `Schedule` with the passed `days_off` and `work_week`
     /// Calculates workloads in-place from `tasks`
-    #[must_use] pub fn new (days_off: Vec<NaiveDate>, tasks: &Vec<Task>, work_week: WorkWeek) -> Self{
-        let mut schedule = Schedule{
+    #[must_use] pub fn new (days_off: Vec<NaiveDate>, tasks: &Vec<Task>, work_week: WorkWeek) -> Self {
+        let mut schedule = Schedule {
             days_off,
             work_days: WorkDays::new(),
             work_week,
@@ -216,7 +216,7 @@ impl Schedule {
     /// Returns the date of the soonest work day, including today
     fn next_work_day(&self) -> NaiveDate {
         let mut day = today_date();
-        while !self.is_work_day(day){
+        while !self.is_work_day(day) {
             day = day.succ_opt().expect("This will fail on huge dates");
         }
 
@@ -226,15 +226,15 @@ impl Schedule {
     /// Impure (calls `next_work_day`)
     ///
     /// Returns first date that a task can be worked on
-    #[must_use] pub fn first_available_date_for_task(&self, task: &Task) -> NaiveDate{
+    #[must_use] pub fn first_available_date_for_task(&self, task: &Task) -> NaiveDate {
         max(task.next_action_date, self.next_work_day())
     }
 
     /// Impure (calls `next_work_day`, `first_available_date_for_task`)
     ///
     /// Returns the last date that a task can be worked on
-    #[must_use] pub fn last_available_date_for_task(&self, task: &Task) -> Option<NaiveDate>{
-        match task.due_date{
+    #[must_use] pub fn last_available_date_for_task(&self, task: &Task) -> Option<NaiveDate> {
+        match task.due_date {
             DueDate::Never => None,
             DueDate::Date(due_date) => Some(max(due_date, self.next_work_day())),
             DueDate::Asap => Some(self.first_available_date_for_task(task)),
@@ -242,7 +242,7 @@ impl Schedule {
     }
 
     /// Calculates and records the number of minutes that need to be worked each day
-    fn assign_time_to_days (&mut self, tasks: &Vec<Task>){
+    fn assign_time_to_days (&mut self, tasks: &Vec<Task>) {
         self.assign_time_by_frontloading_work(tasks);
     }
 
@@ -342,7 +342,7 @@ impl Schedule {
             Some(self.work_days
                 .get(&date)
                 .unwrap_or(
-                    &WorkDay{
+                    &WorkDay {
                         time_per_task: TimePerTask::new(),
                         working_hours: self.work_week.working_hours_on_day(date)
                     }
@@ -356,13 +356,13 @@ impl Schedule {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkWeek{
+pub struct WorkWeek {
     days: HashMap<Weekday, WorkingHours>
 }
 
-impl WorkWeek{
+impl WorkWeek {
     /// Pure
-    #[must_use] pub fn workdays(&self) -> Vec<Weekday>{
+    #[must_use] pub fn workdays(&self) -> Vec<Weekday> {
         self.days.iter()
             .filter(|(_, workday)| workday.working_time() > Duration::zero())
             .map(|(weekday, _)| *weekday)
@@ -375,7 +375,7 @@ impl WorkWeek{
     }
 }
 
-impl Default for WorkWeek{
+impl Default for WorkWeek {
     fn default() -> Self {
         let mut days = HashMap::new();
 
@@ -390,25 +390,25 @@ impl Default for WorkWeek{
         days.insert(Weekday::Sat, WorkingHours::new(None));
         days.insert(Weekday::Sun, WorkingHours::new(None)); // There has got to be a better way of inserting all these? From an array?
 
-        WorkWeek{days}
+        WorkWeek {days}
     }
 }
 
 #[derive(Debug, Copy, Clone, Default, Serialize, Deserialize)]
-pub struct WorkingHours{
+pub struct WorkingHours {
     hours_of_work: Option<HourRange>,
 }
 
-impl WorkingHours{
-    #[must_use] pub fn new(hours: Option<HourRange>) -> Self{
-        Self{
+impl WorkingHours {
+    #[must_use] pub fn new(hours: Option<HourRange>) -> Self {
+        Self {
             hours_of_work: hours,
         }
     }
 
     /// Pure
-    #[must_use] pub fn working_time(&self) -> Duration{
-        match self.hours_of_work{
+    #[must_use] pub fn working_time(&self) -> Duration {
+        match self.hours_of_work {
             Some(hours) => hours.duration(),
             None => Duration::zero(),
         }
@@ -416,7 +416,7 @@ impl WorkingHours{
 }
 
 #[derive(Debug, Copy, Clone, Default, Serialize, Deserialize)]
-pub struct HourRange{
+pub struct HourRange {
     start: NaiveTime,
     end:   NaiveTime,
 }
@@ -424,7 +424,7 @@ pub struct HourRange{
 impl HourRange {
     #[must_use] pub fn new(start: NaiveTime, end: NaiveTime) -> Option<Self> {
         if end > start {
-            Some(Self{start, end})
+            Some(Self {start, end})
         } else {
             None
         }

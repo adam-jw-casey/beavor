@@ -27,7 +27,7 @@ impl TimeSheet {
             return Err(Error::new(ErrorKind::AlreadyExists, format!("Cannot create a logfile at: {path}\nFile exists!")).into());
         }
 
-        let mut logger = Self{writer:Writer::from_path(path)?};
+        let mut logger = Self {writer:Writer::from_path(path)?};
 
         logger.writer.write_record(["Task", "TaskID", "Time Worked", "Date", "Time"])?;
 
@@ -54,7 +54,7 @@ impl TimeSheet {
     ///
     /// # Errors
     /// Returns an error if the time cannot be written to file
-    pub fn log_time (&mut self, time: Duration, task: &Task) -> Result<()>{
+    pub fn log_time (&mut self, time: Duration, task: &Task) -> Result<()> {
         Ok(self.writer.write_record([
             &task.name,
             &task.id.expect("The task should have an id").to_string(),

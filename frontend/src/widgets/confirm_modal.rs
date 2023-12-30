@@ -21,7 +21,7 @@ use crate::{
     ModalType,
 };
 
-pub fn confirm_modal<'a>(state: &ModalType) -> Element<'a, Message>{
+pub fn confirm_modal<'a>(state: &ModalType) -> Element<'a, Message> {
     let underlay = row![];
 
     let overlay = match state {
