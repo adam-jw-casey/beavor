@@ -22,7 +22,7 @@ use crate::{
 
 use std::collections::HashMap;
 
-// TODO This stores more state than necessary but I don't feel like optimizing it and I doubt it'll be a bottleneck anytime soon
+// NOTE This stores more state than necessary but I don't feel like optimizing it and I doubt it'll be a bottleneck anytime soon
 pub struct DateIterator {
     prev: NaiveDate,
     next: NaiveDate,
@@ -112,7 +112,7 @@ impl WorkDay {
     /// i.e., the number of working hours minus the time already assigned
     /// If more time has been assigned than is available, returns a 0 duration
     ///
-    /// NOTE: This can be incorrect for today's date, since some time might have already passed
+    /// NOTE: This is incorrect for today's date when some time has already passed from the start of the work day.
     #[must_use] pub fn raw_time_available (&self) -> Duration {
         max(Duration::zero(), self.working_hours.working_time() - self.time_assigned())
     }

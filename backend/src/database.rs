@@ -124,7 +124,7 @@ impl Connection {
     }
 
     /// # Panics
-    /// Panics if any database queries fail, or if the database contains invalid tasks.
+    /// Panics if any database query fails, or if the database contains invalid tasks.
     pub async fn create_task(&self, task: &Task) -> Task {
         // These must be stored so that they are not dropped in-between
         // the calls to query! and .execute
@@ -198,10 +198,10 @@ impl Connection {
     }
 
     /// # Panics
-    /// Panics if any database queries fail, or if the task has an invalid id.
+    /// Panics if any database query fails, or if the task has an invalid id.
     /// # Errors
     /// This returns a `RowNotFound` error if the update step fails to update any rows.
-    /// This indicated that no task with an id matching the passed task exists in the database.
+    /// This indicates that no task with an id matching the passed task exists in the database.
     pub async fn update_task(&self, task: &Task) -> Result<(), sqlx::Error> {
         // These must be stored so that they are not dropped in-between
         // the calls to query! and .execute
@@ -272,10 +272,12 @@ impl Connection {
         }
     }
 
-    /// Note: this deliberately takes ownership of task, because it will be deleted afterward and
-    /// this prevents references to it from surviving.
+    /// Note: this deliberately takes ownership of task, because it will be deleted from the
+    /// database afterward and taking ownership prevents references to the nonexistent task from surviving.
+    /// This is not necessary for memory-safety, but for providing some level of confidence about
+    /// state consistency throughout the application.
     /// # Panics
-    /// Panics if any database queries fail.
+    /// Panics if any database query fails.
     pub async fn delete_task(&self, task: Task) {
         // Note that hyperlinks are ON DELETE CASCADE, so do not need to be deleted manually
         sqlx::query!("
@@ -291,7 +293,7 @@ impl Connection {
     }
 
     /// # Panics
-    /// Panics if any database queries fail, or if the database contains invalid tasks or invalid links.
+    /// Panics if any database query fails, or if the database contains invalid tasks or invalid links.
     pub async fn open_tasks(&self) -> Vec<Task> {
         
         // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
@@ -330,7 +332,7 @@ impl Connection {
     }
 
     /// # Panics
-    /// Panics if any database queries fail, or if any row has a non-string category.
+    /// Panics if any database query fails, or if any row has a non-string category.
     #[allow(non_snake_case)]
     pub async fn categories(&self) -> Vec<String> {
         sqlx::query!("
@@ -347,7 +349,7 @@ impl Connection {
     }
 
     /// # Panics
-    /// Panics if any database queries fail.
+    /// Panics if any database query fails.
     ///
     /// # Errors
     /// Returns an error if unable to connect to the holiday server or unable to parse the
@@ -406,7 +408,7 @@ impl Connection {
     }
 
     /// # Panics
-    /// Panics if any database queries fail.
+    /// Panics if any database query fails.
     pub async fn add_vacation_day(&self, date: &NaiveDate) {
         let date_string = date.to_string();
         sqlx::query!("
@@ -429,7 +431,7 @@ impl Connection {
     }
 
     /// # Panics
-    /// Panics if any database queries fail.
+    /// Panics if any database query fails.
     pub async fn delete_vacation_day(&self, date: &NaiveDate) {
         let date_string = date.to_string();
 
@@ -446,7 +448,7 @@ impl Connection {
     }
 
     /// # Panics
-    /// Panics if any database queries fail, or `days_off` contains invalid dates.
+    /// Panics if any database query fails, or `days_off` contains invalid dates.
     #[allow(non_snake_case)]
     pub async fn vacation_days(&self) -> Vec<NaiveDate> {
         sqlx::query!("
@@ -467,7 +469,7 @@ impl Connection {
     }
 
     /// # Panics
-    /// Panics if any database queries fail, or `days_off` contains invalid dates.
+    /// Panics if any database query fails, or `days_off` contains invalid dates.
     #[allow(non_snake_case)]
     pub async fn holidays(&self) -> Vec<NaiveDate> {
         sqlx::query!("
@@ -492,7 +494,7 @@ impl Connection {
     pub async fn days_off(&self) -> Vec<NaiveDate> {
         let mut days_off = Vec::new();
 
-        self.try_update_holidays().await.unwrap(); // TODO Rather than unwrapping, should just print an error message or something
+        self.try_update_holidays().await.unwrap();
         days_off.append(&mut self.holidays().await);
         days_off.append(&mut self.vacation_days().await);
 
