@@ -49,29 +49,29 @@ use UpdateDraftTask as UDT;
 
 // time_running and immediately get the time?
 #[derive(Debug, Clone)]
-pub enum TimerState{
-    Timing{
+pub enum TimerState {
+    Timing {
         start_time: DateTime<Utc>,
     },
     Stopped,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum TimerMessage{
+pub enum TimerMessage {
     Start,
     Stop,
     Toggle,
 }
 
-impl Default for TimerState{
+impl Default for TimerState {
     fn default() -> Self {
         Self::Stopped
     }
 }
 
-impl TimerState{
-    pub fn time_running(&self) -> Option<Duration>{
-        match self{
+impl TimerState {
+    pub fn time_running(&self) -> Option<Duration> {
+        match self {
             TimerState::Timing { start_time } => Some(Utc::now() - start_time),
             TimerState::Stopped => None,
         }
@@ -82,62 +82,62 @@ impl TimerState{
             .expect("This will be positive (started in the past) and small enough to fit (<136 years)"))
     }
 
-    pub fn start(&mut self){
-        if matches!(self, TimerState::Stopped){
-            *self = TimerState::Timing{start_time: Utc::now()};
+    pub fn start(&mut self) {
+        if matches!(self, TimerState::Stopped) {
+            *self = TimerState::Timing {start_time: Utc::now()};
         }
     }
 
-    pub fn stop(&mut self) -> Option<Duration>{
-        if let Some(minutes) = self.time_running(){
+    pub fn stop(&mut self) -> Option<Duration> {
+        if let Some(minutes) = self.time_running() {
             *self = TimerState::Stopped;
             Some(minutes)
-        }else{
+        }else {
             None
         }
     }
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct DisplayedTask{
+pub struct DisplayedTask {
     selected:               Option<Task>,
     pub draft:              Task,
     pub editing_link_idx:   Option<usize>,
     pub timer:              TimerState,
 }
 
-impl DisplayedTask{
+impl DisplayedTask {
     pub fn added_time(&self) -> Option<Duration> {
         Some(self.draft.time_used - self.selected.clone()?.time_used)
     }
 
-    pub fn is_unmodified(&self) -> bool{
-        match &self.selected{
+    pub fn is_unmodified(&self) -> bool {
+        match &self.selected {
             Some(t) => *t == self.draft,
             None => self.draft == Task::default(),
         }
     }
 
-    pub fn select(&mut self, maybe_task: Option<Task>){
+    pub fn select(&mut self, maybe_task: Option<Task>) {
         self.selected = maybe_task.clone();
-        self.draft = match maybe_task{
+        self.draft = match maybe_task {
             Some(t) =>  t.clone(),
             None => Task::default(),
         };
     }
 
-    pub fn stop_timer(&mut self){
+    pub fn stop_timer(&mut self) {
         if let Some(duration) = self.timer.stop() {
             self.draft.time_used = self.draft.time_used + duration;
         }
     }
 
     pub fn update_timer(&mut self, message: TimerMessage) {
-        match message{
+        match message {
             TimerMessage::Start => self.timer.start(),
             TimerMessage::Stop => self.stop_timer(),
-            TimerMessage::Toggle => match self.timer{
-                TimerState::Timing{..} => self.update_timer(TimerMessage::Stop),
+            TimerMessage::Toggle => match self.timer {
+                TimerState::Timing {..} => self.update_timer(TimerMessage::Stop),
                 TimerState::Stopped => self.update_timer(TimerMessage::Start),
             },
         }
@@ -145,8 +145,8 @@ impl DisplayedTask{
 
     // This warning occurs because of the unreachable `panic!()` below
     #[allow(clippy::missing_panics_doc)]
-    #[must_use] pub fn update_draft(&mut self, message: UpdateDraftTask) -> Option<ModalType>{
-        match message{
+    #[must_use] pub fn update_draft(&mut self, message: UpdateDraftTask) -> Option<ModalType> {
+        match message {
             UDT::NextActionDate(next_action_date) => {
                 self.draft.next_action_date = next_action_date;
                 Some(ModalType::None)
@@ -156,7 +156,7 @@ impl DisplayedTask{
                 Some(ModalType::None)
             },
             other => {
-                match other{
+                match other {
                     UDT::NextActionDate(_) | UDT::DueDate(_) => panic!("This will never happen"),
                     UDT::Category(category) => self.draft.category = category,
                     UDT::Name(name) => self.draft.name = name,
@@ -164,8 +164,8 @@ impl DisplayedTask{
                     UDT::TimeUsed(time_used) => if let Ok(time_used) = time_used {self.draft.time_used = Duration::minutes(time_used.into())},
                     UDT::Notes(notes) => self.draft.notes = notes,
                     UDT::Finished(finished) => self.draft.finished = finished,
-                    UDT::Link(link_message) => match link_message{
-                        LinkMessage::New => if !self.draft.links.contains(&Hyperlink::default()){
+                    UDT::Link(link_message) => match link_message {
+                        LinkMessage::New => if !self.draft.links.contains(&Hyperlink::default()) {
                             self.draft.links.push(Hyperlink::default());
                             self.editing_link_idx = Some(self.draft.links.len()-1);
 
@@ -186,14 +186,14 @@ impl DisplayedTask{
 
 
 #[derive(Debug, Clone)]
-pub enum LinkMessage{
+pub enum LinkMessage {
     New,
     Delete(usize),
     Update((Hyperlink, usize)),
 }
 
 #[derive(Debug, Clone)]
-pub enum UpdateDraftTask{
+pub enum UpdateDraftTask {
     Category        (String),
     Name            (String),
     TimeNeeded      (Result<u32, ()>),
@@ -250,7 +250,7 @@ where 'b: 'a
             text("Time used").width(Length::FillPortion(1)),
             text_input(
                 "Time used...",
-               &format!("{}", display_time_used/60),
+               &format!(" {}", display_time_used/60),
             )
                 .on_input(|u| Message_UDT(UDT::TimeUsed(u.parse().map_err(|_| ()))))
 				.width(Length::FillPortion(3))
@@ -278,9 +278,9 @@ where 'b: 'a
             Space::with_width(Length::Fill),
             button("Add link")
                 .on_press_maybe(
-                    if displayed_task.editing_link_idx.is_none(){
+                    if displayed_task.editing_link_idx.is_none() {
                         Some(Message_UDT(UDT::Link(LinkMessage::New)))
-                    }else{None}
+                    }else {None}
                 )
         ],
         row![
@@ -299,24 +299,24 @@ where 'b: 'a
                 |b| Message_UDT(UDT::Finished(b)),
             ),
             button(
-                match displayed_task.timer{
-                    TimerState::Timing{..} => "Stop",
+                match displayed_task.timer {
+                    TimerState::Timing {..} => "Stop",
                     TimerState::Stopped => "Start",
                 }
             ).on_press(Message::Timer(TimerMessage::Toggle)),
-            text( format!("{:02}:{:02}:{:02}", display_time_used/3600, (display_time_used % 3600)/60, display_time_used % 60)),
+            text( format!(" {:02}:{:02}:{:02}", display_time_used/3600, (display_time_used % 3600)/60, display_time_used % 60)),
             button("Save").on_press_maybe(
-                if displayed_task.draft == Task::default(){
+                if displayed_task.draft == Task::default() {
                     None
-                }else{
+                }else {
                     Some(Message::Mutate(MutateMessage::SaveDraftTask))
                 }
             ),
             button("New").on_press(Message::TryNewTask),
             button("Delete").on_press_maybe(
-                if displayed_task.draft == Task::default(){
+                if displayed_task.draft == Task::default() {
                     None
-                }else{
+                }else {
                     Some(Message::TryDeleteTask)
                 }
             ),
@@ -328,7 +328,7 @@ where 'b: 'a
         .align_items(Alignment::Center)
 }
 
-fn next_action_date_picker<'a>(modal_state: &ModalType, draft_task: &'a Task) -> Container<'a, Message>{
+fn next_action_date_picker<'a>(modal_state: &ModalType, draft_task: &'a Task) -> Container<'a, Message> {
     container(
         date_picker(
             matches!(modal_state, ModalType::NextAction),
@@ -340,17 +340,17 @@ fn next_action_date_picker<'a>(modal_state: &ModalType, draft_task: &'a Task) ->
     )
 }
 
-fn due_date_picker<'a>(modal_state: &ModalType, draft_task: &'a Task) -> Row<'a, Message>{
+fn due_date_picker<'a>(modal_state: &ModalType, draft_task: &'a Task) -> Row<'a, Message> {
     row![
         container(
             date_picker(
                 matches!(modal_state, ModalType::DueDate),
-                match draft_task.due_date{
+                match draft_task.due_date {
                     DueDate::Date(date) => date,
                     _ => today_date(), // This will not be shown, so arbitray
                 },
                 button(text(&draft_task.due_date.to_string()))
-                    .on_press_maybe(match draft_task.due_date{
+                    .on_press_maybe(match draft_task.due_date {
                         DueDate::Date(_) => Some(Message::Modal(ModalMessage::Show(ModalType::DueDate))),
                         _ => None,
                     }),
@@ -360,13 +360,13 @@ fn due_date_picker<'a>(modal_state: &ModalType, draft_task: &'a Task) -> Row<'a,
         ).width(Length::FillPortion(1)),
         pick_list( // TODO this code is unpleasing. This should really be something on DueDate
             vec!["Date", "None", "ASAP"],
-            Some(match draft_task.due_date{
+            Some(match draft_task.due_date {
                 DueDate::Never => "None",
                 DueDate::Date(_) => "Date",
                 DueDate::Asap => "ASAP",
             }),
             |selection| {
-                Message_UDT(UDT::DueDate(match selection{
+                Message_UDT(UDT::DueDate(match selection {
                     "None" => DueDate::Never,
                     "ASAP" => DueDate::Asap,
                     "Date" => DueDate::Date(today_date()),

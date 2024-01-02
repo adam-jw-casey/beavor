@@ -29,18 +29,18 @@ use crate::{
     CalendarMessage,
 };
 
-trait Filter: Display{ // TODO rather than display, should really impl Into<Element<'static, Message>>
+trait Filter: Display { // TODO rather than display, should really impl Into<Element<'static, Message>>
     fn apply(&self, task: &Task) -> bool;
     fn cancel(&self) -> Message;
 }
 
-struct DateFilter<'date, 'schedule>{
+struct DateFilter<'date, 'schedule> {
     date: &'date NaiveDate,
     schedule: &'schedule Schedule,
 }
 
-impl Filter for DateFilter<'_, '_>{
-    fn apply(&self, t: &Task) -> bool{
+impl Filter for DateFilter<'_, '_> {
+    fn apply(&self, t: &Task) -> bool {
         self.schedule.is_available_on_day(
             t,
             *self.date
@@ -52,16 +52,16 @@ impl Filter for DateFilter<'_, '_>{
     }
 }
 
-impl Display for DateFilter<'_, '_>{
+impl Display for DateFilter<'_, '_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Available on: {}", self.date.format("%b %d"))
     }
 }
 
-pub fn task_scroller(tasks: &[Task], filter_date: Option<&NaiveDate>, schedule: &Schedule) -> Column<'static, Message>{
+pub fn task_scroller(tasks: &[Task], filter_date: Option<&NaiveDate>, schedule: &Schedule) -> Column<'static, Message> {
 
     let filters = [ // TODO this should probably be in the application-level state
-        filter_date.map(|date| DateFilter{
+        filter_date.map(|date| DateFilter {
             date,
             schedule
         }),
@@ -81,9 +81,9 @@ pub fn task_scroller(tasks: &[Task], filter_date: Option<&NaiveDate>, schedule: 
                     .into())
                 )
                 .chain(
-                    [if filters.iter().any(Option::is_some){
+                    [if filters.iter().any(Option::is_some) {
                         Rule::horizontal(2).into()
-                    }else{
+                    }else {
                         Space::with_height(0).into()
                     }]
                 )
@@ -96,7 +96,7 @@ pub fn task_scroller(tasks: &[Task], filter_date: Option<&NaiveDate>, schedule: 
                     .filter(|t|
                         filters
                             .iter()
-                            .map(|f| match f{
+                            .map(|f| match f {
                                 None => true,
                                 Some(f) => f.apply(t)
                             })
@@ -114,7 +114,7 @@ pub fn task_scroller(tasks: &[Task], filter_date: Option<&NaiveDate>, schedule: 
         .padding(4)
 }
 
-fn task_row(task: &Task) -> Element<'static, Message>{
+fn task_row(task: &Task) -> Element<'static, Message> {
     button(
         column![
             text(&task.name),
