@@ -250,7 +250,7 @@ where 'b: 'a
             text("Time used").width(Length::FillPortion(1)),
             text_input(
                 "Time used...",
-               &format!(" {}", display_time_used/60),
+               &format!("{}", display_time_used/60),
             )
                 .on_input(|u| Message_UDT(UDT::TimeUsed(u.parse().map_err(|_| ()))))
 				.width(Length::FillPortion(3))

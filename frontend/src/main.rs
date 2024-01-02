@@ -205,7 +205,7 @@ impl Application for Beavor {
                         timesheet,
                         displayed_task: DisplayedTask::default(),
                         modal_state:    ModalType::None,
-                        error_bar:   ErrorBarState::default(),
+                        error_bar:      ErrorBarState::default(),
                         calendar_state: CalendarState::default(),
                         flags,
                     }
