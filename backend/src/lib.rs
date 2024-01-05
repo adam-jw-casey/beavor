@@ -14,3 +14,5 @@ pub use schedule::Schedule;
 
 pub mod time_logger;
 pub use time_logger::TimeSheet;
+
+pub mod milestone;
