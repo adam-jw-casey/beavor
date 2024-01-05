@@ -13,6 +13,7 @@ CREATE TABLE tasks(
 	DateAdded  TEXT,
 	TaskID	   INTEGER PRIMARY KEY
 );
+
 INSERT INTO tasks(Category, Finished, Name, Budget, Time, Used, NextAction, DueDate, Notes, DateAdded) SELECT Category, Finished, Name, Budget, Time, Used, NextAction, DueDate, Notes, DateAdded FROM tasks_old;
 DROP TABLE tasks_old;
 

@@ -7,9 +7,13 @@ CREATE TABLE IF NOT EXISTS tasks(
 	Used       INTEGER,
 	NextAction TEXT,
 	DueDate    TEXT,
+	StartMilestone INTEGER,
+	EndMilestone   INTEGER,
 	Notes      TEXT,
 	DateAdded  TEXT,
-	TaskID	   INTEGER PRIMARY KEY
+	TaskID	   INTEGER PRIMARY KEY,
+	FOREIGN KEY (StartMilestone) REFERENCES milestones(ID),
+	FOREIGN KEY (EndMilestone) REFERENCES milestones(ID)
 );
 
 CREATE TABLE IF NOT EXISTS days_off(
@@ -22,4 +26,11 @@ CREATE TABLE IF NOT EXISTS hyperlinks(
 	Display TEXT,
 	Task	INTEGER,
 	FOREIGN KEY (Task) REFERENCES tasks(TaskID) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS milestones(
+	Id	 INTEGER PRIMARY KEY,
+	DueDate	 TEXT,
+	Name	 TEXT,
+	Category TEXT
 );
