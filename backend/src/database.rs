@@ -6,15 +6,11 @@ use sqlx::sqlite::{
     SqliteRow,
     SqliteConnectOptions,
 };
-use sqlx::{
-    Row,
-    ConnectOptions,
-};
+use sqlx::ConnectOptions;
 
 use crate::{
     Task,
     Hyperlink,
-    utils::parse_date,
     DueDate,
     Schedule,
     schedule::WorkWeek,
@@ -24,46 +20,12 @@ use chrono::{
     NaiveDate,
     Datelike,
     Local,
-    Duration,
 };
 
 use serde::{
     Serialize,
     Deserialize,
 };
-
-impl TryFrom<SqliteRow> for Task {
-    type Error = anyhow::Error;
-
-    fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
-        Ok(Task {
-            category:                     row.get::<String, &str>("Category"),
-            finished:                     row.get::<bool,   &str>("Finished"),
-            name:                         row.get::<String, &str>("Name"),
-            _time_budgeted: Duration::minutes(row.get::<i64, &str>("Budget")),
-            time_needed:    Duration::minutes(row.get::<i64, &str>("Time")),
-            time_used:      Duration::minutes(row.get::<i64, &str>("Used")),
-            next_action_date: parse_date(&row.get::<String, &str>("NextAction"))?,
-            due_date:                     row.get::<String, &str>("DueDate").try_into()?,
-            notes:                        row.get::<String, &str>("Notes"),
-            id:                           row.get::<Option<u32>, &str>("TaskID"),
-            date_added:       parse_date(&row.get::<String, &str>("DateAdded"))?,
-            links:                        Vec::new(),
-        })
-    }
-}
-
-impl TryFrom<SqliteRow> for Hyperlink {
-    type Error = std::convert::Infallible;
-
-    fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
-        Ok(Hyperlink {
-            url:     row.get::<String, &str>("Url"),
-            display: row.get::<String, &str>("Display"),
-            id:      row.get::<u32, &str>("rowid") as usize,
-        })
-    }
-}
 
 #[derive(PartialEq)]
 #[derive(Serialize, Deserialize)]
