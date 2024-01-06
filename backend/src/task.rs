@@ -105,7 +105,7 @@ impl TryFrom<SqliteRow> for Hyperlink {
         Ok(Hyperlink {
             url:     row.get::<String, &str>("Url"),
             display: row.get::<String, &str>("Display"),
-            id:      row.get::<u32, &str>("rowid") as usize,
+            id:      row.get::<u32,    &str>("rowid") as usize,
         })
     }
 }

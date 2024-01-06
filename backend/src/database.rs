@@ -90,19 +90,7 @@ impl Connection {
                     Notes,
                     DateAdded
                 )
-            VALUES
-                (
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?
-                )
+            VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ",
             task.category,
             task.finished,
@@ -154,14 +142,14 @@ impl Connection {
         if sqlx::query!("
             UPDATE tasks
             SET
-                Category =    ?,
-                Finished =    ?,
-                Name =        ?,
-                Time =        ?,
-                Used =        ?,
+                Category   =  ?,
+                Finished   =  ?,
+                Name       =  ?,
+                Time       =  ?,
+                Used       =  ?,
                 NextAction =  ?,
-                DueDate =     ?,
-                Notes =       ?
+                DueDate    =  ?,
+                Notes      =  ?
             WHERE
                 TaskID == ?
         ",
