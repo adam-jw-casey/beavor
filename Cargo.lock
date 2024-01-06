@@ -160,7 +160,7 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
 name = "backend"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -917,7 +917,7 @@ dependencies = [
 
 [[package]]
 name = "frontend"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "backend",
  "chrono",
