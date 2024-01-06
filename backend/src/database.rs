@@ -15,6 +15,7 @@ use crate::{
     Schedule,
     schedule::WorkWeek,
     holiday::{Holiday, Province},
+    milestone::Milestone,
 };
 
 use chrono::{
@@ -218,6 +219,23 @@ impl Connection {
             .execute(&self.pool)
             .await
             .expect("Should be able do delete task");
+    }
+
+    /// Gets the unfinished milestones (i.e. all for which finished == false)
+    pub async fn open_milestones(&self) -> Vec<Milestone> {
+        sqlx::query("
+            SELECT *
+            FROM milestones
+            WHERE Finished == false
+            ORDER BY DueDate
+        ")
+            .fetch_all(&self.pool)
+            .await
+            .expect("Should be able to get milestones")
+            .into_iter()
+            .map(|r: SqliteRow| Milestone::try_from(r).expect("Database should hold valid Milestones"))
+            .collect()
+
     }
 
     /// # Panics
