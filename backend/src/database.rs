@@ -14,6 +14,7 @@ use crate::{
     DueDate,
     Schedule,
     schedule::WorkWeek,
+    holiday::{Holiday, Province},
 };
 
 use chrono::{
@@ -21,29 +22,6 @@ use chrono::{
     Datelike,
     Local,
 };
-
-use serde::{
-    Serialize,
-    Deserialize,
-};
-
-#[derive(PartialEq)]
-#[derive(Serialize, Deserialize)]
-struct Province {
-    id: String,
-}
-
-#[derive(Serialize, Deserialize)]
-struct Holidays {
-    holidays: Vec<Holiday>,
-}
-
-#[allow(non_snake_case)]
-#[derive(Serialize, Deserialize)]
-struct Holiday {
-    provinces: Vec<Province>,
-    observedDate: String
-}
 
 #[derive(Debug, Clone)]
 pub struct Connection {
@@ -337,8 +315,7 @@ impl Connection {
             .text()
             .await?;
 
-        let holiday_dates: Vec<NaiveDate> = serde_json::from_str::<Holidays>(&response)?
-            .holidays
+        let holiday_dates: Vec<NaiveDate> = serde_json::from_str::<Vec<Holiday>>(&response)?
             .iter()
             .filter(|h| h.provinces.contains(&Province {id: "BC".to_string()}))
             .map(|h| h.observedDate.parse::<NaiveDate>())
