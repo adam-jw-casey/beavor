@@ -1,4 +1,5 @@
 -- Upgrade from schema_v1.1.db to schema_v1.2.db
+
 CREATE TABLE IF NOT EXISTS milestones(
 	Id	 INTEGER PRIMARY KEY,
 	DueDate	 TEXT,
@@ -28,3 +29,13 @@ CREATE TABLE IF NOT EXISTS tasks(
 
 INSERT INTO tasks(Category, Finished, Name, Budget, Time, Used, NextAction, DueDate, Notes, DateAdded, TaskID) SELECT Category, Finished, Name, Budget, Time, Used, NextAction, DueDate, Notes, DateAdded, TaskID FROM tasks_old;
 DROP TABLE tasks_old;
+
+ALTER TABLE hyperlinks RENAME TO hyperlinks_old;
+CREATE TABLE IF hyperlinks(
+	Url	TEXT,
+	Display TEXT,
+	Task	INTEGER,
+	FOREIGN KEY (Task) REFERENCES tasks(TaskID) ON DELETE CASCADE
+);
+INSERT INTO hyperlinks SELECT * FROM hyperlinks_old;
+DROP TABLE hyperlinks_old;
