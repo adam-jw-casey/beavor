@@ -15,6 +15,7 @@ pub enum Milestone {
         category: String,
         due_date: DueDate,
         id:       Id,
+        finished: bool,
     },
 }
 
@@ -23,7 +24,7 @@ impl Milestone {
         match self {
             Milestone::AnonymousStart(date) => format_date_borrowed(date),
             Milestone::AnonymousEnd(due_date) => due_date.into(),
-            Milestone::Concrete { name, category: _, due_date: _, id: _ } => name.into(),
+            Milestone::Concrete { name, category: _, due_date: _, id: _, finished: _ } => name.into(),
         }
     }
 }

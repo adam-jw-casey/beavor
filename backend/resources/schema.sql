@@ -32,5 +32,6 @@ CREATE TABLE IF NOT EXISTS milestones(
 	Id	 INTEGER PRIMARY KEY,
 	DueDate	 TEXT,
 	Name	 TEXT,
-	Category TEXT
+	Category TEXT,
+	Finished BOOLEAN
 );
