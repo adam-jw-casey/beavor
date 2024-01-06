@@ -251,6 +251,8 @@ impl Connection {
             .map(|r: SqliteRow| Task::try_from(r).expect("Database should hold valid Tasks"))
             .collect();
 
+        // TODO rather than this list, it feels like the query above should use LEFT JOIN or
+        // somesuch, but I'm not sure exactly how or what the benefit would be (performance?)
         for task in &mut tasks {
             task.links = sqlx::query("
                 SELECT *, rowid
