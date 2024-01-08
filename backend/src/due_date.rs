@@ -11,11 +11,12 @@ use crate::utils::{
     parse_date,
 };
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Default)]
 #[cfg_attr(feature="serde", derive(Serialize, Deserialize))]
 pub enum DueDate {
     Never,
     Date(NaiveDate),
+    #[default]
     Asap,
 }
 
@@ -25,11 +26,6 @@ impl DueDate {
     }
 }
 
-impl Default for DueDate {
-    fn default() -> Self {
-        Self::Asap
-    }
-}
 
 impl PartialOrd for DueDate {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
