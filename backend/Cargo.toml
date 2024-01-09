@@ -14,6 +14,7 @@ serde = {version="1.0.186", features=["derive"]}
 futures = "0.3.28"
 csv = "1.3.0"
 anyhow = "1.0.76"
+petgraph = "0.6.4"
 
 [build-dependencies]
 tokio = "1.26"
