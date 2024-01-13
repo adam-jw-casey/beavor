@@ -26,8 +26,6 @@ pub struct Task {
     pub time_used:        Duration,
     pub notes:            String,
     pub date_added:       NaiveDate,
-    pub next_action_date: NaiveDate,
-    pub due_date:         DueDate,
     pub id:               Id,
     pub links:            Vec<Hyperlink>,
 }
@@ -54,7 +52,6 @@ impl std::default::Default for Task {
     fn default() -> Self {
         Task {
             category:           "Work".into(),
-            next_action_date:   today_date(),
             date_added:         today_date(),
             finished:           false,
             name:               String::new(),
@@ -62,31 +59,34 @@ impl std::default::Default for Task {
             time_needed:        Duration::zero(),
             time_used:          Duration::zero(),
             notes:              String::new(),
-            due_date:           DueDate::Asap,
             id:                 None,
             links:              Vec::new(),
         }
     }
 }
 
-impl TryFrom<SqliteRow> for Task {
+impl TryFrom<SqliteRow> for BoundedTask {
     type Error = anyhow::Error;
 
     fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
-        Ok(Task {
-            category:                         row.get::<String, &str>("Category"),
-            finished:                         row.get::<bool,   &str>("Finished"),
-            name:                             row.get::<String, &str>("Name"),
-            _time_budgeted: Duration::minutes(row.get::<i64,    &str>("Budget")),
-            time_needed:    Duration::minutes(row.get::<i64,    &str>("Time")),
-            time_used:      Duration::minutes(row.get::<i64,    &str>("Used")),
-            next_action_date:     parse_date(&row.get::<String, &str>("NextAction"))?,
-            due_date:                         row.get::<String, &str>("DueDate").try_into()?,
-            notes:                            row.get::<String, &str>("Notes"),
-            id:                               row.get::<Option<u32>, &str>("TaskID"),
-            date_added:           parse_date(&row.get::<String, &str>("DateAdded"))?,
-            links:                            Vec::new(),
-        })
+        Ok(
+            Self{
+                start:                                row.get::<&str, &str>("NextAction").try_into()?,
+                end:                                  row.get::<&str, &str>("DueDate").try_into()?,
+                task: Task {
+                    category:                         row.get::<String, &str>("Category"),
+                    finished:                         row.get::<bool,   &str>("Finished"),
+                    name:                             row.get::<String, &str>("Name"),
+                    _time_budgeted: Duration::minutes(row.get::<i64,    &str>("Budget")),
+                    time_needed:    Duration::minutes(row.get::<i64,    &str>("Time")),
+                    time_used:      Duration::minutes(row.get::<i64,    &str>("Used")),
+                    notes:                            row.get::<String, &str>("Notes"),
+                    id:                               row.get::<Option<u32>, &str>("TaskID"),
+                    date_added:           parse_date(&row.get::<String, &str>("DateAdded"))?,
+                    links:                            Vec::new(),
+                }
+            }
+        )
     }
 }
 
@@ -107,5 +107,49 @@ impl TryFrom<SqliteRow> for Hyperlink {
             display: row.get::<String, &str>("Display"),
             id:      row.get::<u32,    &str>("rowid") as usize,
         })
+    }
+}
+
+pub struct BoundedTask { // TODO ensure this isn't public outside backend
+    pub task:  Task,
+    pub start: Start,
+    pub end:   End,
+}
+
+pub enum Start {
+    Raw(NaiveDate),
+    Milestone(Id),
+}
+
+pub enum End {
+    Raw(DueDate),
+    Milestone(Id),
+}
+
+impl TryFrom<&str> for Start {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value.parse::<u32>() {
+            Ok(id) => Ok(Self::Milestone(Some(id))),
+            Err(_) => match parse_date(value) {
+                Ok(date) => Ok(Self::Raw(date)),
+                Err(e) => Err(e),
+            },
+        }
+    }
+}
+
+impl TryFrom<&str> for End {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value.parse::<u32>() {
+            Ok(id) => Ok(Self::Milestone(Some(id))),
+            Err(_) => match DueDate::try_from(value) {
+                Ok(due_date) => Ok(Self::Raw(due_date)),
+                Err(e) => Err(e),
+            },
+        }
     }
 }

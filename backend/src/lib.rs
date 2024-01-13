@@ -16,5 +16,8 @@ pub mod time_logger;
 pub use time_logger::TimeSheet;
 
 pub mod milestone;
+pub use milestone::Milestone;
 
 pub mod holiday;
+
+pub mod project;
