@@ -4,8 +4,8 @@ pub use database::Connection as DatabaseManager;
 pub mod due_date;
 pub use due_date::DueDate;
 
-pub mod task;
-pub use task::{Task, Hyperlink};
+mod task;
+pub use task::{Task, Hyperlink, };
 
 pub mod utils;
 
@@ -21,3 +21,4 @@ pub use milestone::Milestone;
 pub mod holiday;
 
 pub mod project;
+pub use project::{ProjectNode,};

@@ -110,23 +110,24 @@ impl TryFrom<SqliteRow> for Hyperlink {
     }
 }
 
-pub struct BoundedTask { // TODO ensure this isn't public outside backend
+// Ensure there aren't public outside backend
+pub struct BoundedTask {
     pub task:  Task,
-    pub start: Start,
-    pub end:   End,
+    pub start: DBStart,
+    pub end:   DBEnd,
 }
 
-pub enum Start {
+pub enum DBStart {
     Raw(NaiveDate),
     Milestone(Id),
 }
 
-pub enum End {
+pub enum DBEnd {
     Raw(DueDate),
     Milestone(Id),
 }
 
-impl TryFrom<&str> for Start {
+impl TryFrom<&str> for DBStart {
     type Error = anyhow::Error;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
@@ -140,7 +141,7 @@ impl TryFrom<&str> for Start {
     }
 }
 
-impl TryFrom<&str> for End {
+impl TryFrom<&str> for DBEnd {
     type Error = anyhow::Error;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {

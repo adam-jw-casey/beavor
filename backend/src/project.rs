@@ -1,13 +1,44 @@
 use petgraph::{Graph, Directed, algo::kosaraju_scc};
 use chrono::NaiveDate;
 
-use crate::{Milestone, task::{Task, Start, End, BoundedTask, Id}, due_date::DueDate};
+use crate::{Milestone, task::{Task, DBStart, DBEnd, BoundedTask, Id}, due_date::DueDate};
+use crate::utils::format_date;
 
+// TODO these three types (ProjectNode, Start, and End) all contain variations on the same three
+// things. How can I make this more concise and useful?
 #[derive(Clone, Debug, Hash)]
-enum ProjectNode {
+pub enum ProjectNode {
     Milestone(Milestone),
     RawStart(NaiveDate),
     RawEnd(DueDate),
+}
+
+pub enum Start {
+    Raw(NaiveDate),
+    Milestone(Milestone),
+}
+
+impl From<&Start> for String {
+    fn from(value: &Start) -> Self {
+        match value {
+            Start::Raw(date) => format_date(*date),
+            Start::Milestone(milestone) => milestone.get_id().expect("Passed milestone should have non-None Id").to_string(),
+        }
+    }
+}
+
+pub enum End {
+    Raw(DueDate),
+    Milestone(Milestone),
+}
+
+impl From<&End> for String {
+    fn from(value: &End) -> Self {
+        match value {
+            End::Raw(due_date) => due_date.into(),
+            End::Milestone(milestone) => milestone.get_id().expect("Passed milestone should have non-None Id").to_string(),
+        }
+    }
 }
 
 #[derive(Default, Debug)]
@@ -29,8 +60,8 @@ impl Project {
             // Get the project node that starts the task.
             // This may or may not be a milestone.
             let start_nid = match bounded_task.start {
-                Start::Raw(date) => graph.add_node(ProjectNode::RawStart(date)),
-                Start::Milestone(id) => *milestone_nids.iter().find_map(|(mid, nid)| {
+                DBStart::Raw(date) => graph.add_node(ProjectNode::RawStart(date)),
+                DBStart::Milestone(id) => *milestone_nids.iter().find_map(|(mid, nid)| {
                         if *mid == id {
                             Some(nid)
                         } else {
@@ -44,8 +75,8 @@ impl Project {
             // The logic here is identical to above, with the enum variants changing.
             // This could potentially be broken out into another function
             let end_nid = match bounded_task.end {
-                End::Raw(due_date) => graph.add_node(ProjectNode::RawEnd(due_date)),
-                End::Milestone(id) => *milestone_nids.iter().find_map(|(mid, nid)| {
+                DBEnd::Raw(due_date) => graph.add_node(ProjectNode::RawEnd(due_date)),
+                DBEnd::Milestone(id) => *milestone_nids.iter().find_map(|(mid, nid)| {
                         if *mid == id {
                             Some(nid)
                         } else {
