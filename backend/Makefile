@@ -28,3 +28,7 @@ upgrade: $(TARGET)
 $(RESOURCES)/beavor_v1.1.db: $(RESOURCES)/schema.db $(UPGRADE)/upgrade_v1.1.sql
 	sqlite3 $< < $(UPGRADE)/upgrade_v1.1.sql
 	mv $< $@
+
+$(RESOURCES)/beavor_v1.2.db: $(RESOURCES)/schema.db $(UPGRADE)/upgrade_v1.2.sql
+	sqlite3 $< < $(UPGRADE)/upgrade_v1.2.sql
+	mv $< $@

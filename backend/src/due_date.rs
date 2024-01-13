@@ -65,11 +65,11 @@ impl FromStr for DueDate {
     }
 }
 
-impl TryFrom<String> for DueDate {
+impl TryFrom<&str> for DueDate {
     type Error = anyhow::Error;
 
-    fn try_from(date_string: String) -> Result<Self, Self::Error> {
-        DueDate::from_str(&date_string)
+    fn try_from(date_string: &str) -> Result<Self, Self::Error> {
+        DueDate::from_str(date_string)
     }
 }
 

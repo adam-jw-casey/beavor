@@ -6,82 +6,24 @@ use sqlx::sqlite::{
     SqliteRow,
     SqliteConnectOptions,
 };
-use sqlx::{
-    Row,
-    ConnectOptions,
-};
+use sqlx::ConnectOptions;
 
 use crate::{
     Task,
     Hyperlink,
-    utils::parse_date,
     DueDate,
     Schedule,
     schedule::WorkWeek,
+    holiday::{Holiday, Province},
+    milestone::Milestone,
+    project::{Start, End},
 };
 
 use chrono::{
     NaiveDate,
     Datelike,
     Local,
-    Duration,
 };
-
-use serde::{
-    Serialize,
-    Deserialize,
-};
-
-impl TryFrom<SqliteRow> for Task {
-    type Error = anyhow::Error;
-
-    fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
-        Ok(Task {
-            category:                     row.get::<String, &str>("Category"),
-            finished:                     row.get::<bool,   &str>("Finished"),
-            name:                         row.get::<String, &str>("Name"),
-            _time_budgeted: Duration::minutes(row.get::<i64, &str>("Budget")),
-            time_needed:    Duration::minutes(row.get::<i64, &str>("Time")),
-            time_used:      Duration::minutes(row.get::<i64, &str>("Used")),
-            next_action_date: parse_date(&row.get::<String, &str>("NextAction"))?,
-            due_date:                     row.get::<String, &str>("DueDate").try_into()?,
-            notes:                        row.get::<String, &str>("Notes"),
-            id:                           row.get::<Option<u32>, &str>("TaskID"),
-            date_added:       parse_date(&row.get::<String, &str>("DateAdded"))?,
-            links:                        Vec::new(),
-        })
-    }
-}
-
-impl TryFrom<SqliteRow> for Hyperlink {
-    type Error = std::convert::Infallible;
-
-    fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
-        Ok(Hyperlink {
-            url:     row.get::<String, &str>("Url"),
-            display: row.get::<String, &str>("Display"),
-            id:      row.get::<u32, &str>("rowid") as usize,
-        })
-    }
-}
-
-#[derive(PartialEq)]
-#[derive(Serialize, Deserialize)]
-struct Province {
-    id: String,
-}
-
-#[derive(Serialize, Deserialize)]
-struct Holidays {
-    holidays: Vec<Holiday>,
-}
-
-#[allow(non_snake_case)]
-#[derive(Serialize, Deserialize)]
-struct Holiday {
-    provinces: Vec<Province>,
-    observedDate: String
-}
 
 #[derive(Debug, Clone)]
 pub struct Connection {
@@ -123,13 +65,15 @@ impl Connection {
         Self::new(database_path).await
     }
 
+    /// This consumes the passed task because it is invalid (does not contain an ID)
+    ///
     /// # Panics
     /// Panics if any database query fails, or if the database contains invalid tasks.
-    pub async fn create_task(&self, task: &Task) -> Task {
+    pub async fn create_task(&self, task: Task, start: &Start, end: &End) -> Task {
         // These must be stored so that they are not dropped in-between
         // the calls to query! and .execute
-        let due_date_str = task.due_date.to_string();
-        let next_action_str = DueDate::Date(task.next_action_date).to_string();
+        let start_str = start.into();
+        let end_str   = end.into();
         let date_added_str = DueDate::Date(task.date_added).to_string();
 
         let time_budgeted = task.time_needed.num_minutes(); // When creating a new task, save the initial time_needed estimate as time_budgeted
@@ -150,19 +94,7 @@ impl Connection {
                     Notes,
                     DateAdded
                 )
-            VALUES
-                (
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?
-                )
+            VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ",
             task.category,
             task.finished,
@@ -170,8 +102,8 @@ impl Connection {
             time_budgeted,
             time_needed,
             time_used,
-            next_action_str,
-            due_date_str,
+            start_str,
+            end_str,
             task.notes,
             date_added_str,
         )
@@ -202,11 +134,11 @@ impl Connection {
     /// # Errors
     /// This returns a `RowNotFound` error if the update step fails to update any rows.
     /// This indicates that no task with an id matching the passed task exists in the database.
-    pub async fn update_task(&self, task: &Task) -> Result<(), sqlx::Error> {
+    pub async fn update_task(&self, task: &Task, start: &Start, end: &End) -> Result<(), sqlx::Error> {
         // These must be stored so that they are not dropped in-between
         // the calls to query! and .execute
-        let next_action_str = DueDate::Date(task.next_action_date).to_string();
-        let due_date_str = task.due_date.to_string();
+        let start_str: String = start.into();
+        let end_str:   String = end.into();
 
         let time_needed = task.time_needed.num_minutes();
         let time_used = task.time_used.num_minutes();
@@ -214,14 +146,14 @@ impl Connection {
         if sqlx::query!("
             UPDATE tasks
             SET
-                Category =    ?,
-                Finished =    ?,
-                Name =        ?,
-                Time =        ?,
-                Used =        ?,
+                Category   =  ?,
+                Finished   =  ?,
+                Name       =  ?,
+                Time       =  ?,
+                Used       =  ?,
                 NextAction =  ?,
-                DueDate =     ?,
-                Notes =       ?
+                DueDate    =  ?,
+                Notes      =  ?
             WHERE
                 TaskID == ?
         ",
@@ -230,8 +162,8 @@ impl Connection {
             task.name,
             time_needed,
             time_used,
-            next_action_str,
-            due_date_str,
+            start_str,
+            end_str,
             task.notes,
             task.id,
         )
@@ -292,8 +224,26 @@ impl Connection {
             .expect("Should be able do delete task");
     }
 
+    /// Gets the unfinished milestones (i.e. all for which finished == false)
+    pub async fn open_milestones(&self) -> Vec<Milestone> {
+        sqlx::query("
+            SELECT *
+            FROM milestones
+            WHERE Finished == false
+            ORDER BY DueDate
+        ")
+            .fetch_all(&self.pool)
+            .await
+            .expect("Should be able to get milestones")
+            .into_iter()
+            .map(|r: SqliteRow| Milestone::try_from(r).expect("Database should hold valid Milestones"))
+            .collect()
+
+    }
+
     /// # Panics
     /// Panics if any database query fails, or if the database contains invalid tasks or invalid links.
+    // TODO Make this private, and return Vec<BoundedTask>
     pub async fn open_tasks(&self) -> Vec<Task> {
         
         // TODO this doesn't use query! because I'm too lazy to figure out how to annotate the
@@ -311,6 +261,8 @@ impl Connection {
             .map(|r: SqliteRow| Task::try_from(r).expect("Database should hold valid Tasks"))
             .collect();
 
+        // TODO rather than this list, it feels like the query above should use LEFT JOIN or
+        // somesuch, but I'm not sure exactly how or what the benefit would be (performance?)
         for task in &mut tasks {
             task.links = sqlx::query("
                 SELECT *, rowid
@@ -375,8 +327,7 @@ impl Connection {
             .text()
             .await?;
 
-        let holiday_dates: Vec<NaiveDate> = serde_json::from_str::<Holidays>(&response)?
-            .holidays
+        let holiday_dates: Vec<NaiveDate> = serde_json::from_str::<Vec<Holiday>>(&response)?
             .iter()
             .filter(|h| h.provinces.contains(&Province {id: "BC".to_string()}))
             .map(|h| h.observedDate.parse::<NaiveDate>())
